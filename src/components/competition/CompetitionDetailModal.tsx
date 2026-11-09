@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Calendar,
   Users,
@@ -32,12 +31,15 @@ import {
   CompetitionJudge,
   User,
 } from "../../types";
+import CompetitionBracketView from "./CompetitionBracketView";
+import CompetitionChampionBanner from "./CompetitionChampionBanner";
 
 interface Props {
   competitionId: number | null;
   isOpen: boolean;
   onClose: () => void;
   currentUser: User | null;
+  initialTab?: "overview" | "registration" | "teams" | "judges" | "bracket";
   onStatusChanged?: () => void;
   onOpenManage?: (competitionId: number) => void;
 }
@@ -47,11 +49,11 @@ const CompetitionDetailModal: React.FC<Props> = ({
   isOpen,
   onClose,
   currentUser,
+  initialTab,
   onStatusChanged,
   onOpenManage,
 }) => {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "registration" | "teams" | "judges">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "registration" | "teams" | "judges" | "bracket">(initialTab || "overview");
   const [competition, setCompetition] = useState<CompetitionDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -198,11 +200,11 @@ const CompetitionDetailModal: React.FC<Props> = ({
   useEffect(() => {
     if (isOpen && competitionId) {
       loadData();
-      setActiveTab("overview");
+      setActiveTab(initialTab || "overview");
       setErrorMsg(null);
       setSuccessMsg(null);
     }
-  }, [isOpen, competitionId, loadData]);
+  }, [isOpen, competitionId, loadData, initialTab]);
 
   const showNotification = (msg: string, isError = false) => {
     if (isError) {
@@ -609,14 +611,11 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          onClose();
-                          navigate(`/debater/debate/session-comp-${competition.competitionId}`);
-                        }}
+                        onClick={() => setActiveTab("bracket")}
                         className="px-5 py-2.5 bg-white text-[#008A64] hover:bg-emerald-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                       >
                         <Swords size={16} />
-                        <span>Vào phòng tranh biện ngay</span>
+                        <span>Xem cây thi đấu & Trận của bạn</span>
                       </button>
                     </div>
                   ) : isOrganizerOrJudge ? (
@@ -632,20 +631,17 @@ const CompetitionDetailModal: React.FC<Props> = ({
                           </h4>
                         </div>
                         <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
-                          Bạn có thể vào phòng tranh biện để giám sát lượt thi của các thí sinh hoặc mở Bảng Quản trị để theo dõi tiến độ giải đấu.
+                          Bạn có thể theo dõi tiến độ từng cặp đấu trên cây thi đấu, mở trang giám sát hoặc thực hiện chấm điểm trận.
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 flex-wrap">
                         <button
                           type="button"
-                          onClick={() => {
-                            onClose();
-                            navigate(`/debater/debate/session-comp-${competition.competitionId}`);
-                          }}
+                          onClick={() => setActiveTab("bracket")}
                           className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <Swords size={14} />
-                          <span>Vào phòng tranh biện</span>
+                          <span>Cây thi đấu & Giám sát</span>
                         </button>
                         {isCreator && onOpenManage && (
                           <button
@@ -688,6 +684,17 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Champion Banner if completed */}
+              {competition.status === "Completed" && (
+                <CompetitionChampionBanner
+                  championName={competition.championName}
+                  championUserId={competition.championUserId}
+                  championTeamId={competition.championTeamId}
+                  competitionTitle={competition.title}
+                  competitionType={competition.competitionType}
+                />
               )}
 
               {/* Tabs */}
@@ -752,6 +759,21 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   }`}
                 >
                   Giám khảo ({judges.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("bracket")}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+                    activeTab === "bracket"
+                      ? "bg-[#008A64] text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Swords size={13} />
+                    Cây thi đấu & Trận đấu
+                  </span>
                 </button>
               </div>
 
@@ -870,14 +892,11 @@ const CompetitionDetailModal: React.FC<Props> = ({
                           <Button
                             variant="primary"
                             size="sm"
-                            onClick={() => {
-                              onClose();
-                              navigate(`/debater/debate/session-comp-${competition.competitionId}`);
-                            }}
+                            onClick={() => setActiveTab("bracket")}
                             className="bg-[#008A64] hover:bg-[#007457] font-bold text-xs"
                           >
                             <Swords size={14} className="mr-1.5" />
-                            Vào phòng tranh biện ngay
+                            Xem nhánh đấu & Trận của tôi
                           </Button>
                         </div>
                       )}
@@ -1104,14 +1123,11 @@ const CompetitionDetailModal: React.FC<Props> = ({
                           <Button
                             variant="primary"
                             size="sm"
-                            onClick={() => {
-                              onClose();
-                              navigate(`/debater/debate/session-comp-${competition.competitionId}`);
-                            }}
+                            onClick={() => setActiveTab("bracket")}
                             className="bg-[#008A64] hover:bg-[#007457] font-bold text-xs"
                           >
                             <Swords size={14} className="mr-1.5" />
-                            Vào phòng tranh biện ngay
+                            Xem nhánh đấu & Trận của tôi
                           </Button>
                         </div>
                       )}
@@ -1355,6 +1371,18 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab 5: Bracket & Matches */}
+              {activeTab === "bracket" && (
+                <div className="pt-2">
+                  <CompetitionBracketView
+                    competition={competition}
+                    isOrganizer={isCreator}
+                    judges={judges}
+                    currentUserId={currentUser?.userId}
+                  />
                 </div>
               )}
             </>

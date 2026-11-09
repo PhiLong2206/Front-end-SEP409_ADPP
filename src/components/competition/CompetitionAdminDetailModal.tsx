@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
   AlertCircle,
@@ -26,6 +25,8 @@ import {
   CompetitionTeamDetail,
   CompetitionJudge,
 } from "../../types";
+import CompetitionBracketView from "./CompetitionBracketView";
+import CompetitionChampionBanner from "./CompetitionChampionBanner";
 
 interface Props {
   competitionId: number | null;
@@ -42,8 +43,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
   onEdit,
   onUpdated,
 }) => {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "registrations" | "teams" | "judges">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "registrations" | "teams" | "judges" | "bracket">("overview");
   const [competition, setCompetition] = useState<CompetitionDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -516,6 +516,15 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                         Bắt đầu cuộc thi
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveTab("bracket")}
+                        className="text-xs border-[#008A64] text-[#008A64] hover:bg-emerald-50 font-bold"
+                      >
+                        <Swords size={13} className="mr-1" />
+                        Cây thi đấu & Bốc thăm
+                      </Button>
+                      <Button
                         variant="danger"
                         size="sm"
                         onClick={handleCancelCompetition}
@@ -543,14 +552,11 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          onClose();
-                          navigate(`/debater/debate/session-comp-${competition.competitionId}`);
-                        }}
+                        onClick={() => setActiveTab("bracket")}
                         className="text-xs border-[#008A64] text-[#008A64] hover:bg-emerald-50 font-bold"
                       >
                         <Swords size={13} className="mr-1" />
-                        Vào phòng giám sát & chấm thi
+                        Cây thi đấu & Giám sát trận
                       </Button>
                       <Button
                         variant="danger"
@@ -572,6 +578,17 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   )}
                 </div>
               </div>
+
+              {/* Champion Banner if completed */}
+              {competition.status === "Completed" && (
+                <CompetitionChampionBanner
+                  championName={competition.championName}
+                  championUserId={competition.championUserId}
+                  championTeamId={competition.championTeamId}
+                  competitionTitle={competition.title}
+                  competitionType={competition.competitionType}
+                />
+              )}
 
               {/* Tabs */}
               <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
@@ -625,6 +642,21 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   }`}
                 >
                   Giám khảo ({judges.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("bracket")}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+                    activeTab === "bracket"
+                      ? "bg-[#008A64] text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Swords size={13} />
+                    Cây thi đấu & Trận đấu
+                  </span>
                 </button>
               </div>
 
@@ -897,6 +929,17 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab: Bracket & Matches */}
+              {activeTab === "bracket" && (
+                <div className="pt-2">
+                  <CompetitionBracketView
+                    competition={competition}
+                    isOrganizer={true}
+                    judges={judges}
+                  />
                 </div>
               )}
             </>

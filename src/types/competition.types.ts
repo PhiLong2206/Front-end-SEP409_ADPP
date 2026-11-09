@@ -48,6 +48,9 @@ export interface CompetitionDetail {
   isPublic: boolean;
   createdAt: string;
   updatedAt?: string | null;
+  championUserId?: number | null;
+  championTeamId?: number | null;
+  championName?: string | null;
 }
 
 export interface CreateCompetitionDto {
@@ -200,6 +203,8 @@ export interface TournamentMatch {
   winnerName?: string | null;
   proParticipant?: MatchParticipant | null;
   conParticipant?: MatchParticipant | null;
+  proParticipantName?: string | null;
+  conParticipantName?: string | null;
   participants?: MatchParticipant[];
 }
 

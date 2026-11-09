@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Trophy,
   Calendar,
@@ -36,7 +35,6 @@ import { formatDate } from "../../../utils/formatDate";
 
 const Competitions: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const currentUserId = user?.userId ? Number(user.userId) : null;
 
   const [mainTab, setMainTab] = useState<"competitions" | "my-competitions" | "leaderboard">("competitions");
@@ -659,12 +657,12 @@ const Competitions: React.FC = () => {
                           <>
                             <button
                               type="button"
-                              onClick={() => navigate(`/debater/debate/session-comp-${comp.competitionId}`)}
+                              onClick={() => setSelectedAdminCompId(comp.competitionId)}
                               className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-[#008A64] text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-emerald-200"
-                              title="Vào phòng tranh biện (Giám sát / Chấm thi)"
+                              title="Xem cây thi đấu và điều phối các trận"
                             >
                               <Swords size={13} />
-                              <span>Vào phòng</span>
+                              <span>Cây thi đấu</span>
                             </button>
                             <button
                               type="button"

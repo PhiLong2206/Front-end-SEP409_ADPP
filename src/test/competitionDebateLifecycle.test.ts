@@ -61,8 +61,8 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
 
       expect(axiosClient.post).toHaveBeenCalledWith("/competitions", createDto);
       expect(res.success).toBe(true);
-      expect(res.data.competitionId).toBe(101);
-      expect(res.data.status).toBe("Draft");
+      expect(res.data!.competitionId).toBe(101);
+      expect(res.data!.status).toBe("Draft");
     });
 
     it("Bước 2: Mở đăng ký (POST /api/Competitions/{competitionId}/open-registration)", async () => {
@@ -115,8 +115,8 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         params: { status: "OpenRegistration" },
       });
       expect(axiosClient.get).toHaveBeenCalledWith("/competitions/101");
-      expect(listRes.data[0].competitionId).toBe(101);
-      expect(detailRes.data.competitionId).toBe(101);
+      expect(listRes.data![0].competitionId).toBe(101);
+      expect(detailRes.data!.competitionId).toBe(101);
     });
   });
 
@@ -145,8 +145,8 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         const res = await competitionApi.registerIndividual(101);
 
         expect(axiosClient.post).toHaveBeenCalledWith("/competitions/101/registrations");
-        expect(res.data.registrationId).toBe(501);
-        expect(res.data.status).toBe("Pending");
+        expect(res.data!.registrationId).toBe(501);
+        expect(res.data!.status).toBe("Pending");
       });
 
       it("Bước 5A: Creator duyệt đăng ký (PUT /api/competitions/{id}/registrations/{registrationId}/approve)", async () => {
@@ -166,7 +166,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         expect(axiosClient.put).toHaveBeenCalledWith(
           "/competitions/101/registrations/501/approve"
         );
-        expect(res.data.status).toBe("Approved");
+        expect(res.data!.status).toBe("Approved");
       });
 
       it("Creator từ chối đăng ký qua reject endpoint với lý do", async () => {
@@ -184,7 +184,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
           "/competitions/101/registrations/502/reject",
           { reason: "Không đủ tiêu chuẩn" }
         );
-        expect(res.data.status).toBe("Rejected");
+        expect(res.data!.status).toBe("Rejected");
       });
 
       it("Người chơi hủy đăng ký trước khi tạo bracket (DELETE .../registrations/me)", async () => {
@@ -224,7 +224,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         expect(axiosClient.post).toHaveBeenCalledWith("/competitions/101/teams", {
           teamName: "Đội Phản Biện Sấm Sét",
         });
-        expect(res.data.teamId).toBe(301);
+        expect(res.data!.teamId).toBe(301);
       });
 
       it("Bước 5B: Captain mời thành viên thứ hai & người được mời chấp nhận", async () => {
@@ -255,7 +255,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
           "/competitions/101/teams/301/invitations",
           { userId: 15 }
         );
-        expect(inviteRes.data.requestId).toBe(401);
+        expect(inviteRes.data!.requestId).toBe(401);
 
         // Member accepts invitation
         const acceptRes = await competitionApi.acceptInvitation(101, 401);
@@ -354,7 +354,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
       const res = await competitionApi.generateBracket(101);
 
       expect(axiosClient.post).toHaveBeenCalledWith("/competitions/101/bracket");
-      expect(res.data.rounds[0].matches[0].matchId).toBe(2001);
+      expect(res.data!.rounds[0].matches[0].matchId).toBe(2001);
     });
 
     it("Bước 8: Xem bracket (GET /api/competitions/{competitionId}/bracket)", async () => {
@@ -386,8 +386,8 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
       const res = await competitionApi.getBracket(101);
 
       expect(axiosClient.get).toHaveBeenCalledWith("/competitions/101/bracket");
-      expect(res.data.competitionId).toBe(101);
-      expect(res.data.rounds.length).toBe(1);
+      expect(res.data!.competitionId).toBe(101);
+      expect(res.data!.rounds.length).toBe(1);
     });
 
     it("Bước 9: Bắt đầu Competition (POST /api/Competitions/{id}/start)", async () => {
@@ -441,7 +441,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         "/competitions/matches/2001/prepare-debate",
         prepareReq
       );
-      expect(res.data.sessionId).toBe(999);
+      expect(res.data!.sessionId).toBe(999);
     });
 
     it("Bước 12: Start Debate (POST /api/Debate/{sessionId}/start)", async () => {
@@ -535,9 +535,9 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
       expect(axiosClient.get).toHaveBeenCalledWith(
         "/competitions/101/matches/2001/review"
       );
-      expect(res.data.participants.length).toBe(2);
-      expect(res.data.criteria.length).toBe(3);
-      expect(res.data.aiJudgement?.recommendedWinnerSide).toBe("PRO");
+      expect(res.data!.participants.length).toBe(2);
+      expect(res.data!.criteria.length).toBe(3);
+      expect(res.data!.aiJudgement?.recommendedWinnerSide).toBe("PRO");
     });
 
     it("Bước 16: Judge xác nhận kết quả chấm điểm (POST /api/competitions/{id}/matches/{matchId}/finalize)", async () => {
@@ -606,8 +606,8 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
       const res = await competitionApi.getBracket(101);
 
       expect(axiosClient.get).toHaveBeenCalledWith("/competitions/101/bracket");
-      expect(res.data.championUserId).toBe(12);
-      expect(res.data.championName).toBe("Thí sinh A");
+      expect(res.data!.championUserId).toBe(12);
+      expect(res.data!.championName).toBe("Thí sinh A");
     });
 
     it("Hoàn thành giải đấu (POST /api/Competitions/{id}/complete)", async () => {
@@ -641,7 +641,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         registrationEnd: "2026-11-05T00:00:00Z",
         startDate: "2026-11-06T00:00:00Z",
       });
-      const compId = created.data.competitionId;
+      const compId = created.data!.competitionId;
 
       // 2. Mở đăng ký
       vi.mocked(axiosClient.post).mockResolvedValueOnce({ success: true, data: {} } as never);
@@ -659,7 +659,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         success: true,
         data: { registrationId: 901, status: "Approved" },
       } as never);
-      await competitionApi.approveRegistration(compId, reg.data.registrationId);
+      await competitionApi.approveRegistration(compId, reg.data!.registrationId);
 
       // 6. Đóng đăng ký
       vi.mocked(axiosClient.post).mockResolvedValueOnce({ success: true, data: {} } as never);
@@ -689,7 +689,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         data: { sessionId: 8888 },
       } as never);
       const prep = await competitionApi.prepareDebate(5001, { topicId: 10 });
-      const sessionId = prep.data.sessionId;
+      const sessionId = prep.data!.sessionId;
 
       // 12. Bắt đầu Debate session (Ready -> Ongoing)
       vi.mocked(axiosClient.post).mockResolvedValueOnce({ success: true, data: {} } as never);
@@ -715,7 +715,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         },
       } as never);
       const review = await competitionApi.getMatchReview(compId, 5001);
-      expect(review.data.aiJudgement?.recommendedWinnerSide).toBe("PRO");
+      expect(review.data!.aiJudgement?.recommendedWinnerSide).toBe("PRO");
 
       // 16. Judge finalize kết quả
       vi.mocked(axiosClient.post).mockResolvedValueOnce({ success: true, data: {} } as never);
@@ -739,7 +739,7 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         },
       } as never);
       const finalBracket = await competitionApi.getBracket(compId);
-      expect(finalBracket.data.championUserId).toBe(901);
+      expect(finalBracket.data!.championUserId).toBe(901);
     });
   });
 });
