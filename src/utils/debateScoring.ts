@@ -1,5 +1,8 @@
 import type {
   ArgumentEvaluationResult,
+  EvidenceClaim,
+  EvidenceStatus,
+  EvidenceTopic,
   RoundEvaluationResult,
   RubricCriterionScore,
   SessionEvaluationResult,
@@ -135,6 +138,58 @@ export interface DebateResultData {
   improvements: string[];
   progressTrend?: string;
   stageBreakdown?: NormalizedStageScore[];
+  /** Evidence check per graded round (RAG). Absent when no round was checked. */
+  evidenceRounds?: EvidenceRoundView[];
+}
+
+/** One learner turn's evidence check, without the evaluator's technical `error`. */
+export interface EvidenceTurnView {
+  turnIndex: number;
+  excerpt: string;
+  status: EvidenceStatus;
+  claims: EvidenceClaim[];
+}
+
+export interface EvidenceRoundView {
+  stage: string;
+  label: string;
+  turns: EvidenceTurnView[];
+  /** Evidence criterion (0-5) before / after the code adjusted it; null when nothing was adjusted. */
+  scoreBefore: number | null;
+  scoreAfter: number | null;
+  ruleApplied: string;
+}
+
+const EVIDENCE_TOPICS: readonly EvidenceTopic[] = ["education", "environment", "technology", "society"];
+
+/** The session's `evidenceTopic` as the evaluator expects it, or undefined (= the evaluator does not check). */
+export function toEvidenceTopic(value: string | null | undefined): EvidenceTopic | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return EVIDENCE_TOPICS.find((t) => t === normalized);
+}
+
+/** Evidence checks of the graded rounds, in stage order. `error` is dropped here: the result screen never sees it. */
+export function buildEvidenceRounds(roundResults: RoundEvaluationResult[]): EvidenceRoundView[] | undefined {
+  const rounds = roundResults
+    .filter((r) => (r.evidence_checks?.length ?? 0) > 0)
+    .map((r) => ({
+      stage: r.stage,
+      label: stageLabel(r.stage),
+      turns: (r.evidence_checks ?? [])
+        .filter((c) => c?.evidence_check)
+        .map((c) => ({
+          turnIndex: c.turn_index,
+          excerpt: c.excerpt ?? "",
+          status: c.evidence_check.status,
+          claims: (c.evidence_check.claims ?? []).map((claim) => ({ ...claim, citations: claim.citations ?? [] })),
+        })),
+      scoreBefore: isFiniteNumber(r.evidence_score_before) ? r.evidence_score_before : null,
+      scoreAfter: isFiniteNumber(r.evidence_score_after) ? r.evidence_score_after : null,
+      ruleApplied: r.evidence_rule_applied ?? "",
+    }))
+    .filter((r) => r.turns.length > 0)
+    .sort((a, b) => stageRank(a.stage) - stageRank(b.stage));
+  return rounds.length > 0 ? rounds : undefined;
 }
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -317,6 +372,7 @@ export function buildDebateResult(input: BuildDebateResultInput): DebateResultDa
     improvements,
     progressTrend: sessionResult?.progress_trend || lastTurnEvaluation?.overall_reasoning || undefined,
     stageBreakdown: stageBreakdown.length > 0 ? stageBreakdown : undefined,
+    evidenceRounds: buildEvidenceRounds(roundResults),
   };
 }
 

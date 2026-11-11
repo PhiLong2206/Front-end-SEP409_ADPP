@@ -200,11 +200,57 @@ export interface ArgumentEvaluationResult {
   raw_model_output?: string | null;
 }
 
+/** Fact-base topics of the evaluator's evidence check (RAG). Comes from the session's `evidenceTopic`. */
+export type EvidenceTopic = "education" | "environment" | "technology" | "society";
+
+export type EvidenceLabel = "SUPPORTED" | "CONTRADICTED" | "NOT_FOUND" | "CONFLICTING";
+export type EvidenceStatus = "checked" | "no_claims" | "unavailable" | "no_fact_base";
+
+export interface EvidenceCitation {
+  fact_id: string;
+  /** Fact text, cut to 300 characters by the evaluator. */
+  content: string;
+  /** Source, e.g. "Thanh Niên - https://..." */
+  citation?: string | null;
+  stance?: "supports" | "contradicts" | null;
+}
+
+export interface EvidenceClaim {
+  claim: string;
+  label: EvidenceLabel;
+  reason: string;
+  citations: EvidenceCitation[];
+}
+
+export interface EvidenceCheckSummary {
+  status: EvidenceStatus;
+  claims: EvidenceClaim[];
+  counts: Partial<Record<EvidenceLabel, number>>;
+  evidence_score_before?: number | null;
+  evidence_score_after?: number | null;
+  rule_applied?: string;
+  /** Technical reason when status = unavailable. Never shown to the user. */
+  error?: string | null;
+  version?: string;
+}
+
+export interface TurnEvidenceCheck {
+  /** Position of the turn in the request's `turns`. */
+  turn_index: number;
+  /** First 200 characters of the turn. */
+  excerpt: string;
+  evidence_check: EvidenceCheckSummary;
+}
+
 export interface RoundEvaluationRequest {
   motion: string;
   side: BackendDebateSide;
   stage: DebateRoundType;
   turns: ArgumentTurn[];
+  /** Fact-base topic: the evaluator checks the learner's figures against it. Omitted = no check. */
+  topic?: EvidenceTopic;
+  /** false = do not check this round (default true). */
+  check_evidence?: boolean;
 }
 
 export interface RoundEvaluationResult {
@@ -218,6 +264,12 @@ export interface RoundEvaluationResult {
   weaknesses: string[];
   suggestions: string[];
   raw_model_output?: string | null;
+  /** One entry per learner turn; empty when the round was not checked (no topic, RAG off). */
+  evidence_checks?: TurnEvidenceCheck[];
+  /** Evidence score (0-5) before / after the code adjusted it from the check. */
+  evidence_score_before?: number | null;
+  evidence_score_after?: number | null;
+  evidence_rule_applied?: string;
 }
 
 export interface SessionEvaluationRequest {

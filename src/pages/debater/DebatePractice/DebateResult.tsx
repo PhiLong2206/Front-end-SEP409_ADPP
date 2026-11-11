@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import ScoreBreakdown from "../../../components/debate/ScoreBreakdown";
+import EvidenceCheckPanel from "../../../components/debate/EvidenceCheckPanel";
 import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText } from "lucide-react";
 import { DebateResultData, PERCENT_MAX } from "../../../utils/debateScoring";
 
@@ -178,6 +179,9 @@ const DebateResult: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Evidence check of the debater's figures (RAG); only the debater's own side is graded */}
+      <EvidenceCheckPanel rounds={result.evidenceRounds} />
 
       {/* BOTTOM ACTIONS BAR */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">

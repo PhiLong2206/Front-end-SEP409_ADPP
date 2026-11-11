@@ -145,14 +145,16 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     await submitFinal();
     expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
     expect(screen.getByText("Đang chấm điểm phiên tranh biện...")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang chấm vòng 1/3...");
+    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 0/3)...");
     expect(screen.getByTestId("header-submit-debate-btn")).toBeDisabled();
-
-    await act(async () => roundCalls[0].resolve(roundResult("opening")));
-    expect(progress()).toHaveTextContent("Đang chấm vòng 2/3...");
+    // The 3 rounds are sent at once (parallel), not one after the other
+    expect(roundCalls.map((c) => c.stage)).toEqual(["opening", "rebuttal", "closing"]);
 
     await act(async () => roundCalls[1].resolve(roundResult("rebuttal")));
-    expect(progress()).toHaveTextContent("Đang chấm vòng 3/3...");
+    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 1/3)...");
+
+    await act(async () => roundCalls[0].resolve(roundResult("opening")));
+    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 2/3)...");
 
     await act(async () => roundCalls[2].resolve(roundResult("closing")));
     expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
@@ -191,6 +193,9 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     expect(duringSpy).toHaveBeenCalled();
 
     await act(async () => roundCalls[0].reject(new Error("round down")));
+    // The other rounds run in parallel: the error is reported once they have all finished
+    await act(async () => roundCalls[1].resolve(roundResult("rebuttal")));
+    await act(async () => roundCalls[2].resolve(roundResult("closing")));
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
 
     const after = new Event("beforeunload", { cancelable: true });
@@ -206,21 +211,23 @@ describe("Final grading progress overlay and per-turn indicator", () => {
 
     await act(async () => roundCalls[0].resolve(roundResult("opening")));
     await act(async () => roundCalls[1].reject(new Error("round 2 down")));
+    // Still grading: closing runs in parallel and is waited for (and kept) before the error is shown
+    expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
+    await act(async () => roundCalls[2].resolve(roundResult("closing")));
 
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
-    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(2);
+    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3);
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
     });
-    // Round 1 already succeeded: the retry starts at round 2
+    // Opening and closing already succeeded: the retry only redoes the rebuttal
     expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang chấm vòng 2/3...");
-    expect(roundCalls[2].stage).toBe("rebuttal");
+    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 2/3)...");
+    expect(roundCalls[3].stage).toBe("rebuttal");
 
-    await act(async () => roundCalls[2].resolve(roundResult("rebuttal")));
-    await act(async () => roundCalls[3].resolve(roundResult("closing")));
+    await act(async () => roundCalls[3].resolve(roundResult("rebuttal")));
     await act(async () => sessionCalls[0].resolve(sessionResult));
 
     expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(4); // not 6

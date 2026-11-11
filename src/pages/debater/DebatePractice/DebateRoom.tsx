@@ -60,6 +60,7 @@ import {
   buildDebateResult,
   buildNoSpeechDebateResult,
   getErrorMessage,
+  toEvidenceTopic,
 } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
 import { getDebateErrorMessage } from "../../../utils/debateErrors";
@@ -1753,23 +1754,39 @@ const DebateRoom: React.FC = () => {
 
       // Any evaluator failure (round or session) aborts the whole submission — no partial / invented score.
       // Steps that already succeeded are kept while their input is unchanged, so a retry only redoes the others.
-      const roundResults: RoundEvaluationResult[] = [];
-      for (const r of roundsToEvaluate) {
-        const fingerprint = JSON.stringify(r.turns);
+      // The rounds are graded in parallel (each one also checks the learner's figures, which takes several
+      // seconds). allSettled: a round that succeeded is cached even when another fails, so the retry skips it.
+      const evidenceTopic = toEvidenceTopic(sessionDetails?.evidenceTopic);
+      const totalRounds = roundsToEvaluate.length;
+      let gradedRounds = 0;
+      const showRoundProgress = () => setGradingMessage(`Đang chấm các vòng (xong ${gradedRounds}/${totalRounds})...`);
+      const pendingRounds = roundsToEvaluate.map(async (r) => {
+        const fingerprint = JSON.stringify({ turns: r.turns, topic: evidenceTopic ?? null });
         const cachedRound = finishRoundResultsRef.current.get(r.stage);
-        let roundResult = cachedRound?.fingerprint === fingerprint ? cachedRound.result : undefined;
-        if (!roundResult) {
-          setGradingMessage(`Đang chấm vòng ${r.round}/3...`);
-          roundResult = await aiApi.evaluateDebateRound({
-            motion: resolvedMotion,
-            side: debaterSide,
-            stage: r.stage,
-            turns: r.turns,
-          });
-          finishRoundResultsRef.current.set(r.stage, { fingerprint, result: roundResult });
+        if (cachedRound?.fingerprint === fingerprint) {
+          gradedRounds += 1;
+          return cachedRound.result;
         }
-        roundResults.push(roundResult);
-      }
+        const roundResult = await aiApi.evaluateDebateRound({
+          motion: resolvedMotion,
+          side: debaterSide,
+          stage: r.stage,
+          turns: r.turns,
+          ...(evidenceTopic ? { topic: evidenceTopic } : {}),
+        });
+        finishRoundResultsRef.current.set(r.stage, { fingerprint, result: roundResult });
+        gradedRounds += 1;
+        showRoundProgress();
+        return roundResult;
+      });
+      // Cached rounds are counted synchronously above, before the first request returns
+      showRoundProgress();
+      const settledRounds = await Promise.allSettled(pendingRounds);
+      const failedRound = settledRounds.find((s): s is PromiseRejectedResult => s.status === "rejected");
+      if (failedRound) throw failedRound.reason;
+      const roundResults: RoundEvaluationResult[] = settledRounds.map(
+        (s) => (s as PromiseFulfilledResult<RoundEvaluationResult>).value
+      );
 
       const sessionFingerprint = JSON.stringify({ rounds: roundsToEvaluate.map((r) => r.turns), skippedStages });
       const cachedSession = finishSessionResultRef.current;

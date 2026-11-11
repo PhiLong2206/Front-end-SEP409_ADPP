@@ -223,6 +223,8 @@ export interface DebateSessionResponse {
   sessionId: number;
   title: string;
   topic: string;
+  /** Fact-base topic for the evaluator's evidence check (from Topic.Category); null when the category has none. */
+  evidenceTopic?: string | null;
   debateType: BackendDebateType | number;
   /** The difficulty of the TOPIC: the Backend fills it from Topic.Difficulty. */
   difficulty?: string;
