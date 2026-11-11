@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import ScoreBreakdown from "../../../components/debate/ScoreBreakdown";
 import EvidenceCheckPanel from "../../../components/debate/EvidenceCheckPanel";
-import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText, Loader2 } from "lucide-react";
+import GradingOverlay from "../../../components/debate/GradingOverlay";
+import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText } from "lucide-react";
 import { debateApi } from "../../../api";
 import { useAuth } from "../../../hooks/useAuth";
 import { isSameUserId } from "../../../utils/debateSpeaker";
@@ -86,13 +87,10 @@ const DebateResult: React.FC = () => {
   const result = stateResult ?? loadedResult;
 
   if (!result && isLoading) {
+    // Right after the last turn the Backend is still grading: GET /evaluation waits for it (15-30 s)
     return (
-      <div data-testid="result-loading" className="space-y-3 max-w-4xl mx-auto py-16 text-center">
-        <Loader2 size={32} className="mx-auto text-[#008A64] animate-spin" />
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Đang tải kết quả tranh biện...</p>
-        <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
-          Nếu phiên vừa kết thúc, AI có thể đang chấm điểm, vui lòng chờ trong giây lát.
-        </p>
+      <div data-testid="result-loading" className="max-w-4xl mx-auto py-16">
+        <GradingOverlay message="Đang tổng hợp kết quả..." />
       </div>
     );
   }

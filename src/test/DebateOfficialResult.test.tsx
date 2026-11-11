@@ -187,7 +187,7 @@ describe("DebateResult without the room's state (F5 in a new tab, history, share
   it("loads the official result of MY side, with the evidence panel", async () => {
     renderResult();
 
-    expect(screen.getByTestId("result-loading")).toHaveTextContent("Đang tải kết quả tranh biện");
+    expect(screen.getByTestId("grading-overlay")).toHaveTextContent("Đang tổng hợp kết quả...");
     expect(await screen.findByTestId("result-overall-score")).toHaveTextContent("60"); // I am CON
     expect(mockGetEvaluation).toHaveBeenCalledWith(42);
     expect(screen.getByText(/Học thông qua chơi/)).toBeInTheDocument();

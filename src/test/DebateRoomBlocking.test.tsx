@@ -47,9 +47,11 @@ vi.mock("../api", () => ({
   },
 }));
 
+const mockNavigations: string[] = [];
 const ResultProbe = () => {
-  const state = useLocation().state as { result?: { overallScore: number } } | null;
-  return <div data-testid="result-page">Điểm: {state?.result?.overallScore}</div>;
+  const location = useLocation();
+  mockNavigations.push(location.key);
+  return <div data-testid="result-page">{location.state ? "with state" : "no state"}</div>;
 };
 
 vi.mock("../utils/recordAiArgument", () => ({
@@ -255,44 +257,23 @@ describe("DebateRoom final submission (handleFinishDebate)", () => {
     vi.clearAllMocks();
   });
 
-  it("stays on the room with an error banner when the official result fails, and navigates with the right score after a retry", async () => {
-    renderDebateRoom("/debater/debate/finish-fail?role=PRO");
+  it("opens the result page without grading anything itself: the page loads the official result", async () => {
+    renderDebateRoom("/debater/debate/finish-open?role=PRO");
     await act(async () => {});
     await completeThreeRounds();
 
-    mockGetEvaluation.mockRejectedValueOnce({ success: false, status: 404, message: "No evaluation found" });
     await act(async () => {
       fireEvent.click(screen.getByTestId("header-submit-debate-btn"));
     });
 
-    expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
-    });
-
-    expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("result-page")).toHaveTextContent("no state");
+    expect(mockGetEvaluation).not.toHaveBeenCalled();
     expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
     expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
-    expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 50");
   });
 
-  it("an answer without a result (success false) is an error too, not an invented score", async () => {
-    renderDebateRoom("/debater/debate/finish-empty?role=PRO");
-    await act(async () => {});
-    await completeThreeRounds();
-
-    mockGetEvaluation.mockResolvedValueOnce({ success: false, message: "Debate session has no submitted arguments to evaluate." });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("header-submit-debate-btn"));
-    });
-
-    expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("no submitted arguments");
-  });
-
-  it("fetches the result only once when the submit button is double-clicked", async () => {
+  it("navigates only once when the submit button is double-clicked", async () => {
+    mockNavigations.length = 0;
     renderDebateRoom("/debater/debate/finish-double-click?role=PRO");
     await act(async () => {});
     await completeThreeRounds();
@@ -303,8 +284,8 @@ describe("DebateRoom final submission (handleFinishDebate)", () => {
       fireEvent.click(submitBtn);
     });
 
-    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 50");
+    expect(screen.getByTestId("result-page")).toBeInTheDocument();
+    expect(new Set(mockNavigations).size).toBe(1);
   });
 });
 

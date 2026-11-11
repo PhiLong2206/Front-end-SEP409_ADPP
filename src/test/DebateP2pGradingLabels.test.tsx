@@ -220,8 +220,8 @@ const officialResult = (overrides: Record<string, unknown> = {}) => ({
   },
 });
 
-/** The big circular overall score of the result page. */
-const shownScore = () => screen.getByTestId("result-overall-score").textContent;
+/** The big circular overall score of the result page, once it has loaded GET /evaluation. */
+const shownScore = async () => (await screen.findByTestId("result-overall-score")).textContent;
 
 describe("Final grading reads the official result (GET /evaluation) and shows the user's side", () => {
   beforeEach(() => {
@@ -264,11 +264,12 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
-      expect(mockGetEvaluation).toHaveBeenCalledWith("123");
+      expect(await shownScore()).toBe("80");
+      expect(mockGetEvaluation).toHaveBeenCalledTimes(1); // by the result page, not by the room
+      expect(mockGetEvaluation).toHaveBeenCalledWith(123);
       expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
       expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
-      expect(shownScore()).toBe("80");
+      expect(await shownScore()).toBe("80");
       expect(screen.getByText("xu hướng PRO")).toBeInTheDocument();
     });
 
@@ -301,8 +302,23 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(shownScore()).toBe("60");
+      expect(await shownScore()).toBe("60");
       expect(screen.getByText("xu hướng CON")).toBeInTheDocument();
+    });
+  });
+
+  describe("the debate ends while I am in the room", () => {
+    it("the other side's last turn (seen by polling) opens my result page by itself", async () => {
+      seedSession(2, oneVsOne, fullOneVsOne().slice(0, 5), { status: IN_PROGRESS, currentTurn: { turnId: 6 } });
+      renderRoom();
+      await screen.findByText("Tôi vòng 3");
+      expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
+
+      // The opponent submits the last turn: the Backend completes the session and grades it in the background
+      seedSession(2, oneVsOne, fullOneVsOne());
+
+      await screen.findByTestId("result-page", undefined, { timeout: 8000 });
+      expect(await shownScore()).toBe("80");
     });
   });
 
@@ -319,7 +335,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(shownScore()).toBe("60");
+      expect(await shownScore()).toBe("60");
     });
 
     it("a string account id matches the numeric participant id", async () => {
@@ -328,7 +344,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(shownScore()).toBe("80");
+      expect(await shownScore()).toBe("80");
     });
 
     it("account id 0 is a real id, not 'still loading'", async () => {
@@ -344,7 +360,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(shownScore()).toBe("80");
+      expect(await shownScore()).toBe("80");
     });
 
     it("a signed-in user missing from the participants gets no result (no guessed side)", async () => {
@@ -388,6 +404,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       mockGetEvaluation.mockResolvedValue(officialResult({ proEvaluation: sideEvaluation("PRO", 8, ["rebuttal"]) }));
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
+      await shownScore();
 
       expect(screen.getAllByText("Không phát biểu")).toHaveLength(1);
       expect(screen.getByText("Phản biện")).toBeInTheDocument();
@@ -398,27 +415,25 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       mockGetEvaluation.mockResolvedValue(officialResult({ proEvaluation: null, overallScorePro: 0 }));
       renderRoom();
       await submitOnceLoaded("Đối thủ 1 vòng 1");
+      await shownScore();
 
       expect(screen.getAllByText("Không phát biểu")).toHaveLength(3);
-      expect(shownScore()).toBe("0");
+      expect(await shownScore()).toBe("0");
     });
   });
 
   describe("error handling", () => {
-    it("the official result is not ready (404): banner with a retry, which shows the result once it is", async () => {
+    it("the official result is not ready (404): the result page says so with a retry, which shows it once it is", async () => {
       seedSession(2, oneVsOne, fullOneVsOne());
       mockGetEvaluation.mockRejectedValueOnce({ success: false, status: 404, message: "No evaluation found for this debate session." });
       renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
+      await submitOnceLoaded("Tôi vòng 1");
 
-      const retry = await screen.findByTestId("retry-finish-evaluation-btn");
-      expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("No evaluation found");
-      expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
+      expect(await screen.findByTestId("result-load-error")).toHaveTextContent("No evaluation found");
+      fireEvent.click(screen.getByTestId("result-retry-btn"));
 
-      fireEvent.click(retry);
-      await screen.findByTestId("result-page");
+      expect(await shownScore()).toBe("80");
       expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
-      expect(shownScore()).toBe("80");
     });
 
     it("temporary error (account not loaded yet): offers a retry, which works once it loads", async () => {
@@ -441,7 +456,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       );
       fireEvent.click(retry);
       await screen.findByTestId("result-page");
-      expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
+      expect(mockGetEvaluation).not.toHaveBeenCalled(); // the room only opens the result page
     });
 
     it("no query string: shows the loading screen while the session fails to load, and the room once it loads", async () => {
@@ -487,7 +502,7 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       await screen.findByText("Tôi vòng 1");
       fireEvent.click(retry);
       await screen.findByTestId("result-page");
-      expect(shownScore()).toBe("80");
+      expect(await shownScore()).toBe("80");
     });
   });
 

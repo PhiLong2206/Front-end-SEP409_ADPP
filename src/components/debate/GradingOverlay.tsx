@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 export const GRADING_SLOW_HINT_AFTER_MS = 15_000;
 
 export interface GradingOverlayProps {
-  /** The step that is really running right now, e.g. "Đang chấm vòng 2/3...". */
+  /** What is running now, e.g. "Đang tổng hợp kết quả...". */
   message: string;
 }
 
@@ -40,7 +40,7 @@ const GradingOverlay: React.FC<GradingOverlayProps> = ({ message }) => {
         </p>
         {showSlowHint && (
           <p data-testid="grading-slow-hint" className="text-xs text-slate-500 dark:text-[#94A3B8]">
-            Quá trình chấm có thể mất đến 1 phút, vui lòng không đóng trang.
+            Quá trình chấm có thể mất đến 1 phút. Bạn có thể đóng trang, kết quả vẫn được lưu.
           </p>
         )}
       </div>

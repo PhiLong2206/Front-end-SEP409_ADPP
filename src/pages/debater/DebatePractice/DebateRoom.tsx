@@ -19,7 +19,6 @@ import DebateComposer from "../../../components/debate/DebateComposer";
 import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
-import GradingOverlay from "../../../components/debate/GradingOverlay";
 import { aiApi, debateApi } from "../../../api";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
@@ -53,7 +52,7 @@ import {
   DebateRoleInRoom,
   DebateTeamGroup,
 } from "../../../types";
-import { buildDebateResultFromEvaluation, getErrorMessage } from "../../../utils/debateScoring";
+import { getErrorMessage } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
 import { getDebateErrorMessage } from "../../../utils/debateErrors";
 import {
@@ -257,8 +256,6 @@ const DebateRoom: React.FC = () => {
   // Evaluation of a submitted turn failed: the debate is blocked until the retry succeeds
   const [pendingTurnEvaluation, setPendingTurnEvaluation] = useState<TurnEvaluationContext | null>(null);
   const [finishEvaluationFailed, setFinishEvaluationFailed] = useState<boolean>(false);
-  // Step of the final grading that is running now (null = not grading): drives the full-screen overlay
-  const [gradingMessage, setGradingMessage] = useState<string | null>(null);
   // Learner message whose turn evaluation is in flight (small non-blocking indicator in the chat)
   const [evaluatingMessageId, setEvaluatingMessageId] = useState<string | null>(null);
 
@@ -1374,6 +1371,10 @@ const DebateRoom: React.FC = () => {
         setPendingAiTurn(null);
         setPendingAiRecord(null);
         appendOpponentMessage(ctx.aiTurnIndex, speechText);
+        // The Backend session after this turn (as for the learner's own turn): its status says when the debate ended
+        if (recorded?.session) {
+          setSessionDetails(recorded.session);
+        }
 
         // Whose turn is next comes from the Backend (currentTurn.turnIndex); the table is only a fallback
         const backendState = readBackendTurnState(recorded?.session);
@@ -1643,8 +1644,7 @@ const DebateRoom: React.FC = () => {
       isFinishingRef.current ||
       !EffectiveDebateCompleted ||
       isAiGeneratingRef.current ||
-      isSubmittingRef.current ||
-      pendingTurnEvaluation
+      isSubmittingRef.current
     ) {
       return;
     }
@@ -1669,22 +1669,9 @@ const DebateRoom: React.FC = () => {
         throw new Error("bạn không tham gia phiên tranh biện này");
       }
 
-      // The official result is the Backend's: it grades the debate from its own transcript (both sides, evidence
-      // check included) once, and stores it. It has usually started already when the last turn was submitted;
-      // this call returns it, waits for the running evaluation, or starts it.
-      setGradingMessage("Đang tổng hợp kết quả...");
-      const response = await debateApi.getEvaluation(sessionId);
-      if (!response?.success || !response.data) {
-        throw new Error(response?.message || "chưa có kết quả chấm");
-      }
-      const debateResultPayload = buildDebateResultFromEvaluation(response.data, debaterSide, motionText);
-      if (!debateResultPayload) {
-        throw new Error("AI Evaluator không trả về điểm tổng kết.");
-      }
-
-      navigate(`/debater/debate/${sessionId}/result`, {
-        state: { result: debateResultPayload },
-      });
+      // The official result is the Backend's: it started grading the debate in the background when the last turn
+      // was submitted. The result page waits for it (GET /evaluation) behind the "Đang tổng hợp kết quả" overlay.
+      navigate(`/debater/debate/${sessionId}/result`);
     } catch (finishErr) {
       console.error("Error evaluating debate session:", finishErr);
       setFinishEvaluationFailed(true);
@@ -1693,23 +1680,33 @@ const DebateRoom: React.FC = () => {
       );
     } finally {
       isFinishingRef.current = false;
-      setGradingMessage(null);
       setIsEvaluating(false);
     }
   };
 
-  // Closing / refreshing the tab while the final grading runs would lose it: ask for confirmation.
-  // (The route guard of the debate room is for a debate in progress; this one only covers the grading.)
-  const isGrading = gradingMessage !== null;
+  // A Backend debate that ends DURING this visit (my last turn, the AI's last turn, or the other side's last turn
+  // seen by polling) goes straight to the result page. One opened already completed (history) stays here.
+  const finishDebateRef = useRef(handleFinishDebate);
   useEffect(() => {
-    if (!isGrading) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isGrading]);
+    finishDebateRef.current = handleFinishDebate; // runs before the effect below (declaration order)
+  });
+  const openedCompletedRef = useRef<boolean | null>(null);
+  // One automatic attempt per visit: if it stops on a guard (account / session not loaded), the retry button takes over
+  const autoFinishTriedRef = useRef(false);
+  const backendCompleted = sessionDetails ? sessionDetails.status === 3 || String(sessionDetails.status) === "Completed" : null;
+  useEffect(() => {
+    if (!isBackendSession || backendCompleted === null) return;
+    if (openedCompletedRef.current === null) {
+      openedCompletedRef.current = backendCompleted;
+      return;
+    }
+    // The Backend says Completed only once the last turn is recorded (and the evaluation has started)
+    if (!openedCompletedRef.current && backendCompleted && EffectiveDebateCompleted && !isSubmitting && !isAiGenerating
+        && !autoFinishTriedRef.current) {
+      autoFinishTriedRef.current = true;
+      void finishDebateRef.current();
+    }
+  }, [isBackendSession, backendCompleted, EffectiveDebateCompleted, isSubmitting, isAiGenerating]);
 
   // Team Roster Groups for DebateSidebar (when in 1v1 / 2v2 / competition mode)
   const proTeamGroup: DebateTeamGroup = {
@@ -1751,7 +1748,6 @@ const DebateRoom: React.FC = () => {
             },
           ],
   };
-
 
   // Blocking failures keep a banner on screen even after the transient message was dismissed
   const bannerText =
@@ -2198,7 +2194,7 @@ const DebateRoom: React.FC = () => {
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}
               isDebateCompleted={EffectiveDebateCompleted}
-              canSubmitDebate={EffectiveDebateCompleted && !isGrading}
+              canSubmitDebate={EffectiveDebateCompleted}
               evaluatingMessageId={evaluatingMessageId}
               isP2pOr2v2={isP2pOr2v2}
               onAdvanceTimedOutRound={isBackendSession ? undefined : handleAdvanceTimedOutRound}
@@ -2248,8 +2244,6 @@ const DebateRoom: React.FC = () => {
           />
         </div>
       )}
-
-      {gradingMessage !== null && <GradingOverlay message={gradingMessage} />}
 
       {/* Active-Debate Navigation Protection Confirmation Modal */}
       <LeaveDebateConfirmModal

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
+import DebateResult from "../pages/debater/DebatePractice/DebateResult";
+import { debateApi } from "../api";
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
@@ -38,8 +40,8 @@ vi.mock("../api", () => ({
 }));
 
 const ResultProbe = () => {
-  const state = useLocation().state as { result?: { overallScore: number } } | null;
-  return <div data-testid="result-page">Điểm: {state?.result?.overallScore}</div>;
+  const state = useLocation().state;
+  return <div data-testid="result-page">{state ? "with state" : "no state"}</div>;
 };
 
 const side = (overallScore: number) => ({
@@ -57,7 +59,26 @@ const side = (overallScore: number) => ({
 const officialResult = {
   success: true,
   message: "ok",
-  data: { judgementId: 1, sessionId: 1, suggestedWinnerSide: "CON", evaluatedAt: "", proEvaluation: side(6), conEvaluation: side(9) },
+  data: { judgementId: 1, sessionId: 42, suggestedWinnerSide: "CON", evaluatedAt: "", proEvaluation: side(6), conEvaluation: side(9) },
+};
+
+/** The result page right after the last turn: the Backend is still grading, GET /evaluation waits for it. */
+const renderResultPage = async () => {
+  vi.mocked(debateApi.getSessionDetails).mockResolvedValue({
+    success: true,
+    message: "ok",
+    data: { sessionId: 42, title: "t", topic: "Chủ đề", participants: [{ userId: 1, side: 1, isAI: false, speakerName: "Debater Test" }] },
+  } as never);
+  render(
+    <MemoryRouter initialEntries={["/debater/debate/42/result"]}>
+      <Routes>
+        <Route path="/debater/debate/:sessionId/result" element={<DebateResult />} />
+      </Routes>
+    </MemoryRouter>
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
 };
 
 describe("Final grading progress overlay and per-turn indicator", () => {
@@ -138,30 +159,33 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     vi.clearAllMocks();
   });
 
-  it("shows one step while the official result is fetched, and closes when it arrives", async () => {
+  it("the room's submit opens the result page at once: the room itself waits for nothing", async () => {
     await renderRoom();
     await completeThreeRounds();
-    expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
 
     await submitFinal();
-    expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
-    expect(screen.getByText("Đang chấm điểm phiên tranh biện...")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
-    expect(screen.getByTestId("header-submit-debate-btn")).toBeDisabled();
-    // The Backend grades: the FE no longer calls the evaluator for the rounds or the session
-    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByTestId("result-page")).toHaveTextContent("no state"); // the page loads GET /evaluation itself
+    expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
+    expect(mockGetEvaluation).not.toHaveBeenCalled();
     expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
     expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
+  });
+
+  it("result page: 'Đang tổng hợp kết quả' overlay while GET /evaluation waits, closed when the result arrives", async () => {
+    await renderResultPage();
+
+    expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
+    expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
 
     await act(async () => evaluationCalls[0].resolve(officialResult));
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
-    expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 60");
+    expect(screen.getByTestId("result-overall-score")).toHaveTextContent("60");
   });
 
-  it("adds the 'may take up to a minute' hint only after about 15 seconds", async () => {
-    await renderRoom();
-    await completeThreeRounds();
-    await submitFinal();
+  it("result page: adds the 'may take up to a minute' hint only after about 15 seconds", async () => {
+    await renderResultPage();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(14_000);
@@ -171,49 +195,27 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
+    // The Backend keeps grading without the page: leaving it loses nothing
     expect(screen.getByTestId("grading-slow-hint")).toHaveTextContent(
-      "Quá trình chấm có thể mất đến 1 phút, vui lòng không đóng trang."
+      "Quá trình chấm có thể mất đến 1 phút. Bạn có thể đóng trang, kết quả vẫn được lưu."
     );
   });
 
-  it("asks before the tab is closed while grading, and not afterwards", async () => {
-    await renderRoom();
-    await completeThreeRounds();
-    await submitFinal();
-
-    const during = new Event("beforeunload", { cancelable: true });
-    const duringSpy = vi.spyOn(during, "preventDefault");
-    window.dispatchEvent(during);
-    expect(duringSpy).toHaveBeenCalled();
-
-    await act(async () => evaluationCalls[0].reject(new Error("evaluation down")));
-    expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
-
-    const after = new Event("beforeunload", { cancelable: true });
-    const afterSpy = vi.spyOn(after, "preventDefault");
-    window.dispatchEvent(after);
-    expect(afterSpy).not.toHaveBeenCalled();
-  });
-
-  it("closes the overlay on an error, shows the banner with a retry, and the retry fetches the result again", async () => {
-    await renderRoom();
-    await completeThreeRounds();
-    await submitFinal();
+  it("result page: an error closes the overlay with a retry, which waits for the result again", async () => {
+    await renderResultPage();
 
     await act(async () => evaluationCalls[0].reject({ success: false, status: 404, message: "No evaluation found" }));
-
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
+    expect(screen.getByTestId("result-load-error")).toHaveTextContent("No evaluation found");
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
+      fireEvent.click(screen.getByTestId("result-retry-btn"));
     });
     expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
 
     await act(async () => evaluationCalls[1].resolve(officialResult));
     expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 60");
+    expect(screen.getByTestId("result-overall-score")).toHaveTextContent("60");
   });
 
   it("shows a small 'grading this turn' indicator on the message without blocking the screen", async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -44,6 +44,11 @@ vi.mock("../api", () => ({
   },
 }));
 
+const ResultProbe = () => {
+  const state = useLocation().state;
+  return <div data-testid="result-page">{state ? "with state" : "no state"}</div>;
+};
+
 /** Backend turn order (DebateTurnOrder.cs), index 0..5 */
 const TURN_SIDES = [1, 2, 1, 2, 2, 1]; // 1 = PRO, 2 = CON
 
@@ -85,6 +90,7 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
       <MemoryRouter initialEntries={[`/debater/debate/123?role=${role}`]}>
         <Routes>
           <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+          <Route path="/debater/debate/:sessionId/result" element={<ResultProbe />} />
         </Routes>
       </MemoryRouter>
     );
@@ -163,40 +169,36 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
 
     expect(calls).toEqual(["user:0", "ai:1", "user:2", "ai:3", "ai:4", "user:5"]);
     expect(opponentTurns()).toEqual([2, 4, 5]); // opponent service turn_index = turnIndex + 1
-    expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
+    // The debate ended during the visit: straight to the result page (the Backend grades in the background)
+    expect(screen.getByTestId("result-page")).toBeInTheDocument();
   });
 
-  it("final grading: the official result of the Backend session, nothing graded by the FE itself", async () => {
-    const part = (overallScore: number) => ({
-      side: "x",
-      speakerName: "x",
-      overallScore,
-      stageBreakdown: {},
-      progressTrend: "",
-      strengths: [],
-      weaknesses: [],
-      suggestions: [],
-      roundEvaluations: [],
-    });
-    mockGetEvaluation.mockResolvedValue({
-      success: true,
-      message: "ok",
-      data: { judgementId: 1, sessionId: 123, suggestedWinnerSide: "PRO", evaluatedAt: "", proEvaluation: part(7), conEvaluation: part(4) },
-    });
+  it("the debate ending during the visit opens the result page by itself: the FE grades nothing", async () => {
     await renderRoom("PRO");
     await submit("PRO mở đầu");
     await submit("PRO phản biện");
-    await submit("PRO kết luận");
+    await submit("PRO kết luận"); // the last turn: the Backend grades it in the background
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("header-submit-debate-btn"));
-    });
-    await flush();
-
-    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
-    expect(mockGetEvaluation).toHaveBeenCalledWith("123");
+    expect(screen.getByTestId("result-page")).toBeInTheDocument();
+    expect(screen.getByTestId("result-page")).toHaveTextContent("no state"); // the page loads GET /evaluation itself
     expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
     expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
+    expect(mockGetEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("a debate opened already completed (history) stays in the room", async () => {
+    mockGetSessionDetails.mockResolvedValue({ success: true, data: { ...sessionAfter(6), currentTurn: undefined } });
+    render(
+      <MemoryRouter initialEntries={["/debater/debate/123"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+          <Route path="/debater/debate/:sessionId/result" element={<ResultProbe />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await flush();
+
+    expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
   });
 
   it("learner CON: the AI opens (turn 0), the learner speaks turns 3 and 4 back to back, the AI closes (turn 5)", async () => {
@@ -219,7 +221,8 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
 
     expect(calls).toEqual(["ai:0", "user:1", "ai:2", "user:3", "user:4", "ai:5"]);
     expect(opponentTurns()).toEqual([1, 3, 6]);
-    expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
+    // The debate ended during the visit: straight to the result page (the Backend grades in the background)
+    expect(screen.getByTestId("result-page")).toBeInTheDocument();
   });
 
   it("follows the Backend's currentTurn over the fixed table: if the Backend says it is the learner's turn again, no AI turn is requested", async () => {
