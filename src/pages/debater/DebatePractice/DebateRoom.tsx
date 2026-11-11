@@ -22,7 +22,7 @@ import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfi
 import GradingOverlay from "../../../components/debate/GradingOverlay";
 import { aiApi, debateApi } from "../../../api";
 import { useAuth } from "../../../hooks/useAuth";
-import { getSpeakerRelation, isSameUserId, UnattributedSpeechError } from "../../../utils/debateSpeaker";
+import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
   useDebateNavigationGuard,
   saveActiveDebateSession,
@@ -46,22 +46,14 @@ import {
   BackendDebateSide,
   BackendDifficulty,
   DebateRoundType,
-  RoundEvaluationResult,
-  ArgumentTurn,
   TurnSpeaker,
-  SessionEvaluationResult,
   DebateSessionResponse,
   SideSwapRequestResponse,
   DebateRoomMode,
   DebateRoleInRoom,
   DebateTeamGroup,
 } from "../../../types";
-import {
-  buildDebateResult,
-  buildNoSpeechDebateResult,
-  getErrorMessage,
-  toEvidenceTopic,
-} from "../../../utils/debateScoring";
+import { buildDebateResultFromEvaluation, getErrorMessage } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
 import { getDebateErrorMessage } from "../../../utils/debateErrors";
 import {
@@ -108,21 +100,10 @@ interface TurnEvaluationContext {
 
 const TURN_EVALUATION_ERROR = "Chưa chấm được lượt phát biểu này. Vui lòng thử lại.";
 const FINISH_EVALUATION_ERROR = "Chưa chấm được kết quả tranh biện. Vui lòng thử lại.";
-const GRADING_BLOCKED_ERROR =
-  "Không thể chấm điểm phiên này vì không xác định được người nói của một số lượt. Thử lại sẽ không khắc phục được, vui lòng liên hệ quản trị viên.";
 const OPPONENT_SPEECH_MISMATCH_ERROR =
   "Đối thủ AI đã tạo lượt này từ một bài nói khác nên phiên này không thể tiếp tục. Thử lại sẽ không khắc phục được, vui lòng quay lại và tạo phiên tranh biện mới.";
 const OPPONENT_SESSION_ID_ERROR =
   "Không thể khởi tạo Đối thủ AI vì máy chủ không trả về thời điểm tạo phiên tranh biện. Vui lòng liên hệ quản trị viên.";
-const ROUNDS_PER_SESSION = 3;
-const TRANSCRIPT_CHECK_ATTEMPTS = 3;
-const TRANSCRIPT_CHECK_DELAY_MS = 1000;
-
-/** The Backend has closed the session and the transcript holds every turn of every round. */
-const isTranscriptComplete = (session: DebateSessionResponse, turnCount: number): boolean =>
-  (session.status === 3 || String(session.status) === "Completed") &&
-  !session.currentTurn &&
-  turnCount >= session.participants.length * ROUNDS_PER_SESSION;
 
 export interface DebateRoomMessage {
   id: string;
@@ -237,12 +218,6 @@ const DebateRoom: React.FC = () => {
   // Backend "start" must be requested at most once per session (StrictMode double effects + 3s polling)
   const startRequestedSessionRef = useRef<number | null>(null);
   const isFinishingRef = useRef(false);
-  // Final grading results that already succeeded: a retry only redoes the steps that did not, or whose
-  // input changed. `fingerprint` is the exact content that was graded.
-  const finishRoundResultsRef = useRef<Map<string, { fingerprint: string; result: RoundEvaluationResult }>>(
-    new Map()
-  );
-  const finishSessionResultRef = useRef<{ fingerprint: string; result: SessionEvaluationResult } | null>(null);
   const messagesRef = useRef<DebateRoomMessage[]>([]);
   // Latest input text and submit function, read by the timeout handler (which runs from a timer)
   const argumentTextRef = useRef("");
@@ -282,7 +257,6 @@ const DebateRoom: React.FC = () => {
   // Evaluation of a submitted turn failed: the debate is blocked until the retry succeeds
   const [pendingTurnEvaluation, setPendingTurnEvaluation] = useState<TurnEvaluationContext | null>(null);
   const [finishEvaluationFailed, setFinishEvaluationFailed] = useState<boolean>(false);
-  const [isGradingBlocked, setIsGradingBlocked] = useState<boolean>(false);
   // Step of the final grading that is running now (null = not grading): drives the full-screen overlay
   const [gradingMessage, setGradingMessage] = useState<string | null>(null);
   // Learner message whose turn evaluation is in flight (small non-blocking indicator in the chat)
@@ -1664,28 +1638,9 @@ const DebateRoom: React.FC = () => {
       });
   }, [messages, resolvedMotion, debaterSide, getEvaluatorSpeaker]);
 
-  // The final turn can still be on its way when the session flips to Completed: reads the Backend until
-  // the transcript holds every turn, so grading never runs on a partial debate.
-  const loadCompleteP2pTranscript = async (): Promise<DebateRoomMessage[]> => {
-    for (let attempt = 0; attempt < TRANSCRIPT_CHECK_ATTEMPTS; attempt++) {
-      if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, TRANSCRIPT_CHECK_DELAY_MS));
-      }
-      const [session, transcript] = await Promise.all([
-        loadBackendSession(numSessionId),
-        loadBackendTranscript(numSessionId),
-      ]);
-      if (session && transcript && isTranscriptComplete(session, transcript.length)) {
-        return transcript;
-      }
-    }
-    throw new Error("bản ghi phiên tranh biện chưa đủ lượt");
-  };
-
   const handleFinishDebate = async () => {
     if (
       isFinishingRef.current ||
-      isGradingBlocked ||
       !EffectiveDebateCompleted ||
       isAiGeneratingRef.current ||
       isSubmittingRef.current ||
@@ -1705,127 +1660,33 @@ const DebateRoom: React.FC = () => {
         throw new Error("chưa tải xong thông tin phiên tranh biện");
       }
 
-      // Without the account every speech looks unidentifiable, which must not count as a data error.
-      if (isP2pOr2v2 && currentUserId === null) {
+      // The user's seat (so the side whose result is shown) needs the account: temporary, the retry fixes it.
+      if (isBackendSession && currentUserId === null) {
         throw new Error("chưa tải xong thông tin tài khoản");
       }
-
-      let gradedMessages = messages;
-      if (isP2pOr2v2) {
-        setGradingMessage("Đang kiểm tra bản ghi phiên tranh biện...");
-        gradedMessages = await loadCompleteP2pTranscript();
+      // Without a seat in the session the URL's side would only be a guess: no result shown.
+      if (isBackendSession && !myParticipant) {
+        throw new Error("bạn không tham gia phiên tranh biện này");
       }
 
-      // A speech that cannot be pinned on one person may be the user's own: dropping it would silently
-      // change the score (or report "no speech"), so grading stops instead.
-      if (
-        isP2pOr2v2 &&
-        gradedMessages.some((m) => getSpeakerRelation(m, participants ?? [], currentUserId) === "unknown")
-      ) {
-        throw new UnattributedSpeechError();
+      // The official result is the Backend's: it grades the debate from its own transcript (both sides, evidence
+      // check included) once, and stores it. It has usually started already when the last turn was submitted;
+      // this call returns it, waits for the running evaluation, or starts it.
+      setGradingMessage("Đang tổng hợp kết quả...");
+      const response = await debateApi.getEvaluation(sessionId);
+      if (!response?.success || !response.data) {
+        throw new Error(response?.message || "chưa có kết quả chấm");
       }
-
-      // The evaluator rejects a round without a learner turn: only rounds the user spoke in are graded,
-      // the others are reported to it as skipped.
-      const roundStages: Array<{ stage: DebateRoundType; round: number }> = [
-        { stage: "opening", round: 1 },
-        { stage: "rebuttal", round: 2 },
-        { stage: "closing", round: 3 },
-      ];
-      const stagesWithTurns = roundStages.map((r) => ({
-        ...r,
-        turns: gradedMessages
-          .filter((m) => m.roundNumber === r.round)
-          .flatMap((m): ArgumentTurn[] => {
-            const speaker = getEvaluatorSpeaker(m);
-            return speaker ? [{ speaker, text: m.content }] : [];
-          }),
-      }));
-      const hasLearnerTurn = (r: { turns: ArgumentTurn[] }) => r.turns.some((t) => t.speaker === "learner");
-      const roundsToEvaluate = stagesWithTurns.filter(hasLearnerTurn);
-      const skippedStages = stagesWithTurns.filter((r) => !hasLearnerTurn(r)).map((r) => r.stage);
-
-      if (roundsToEvaluate.length === 0) {
-        navigate(`/debater/debate/${sessionId}/result`, {
-          state: { result: buildNoSpeechDebateResult(sessionId, motionText) },
-        });
-        return;
-      }
-
-      // Any evaluator failure (round or session) aborts the whole submission — no partial / invented score.
-      // Steps that already succeeded are kept while their input is unchanged, so a retry only redoes the others.
-      // The rounds are graded in parallel (each one also checks the learner's figures, which takes several
-      // seconds). allSettled: a round that succeeded is cached even when another fails, so the retry skips it.
-      const evidenceTopic = toEvidenceTopic(sessionDetails?.evidenceTopic);
-      const totalRounds = roundsToEvaluate.length;
-      let gradedRounds = 0;
-      const showRoundProgress = () => setGradingMessage(`Đang chấm các vòng (xong ${gradedRounds}/${totalRounds})...`);
-      const pendingRounds = roundsToEvaluate.map(async (r) => {
-        const fingerprint = JSON.stringify({ turns: r.turns, topic: evidenceTopic ?? null });
-        const cachedRound = finishRoundResultsRef.current.get(r.stage);
-        if (cachedRound?.fingerprint === fingerprint) {
-          gradedRounds += 1;
-          return cachedRound.result;
-        }
-        const roundResult = await aiApi.evaluateDebateRound({
-          motion: resolvedMotion,
-          side: debaterSide,
-          stage: r.stage,
-          turns: r.turns,
-          ...(evidenceTopic ? { topic: evidenceTopic } : {}),
-        });
-        finishRoundResultsRef.current.set(r.stage, { fingerprint, result: roundResult });
-        gradedRounds += 1;
-        showRoundProgress();
-        return roundResult;
-      });
-      // Cached rounds are counted synchronously above, before the first request returns
-      showRoundProgress();
-      const settledRounds = await Promise.allSettled(pendingRounds);
-      const failedRound = settledRounds.find((s): s is PromiseRejectedResult => s.status === "rejected");
-      if (failedRound) throw failedRound.reason;
-      const roundResults: RoundEvaluationResult[] = settledRounds.map(
-        (s) => (s as PromiseFulfilledResult<RoundEvaluationResult>).value
-      );
-
-      const sessionFingerprint = JSON.stringify({ rounds: roundsToEvaluate.map((r) => r.turns), skippedStages });
-      const cachedSession = finishSessionResultRef.current;
-      let sessionResult: SessionEvaluationResult | null =
-        cachedSession?.fingerprint === sessionFingerprint ? cachedSession.result : null;
-      if (!sessionResult && roundResults.length > 0) {
-        setGradingMessage("Đang tổng hợp kết quả...");
-        sessionResult = await aiApi.evaluateDebateSession({
-          motion: resolvedMotion,
-          side: debaterSide,
-          rounds: roundResults,
-          ...(skippedStages.length > 0 ? { skipped_stages: skippedStages } : {}),
-        });
-        finishSessionResultRef.current = { fingerprint: sessionFingerprint, result: sessionResult };
-      }
-
-      const debateResultPayload = buildDebateResult({
-        sessionId,
-        topicTitle: motionText,
-        sessionResult,
-        roundResults,
-        lastTurnEvaluation: evaluationResult,
-        skippedStages,
-      });
+      const debateResultPayload = buildDebateResultFromEvaluation(response.data, debaterSide, motionText);
       if (!debateResultPayload) {
         throw new Error("AI Evaluator không trả về điểm tổng kết.");
       }
 
-      finishRoundResultsRef.current.clear();
-      finishSessionResultRef.current = null;
       navigate(`/debater/debate/${sessionId}/result`, {
         state: { result: debateResultPayload },
       });
     } catch (finishErr) {
       console.error("Error evaluating debate session:", finishErr);
-      if (finishErr instanceof UnattributedSpeechError) {
-        setIsGradingBlocked(true);
-        return;
-      }
       setFinishEvaluationFailed(true);
       setEvaluatorError(
         `${FINISH_EVALUATION_ERROR} (${getErrorMessage(finishErr, "lỗi không xác định")})`
@@ -1895,7 +1756,6 @@ const DebateRoom: React.FC = () => {
   // Blocking failures keep a banner on screen even after the transient message was dismissed
   const bannerText =
     roomFeedback?.text ||
-    (isGradingBlocked ? GRADING_BLOCKED_ERROR : null) ||
     (EffectiveDebateCompleted ? null : opponentError) ||
     evaluatorError ||
     (opponentInitFailed && !EffectiveDebateCompleted ? "Chưa kết nối được Đối thủ AI. Vui lòng thử lại." : null) ||
@@ -1945,7 +1805,7 @@ const DebateRoom: React.FC = () => {
         }
         isEvaluating={isEvaluating}
         isDebateCompleted={EffectiveDebateCompleted}
-        canSubmitDebate={EffectiveDebateCompleted && !isGradingBlocked}
+        canSubmitDebate={EffectiveDebateCompleted}
         onExit={() => requestExit("/debater/dashboard")}
         onSubmitDebate={handleFinishDebate}
       />
@@ -2338,7 +2198,7 @@ const DebateRoom: React.FC = () => {
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}
               isDebateCompleted={EffectiveDebateCompleted}
-              canSubmitDebate={EffectiveDebateCompleted && !isGrading && !isGradingBlocked}
+              canSubmitDebate={EffectiveDebateCompleted && !isGrading}
               evaluatingMessageId={evaluatingMessageId}
               isP2pOr2v2={isP2pOr2v2}
               onAdvanceTimedOutRound={isBackendSession ? undefined : handleAdvanceTimedOutRound}

@@ -25,6 +25,7 @@ const mockStartDebateSession = vi.fn();
 const mockEvaluateDebateRound = vi.fn();
 const mockEvaluateDebateSession = vi.fn();
 const mockRecordAiArgument = vi.fn();
+const mockGetEvaluation = vi.fn();
 
 vi.mock("../api", () => ({
   aiApi: {
@@ -42,6 +43,7 @@ vi.mock("../api", () => ({
     getPendingSwapRequests: vi.fn().mockResolvedValue({ success: true, data: [] }),
     submitArgument: (...args: unknown[]) => mockSubmitArgument(...args),
     startDebateSession: (...args: unknown[]) => mockStartDebateSession(...args),
+    getEvaluation: (...args: unknown[]) => mockGetEvaluation(...args),
   },
 }));
 
@@ -219,20 +221,31 @@ describe("DebateRoom final submission (handleFinishDebate)", () => {
       weaknesses: [],
       suggestions: [],
     });
-    // Overall = the holistic session overall_score (5 → 50), not the criteria average (4/5 → 80)
-    mockEvaluateDebateRound.mockImplementation(async ({ stage }: { stage: string }) => ({
-      stage,
-      round_score: 7,
-      criteria: [{ name: "Logic", score: 4, reasoning: "Tốt" }],
-      consistency_note: "",
+    // Overall = the official holistic overall score (5 → 50), not the criteria average (4/5 → 80)
+    const pro = {
+      side: "PRO",
+      speakerName: "Debater",
+      overallScore: 5,
+      stageBreakdown: { opening: 7, rebuttal: 7, closing: 7 },
+      progressTrend: "Ổn định",
       strengths: [],
       weaknesses: [],
       suggestions: [],
-    }));
-    mockEvaluateDebateSession.mockResolvedValue({
-      overall_score: 5,
-      stage_breakdown: { opening: 7, rebuttal: 7, closing: 7 },
-      progress_trend: "Ổn định",
+      roundEvaluations: ["opening", "rebuttal", "closing"].map((stage, i) => ({
+        roundNumber: i + 1,
+        stage,
+        roundScore: 7,
+        consistencyNote: "",
+        criteria: [{ name: "Logic", score: 4, reasoning: "Tốt" }],
+        strengths: [],
+        weaknesses: [],
+        suggestions: [],
+      })),
+    };
+    mockGetEvaluation.mockResolvedValue({
+      success: true,
+      message: "ok",
+      data: { judgementId: 1, sessionId: 1, suggestedWinnerSide: "PRO", evaluatedAt: "", proEvaluation: pro, conEvaluation: null },
     });
   });
 
@@ -242,50 +255,44 @@ describe("DebateRoom final submission (handleFinishDebate)", () => {
     vi.clearAllMocks();
   });
 
-  it("stays on the room with an error banner when evaluate/round fails, and navigates with the right score after a retry", async () => {
-    renderDebateRoom("/debater/debate/finish-round-fail?role=PRO");
+  it("stays on the room with an error banner when the official result fails, and navigates with the right score after a retry", async () => {
+    renderDebateRoom("/debater/debate/finish-fail?role=PRO");
     await act(async () => {});
     await completeThreeRounds();
 
-    mockEvaluateDebateRound.mockRejectedValueOnce(new Error("round down"));
+    mockGetEvaluation.mockRejectedValueOnce({ success: false, status: 404, message: "No evaluation found" });
     await act(async () => {
       fireEvent.click(screen.getByTestId("header-submit-debate-btn"));
     });
 
     expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
+    });
+
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
+    expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
     expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
-    });
-
     expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 50");
   });
 
-  it("stays on the room with an error banner when evaluate/session fails, and navigates with the right score after a retry", async () => {
-    renderDebateRoom("/debater/debate/finish-session-fail?role=PRO");
+  it("an answer without a result (success false) is an error too, not an invented score", async () => {
+    renderDebateRoom("/debater/debate/finish-empty?role=PRO");
     await act(async () => {});
     await completeThreeRounds();
 
-    mockEvaluateDebateSession.mockRejectedValueOnce(new Error("session down"));
+    mockGetEvaluation.mockResolvedValueOnce({ success: false, message: "Debate session has no submitted arguments to evaluate." });
     await act(async () => {
       fireEvent.click(screen.getByTestId("header-submit-debate-btn"));
     });
 
     expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
-    expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
-    });
-
-    expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 50");
+    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("no submitted arguments");
   });
 
-  it("calls the evaluator only once when the submit button is double-clicked", async () => {
+  it("fetches the result only once when the submit button is double-clicked", async () => {
     renderDebateRoom("/debater/debate/finish-double-click?role=PRO");
     await act(async () => {});
     await completeThreeRounds();
@@ -296,8 +303,7 @@ describe("DebateRoom final submission (handleFinishDebate)", () => {
       fireEvent.click(submitBtn);
     });
 
-    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3); // one per round, not six
-    expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(1);
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 50");
   });
 });

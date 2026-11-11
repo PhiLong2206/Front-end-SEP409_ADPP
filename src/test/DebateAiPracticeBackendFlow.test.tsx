@@ -22,6 +22,7 @@ const mockSubmitArgument = vi.fn();
 const mockSubmitAiArgument = vi.fn();
 const mockEvaluateDebateRound = vi.fn();
 const mockEvaluateDebateSession = vi.fn();
+const mockGetEvaluation = vi.fn();
 
 vi.mock("../api", () => ({
   aiApi: {
@@ -35,6 +36,7 @@ vi.mock("../api", () => ({
   debateApi: {
     getSessionDetails: (...args: unknown[]) => mockGetSessionDetails(...args),
     getTranscript: (...args: unknown[]) => mockGetTranscript(...args),
+    getEvaluation: (...args: unknown[]) => mockGetEvaluation(...args),
     getPendingSwapRequests: vi.fn().mockResolvedValue({ success: true, data: [] }),
     startDebateSession: vi.fn().mockResolvedValue({ success: true }),
     submitArgument: (...args: unknown[]) => mockSubmitArgument(...args),
@@ -49,13 +51,11 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
   let recorded = 0;
   let calls: string[] = [];
   let userSide = 1;
-  let evidenceTopic: string | null = null;
 
   const sessionAfter = (done: number) => ({
     sessionId: 123,
     title: "AI practice",
     topic: "Mạng xã hội có hại hơn lợi?",
-    evidenceTopic,
     status: done >= 6 ? 3 : 2,
     debateType: 1,
     createdByUserId: 1,
@@ -106,7 +106,6 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
     sessionStorage.clear();
     recorded = 0;
     calls = [];
-    evidenceTopic = null;
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockCreateOpponentSession.mockResolvedValue({ opponent_session_id: "opp-1", status: "ready" });
     mockGetOpponentCasePlan.mockResolvedValue(null);
@@ -167,21 +166,23 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
     expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
   });
 
-  it.each([
-    ["Education", "education"],
-    [null, undefined],
-  ])("final grading: evidenceTopic %s -> every round request carries topic %s, all rounds sent at once", async (sessionTopic, expected) => {
-    evidenceTopic = sessionTopic;
-    const pendingRounds: Array<() => void> = [];
-    mockEvaluateDebateRound.mockImplementation(
-      ({ stage }: { stage: string }) =>
-        new Promise((resolve) => {
-          pendingRounds.push(() =>
-            resolve({ stage, round_score: 7, criteria: [], consistency_note: "", strengths: [], weaknesses: [], suggestions: [] })
-          );
-        })
-    );
-    mockEvaluateDebateSession.mockResolvedValue({ overall_score: 7, stage_breakdown: {}, progress_trend: "" });
+  it("final grading: the official result of the Backend session, nothing graded by the FE itself", async () => {
+    const part = (overallScore: number) => ({
+      side: "x",
+      speakerName: "x",
+      overallScore,
+      stageBreakdown: {},
+      progressTrend: "",
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
+      roundEvaluations: [],
+    });
+    mockGetEvaluation.mockResolvedValue({
+      success: true,
+      message: "ok",
+      data: { judgementId: 1, sessionId: 123, suggestedWinnerSide: "PRO", evaluatedAt: "", proEvaluation: part(7), conEvaluation: part(4) },
+    });
     await renderRoom("PRO");
     await submit("PRO mở đầu");
     await submit("PRO phản biện");
@@ -192,15 +193,10 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
     });
     await flush();
 
-    // Parallel: the 3 requests are out before any of them returned
-    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3);
-    for (const [body] of mockEvaluateDebateRound.mock.calls) {
-      expect(body.topic).toBe(expected);
-      expect(body).not.toHaveProperty("check_evidence"); // only the learner's side is graded: default true
-    }
-    await act(async () => pendingRounds.forEach((resolveRound) => resolveRound()));
-    await flush();
-    expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(1);
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
+    expect(mockGetEvaluation).toHaveBeenCalledWith("123");
+    expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+    expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
   });
 
   it("learner CON: the AI opens (turn 0), the learner speaks turns 3 and 4 back to back, the AI closes (turn 5)", async () => {

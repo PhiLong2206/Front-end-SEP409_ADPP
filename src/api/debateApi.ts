@@ -23,7 +23,14 @@ import {
   CreateChallengeRequest,
   ChallengeResponse,
   DebateAiEvaluationResponse,
+  DebateEvaluationResponse,
 } from "../types";
+
+/**
+ * Waiting for the official result. Above the Backend's own limit (each evaluator call 120 s, gateway 180 s),
+ * so a slow evaluation ends with the Backend's error rather than a client timeout.
+ */
+export const EVALUATION_TIMEOUT_MS = 200_000;
 
 const debateApi = {
   // ── Debate Practice & P2P Endpoints (SystemService) ────────
@@ -172,18 +179,20 @@ const debateApi = {
 
   /**
    * GET /api/Debate/{sessionId}/evaluation [Authorized]
-   * Retrieves the AI evaluation results and judgement for a debate session.
+   * The official result of a debate (stored AIJudgement). For a completed debate without one yet, the Backend
+   * evaluates it first (or waits for the evaluation already running), so the call can take a while:
+   * EVALUATION_TIMEOUT_MS. Fails (404) when the session is not completed or has no speech to grade.
    */
   getEvaluation: (
     sessionId: number | string
-  ): Promise<ApiResponse<DebateAiEvaluationResponse | object>> =>
-    axiosClient.get(`/debate/${sessionId}/evaluation`),
+  ): Promise<ApiResponse<DebateEvaluationResponse>> =>
+    axiosClient.get(`/debate/${sessionId}/evaluation`, { timeout: EVALUATION_TIMEOUT_MS }),
 
   // Alias for getEvaluation
   getAiEvaluation: (
     sessionId: number | string
-  ): Promise<ApiResponse<DebateAiEvaluationResponse | object>> =>
-    axiosClient.get(`/debate/${sessionId}/evaluation`),
+  ): Promise<ApiResponse<DebateEvaluationResponse>> =>
+    axiosClient.get(`/debate/${sessionId}/evaluation`, { timeout: EVALUATION_TIMEOUT_MS }),
 
   /**
    * POST /api/Debate/{sessionId}/ai-arguments [Authorized]

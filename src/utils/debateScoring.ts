@@ -1,5 +1,6 @@
 import type {
   ArgumentEvaluationResult,
+  DebateEvaluationResponse,
   EvidenceClaim,
   EvidenceStatus,
   EvidenceTopic,
@@ -374,6 +375,74 @@ export function buildDebateResult(input: BuildDebateResultInput): DebateResultDa
     stageBreakdown: stageBreakdown.length > 0 ? stageBreakdown : undefined,
     evidenceRounds: buildEvidenceRounds(roundResults),
   };
+}
+
+/**
+ * Official result (GET /api/debate/{id}/evaluation) → result-screen data for ONE side, the user's.
+ * Converted to the evaluator's own shapes so buildDebateResult stays the single place of the scoring rules.
+ * Returns null when the user's side has no evaluation although it scored (the caller shows an error).
+ */
+export function buildDebateResultFromEvaluation(
+  evaluation: DebateEvaluationResponse,
+  side: "pro" | "con",
+  topicTitle: string
+): DebateResultData | null {
+  const sessionId = String(evaluation.sessionId);
+  const part = side === "pro" ? evaluation.proEvaluation : evaluation.conEvaluation;
+  if (!part) {
+    const sideScore = side === "pro" ? evaluation.overallScorePro : evaluation.overallScoreCon;
+    // That side never spoke: nothing was graded, a real 0
+    return isFiniteNumber(sideScore) && sideScore > 0 ? null : buildNoSpeechDebateResult(sessionId, topicTitle);
+  }
+
+  const sessionResult: SessionEvaluationResult = {
+    overall_score: part.overallScore,
+    stage_breakdown: part.stageBreakdown ?? {},
+    progress_trend: part.progressTrend ?? "",
+    overall_strengths: part.strengths ?? [],
+    overall_weaknesses: part.weaknesses ?? [],
+    overall_suggestions: part.suggestions ?? [],
+  };
+  const roundResults: RoundEvaluationResult[] = (part.roundEvaluations ?? []).map((r) => ({
+    stage: r.stage as RoundEvaluationResult["stage"],
+    round_score: r.roundScore,
+    criteria: r.criteria ?? [],
+    consistency_note: r.consistencyNote ?? "",
+    strengths: r.strengths ?? [],
+    weaknesses: r.weaknesses ?? [],
+    suggestions: r.suggestions ?? [],
+    evidence_checks: (r.evidenceChecks ?? []).map((c) => ({
+      turn_index: c.turnIndex,
+      excerpt: c.excerpt,
+      evidence_check: c.evidenceCheck && {
+        status: c.evidenceCheck.status,
+        claims: (c.evidenceCheck.claims ?? []).map((claim) => ({
+          claim: claim.claim,
+          label: claim.label,
+          reason: claim.reason,
+          citations: (claim.citations ?? []).map((f) => ({
+            fact_id: f.factId,
+            content: f.content,
+            citation: f.citation,
+            stance: f.stance,
+          })),
+        })),
+        counts: c.evidenceCheck.counts ?? {},
+      },
+    })),
+    evidence_score_before: r.evidenceScoreBefore,
+    evidence_score_after: r.evidenceScoreAfter,
+    evidence_rule_applied: r.evidenceRuleApplied ?? "",
+  }));
+
+  return buildDebateResult({
+    sessionId,
+    topicTitle,
+    sessionResult,
+    roundResults,
+    lastTurnEvaluation: null,
+    skippedStages: part.skippedStages ?? [],
+  });
 }
 
 /** Result for a debater who never spoke: a real 0, not an evaluator output. */

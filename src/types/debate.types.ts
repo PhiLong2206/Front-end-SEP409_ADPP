@@ -312,6 +312,85 @@ export interface DebateEvaluationCriteriaScore {
   feedback?: string;
 }
 
+// GET /api/debate/{sessionId}/evaluation — the official result (SystemService stores it as an AIJudgement).
+export interface EvaluationCitationDto {
+  factId: string;
+  content: string;
+  citation?: string | null;
+  stance?: "supports" | "contradicts" | null;
+}
+
+export interface EvaluationClaimDto {
+  claim: string;
+  label: "SUPPORTED" | "CONTRADICTED" | "NOT_FOUND" | "CONFLICTING";
+  reason: string;
+  citations: EvaluationCitationDto[];
+}
+
+/** One learner turn's evidence check. The Backend never sends the evaluator's technical error. */
+export interface EvaluationTurnEvidenceCheckDto {
+  turnIndex: number;
+  excerpt: string;
+  evidenceCheck: {
+    status: "checked" | "no_claims" | "unavailable" | "no_fact_base";
+    claims: EvaluationClaimDto[];
+    counts: Record<string, number>;
+    evidenceScoreBefore?: number | null;
+    evidenceScoreAfter?: number | null;
+    ruleApplied?: string;
+    version?: string | null;
+  };
+}
+
+export interface RoundEvaluationDetailDto {
+  /** 1 = opening, 2 = rebuttal, 3 = closing. */
+  roundNumber: number;
+  stage: string;
+  /** 0-10 */
+  roundScore: number;
+  consistencyNote: string;
+  /** Each 0-5. */
+  criteria: Array<{ name: string; score: number; reasoning: string }>;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+  /** null: judgement stored before the evidence check existed. */
+  evidenceChecks?: EvaluationTurnEvidenceCheckDto[] | null;
+  evidenceScoreBefore?: number | null;
+  evidenceScoreAfter?: number | null;
+  evidenceRuleApplied?: string | null;
+}
+
+export interface ParticipantEvaluationDto {
+  side: string;
+  speakerName: string;
+  /** 0-10 */
+  overallScore: number;
+  stageBreakdown: Record<string, number>;
+  /** Stages this side did not speak in (counted 0). Absent in judgements stored before it existed. */
+  skippedStages?: string[];
+  progressTrend: string;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+  roundEvaluations: RoundEvaluationDetailDto[];
+}
+
+export interface DebateEvaluationResponse {
+  judgementId: number;
+  sessionId: number;
+  suggestedWinnerSide: string;
+  overallScorePro?: number | null;
+  overallScoreCon?: number | null;
+  overallScore?: number | null;
+  summary?: string | null;
+  overallFeedback?: string | null;
+  evaluatedAt: string;
+  /** null when that side never spoke (nothing was graded). */
+  proEvaluation?: ParticipantEvaluationDto | null;
+  conEvaluation?: ParticipantEvaluationDto | null;
+}
+
 export interface DebateAiEvaluationResponse {
   sessionId: number;
   summary?: string;

@@ -18,6 +18,7 @@ const mockGenerateOpponentTurn = vi.fn();
 const mockEvaluateSpeechArgument = vi.fn();
 const mockEvaluateDebateRound = vi.fn();
 const mockEvaluateDebateSession = vi.fn();
+const mockGetEvaluation = vi.fn();
 
 vi.mock("../api", () => ({
   aiApi: {
@@ -32,6 +33,7 @@ vi.mock("../api", () => ({
     getSessionDetails: vi.fn(),
     getTranscript: vi.fn(),
     submitArgument: vi.fn(),
+    getEvaluation: (...args: unknown[]) => mockGetEvaluation(...args),
   },
 }));
 
@@ -40,16 +42,23 @@ const ResultProbe = () => {
   return <div data-testid="result-page">Điểm: {state?.result?.overallScore}</div>;
 };
 
-const roundResult = (stage: string) => ({
-  stage,
-  round_score: 7,
-  criteria: [{ name: "Logic", score: 4, reasoning: "Tốt" }],
-  consistency_note: "",
+const side = (overallScore: number) => ({
+  side: "PRO",
+  speakerName: "Debater Test",
+  overallScore,
+  stageBreakdown: { opening: overallScore, rebuttal: overallScore, closing: overallScore },
+  progressTrend: "ổn định",
   strengths: [],
   weaknesses: [],
   suggestions: [],
+  roundEvaluations: [],
 });
-const sessionResult = { overall_score: 6, stage_breakdown: {}, progress_trend: "ổn định" };
+/** Official result: PRO (the user, ?role=PRO) 6/10 → shown as 60. */
+const officialResult = {
+  success: true,
+  message: "ok",
+  data: { judgementId: 1, sessionId: 1, suggestedWinnerSide: "CON", evaluatedAt: "", proEvaluation: side(6), conEvaluation: side(9) },
+};
 
 describe("Final grading progress overlay and per-turn indicator", () => {
   const flush = async () => {
@@ -88,17 +97,15 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     });
   };
 
-  type Deferred = { stage: string; resolve: (v: unknown) => void; reject: (e: unknown) => void };
-  let roundCalls: Deferred[];
-  let sessionCalls: Array<{ resolve: (v: unknown) => void }>;
+  type Deferred = { resolve: (v: unknown) => void; reject: (e: unknown) => void };
+  let evaluationCalls: Deferred[];
 
   const progress = () => screen.getByTestId("grading-progress");
 
   beforeEach(() => {
     vi.useFakeTimers();
     sessionStorage.clear();
-    roundCalls = [];
-    sessionCalls = [];
+    evaluationCalls = [];
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockCreateOpponentSession.mockResolvedValue({ opponent_session_id: "opp-1", status: "ready" });
     mockGetOpponentCasePlan.mockResolvedValue(null);
@@ -116,17 +123,11 @@ describe("Final grading progress overlay and per-turn indicator", () => {
       weaknesses: [],
       suggestions: [],
     });
-    // Rounds and the session stay pending until the test resolves them
-    mockEvaluateDebateRound.mockImplementation(
-      ({ stage }: { stage: string }) =>
-        new Promise((resolve, reject) => {
-          roundCalls.push({ stage, resolve, reject });
-        })
-    );
-    mockEvaluateDebateSession.mockImplementation(
+    // GET /evaluation stays pending until the test resolves it (the Backend may be evaluating)
+    mockGetEvaluation.mockImplementation(
       () =>
-        new Promise((resolve) => {
-          sessionCalls.push({ resolve });
+        new Promise((resolve, reject) => {
+          evaluationCalls.push({ resolve, reject });
         })
     );
   });
@@ -137,7 +138,7 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the real step being graded, updates as each request completes, and closes when done", async () => {
+  it("shows one step while the official result is fetched, and closes when it arrives", async () => {
     await renderRoom();
     await completeThreeRounds();
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
@@ -145,21 +146,14 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     await submitFinal();
     expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
     expect(screen.getByText("Đang chấm điểm phiên tranh biện...")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 0/3)...");
-    expect(screen.getByTestId("header-submit-debate-btn")).toBeDisabled();
-    // The 3 rounds are sent at once (parallel), not one after the other
-    expect(roundCalls.map((c) => c.stage)).toEqual(["opening", "rebuttal", "closing"]);
-
-    await act(async () => roundCalls[1].resolve(roundResult("rebuttal")));
-    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 1/3)...");
-
-    await act(async () => roundCalls[0].resolve(roundResult("opening")));
-    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 2/3)...");
-
-    await act(async () => roundCalls[2].resolve(roundResult("closing")));
     expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
+    expect(screen.getByTestId("header-submit-debate-btn")).toBeDisabled();
+    // The Backend grades: the FE no longer calls the evaluator for the rounds or the session
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
+    expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+    expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
 
-    await act(async () => sessionCalls[0].resolve(sessionResult));
+    await act(async () => evaluationCalls[0].resolve(officialResult));
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
     expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 60");
   });
@@ -192,10 +186,7 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     window.dispatchEvent(during);
     expect(duringSpy).toHaveBeenCalled();
 
-    await act(async () => roundCalls[0].reject(new Error("round down")));
-    // The other rounds run in parallel: the error is reported once they have all finished
-    await act(async () => roundCalls[1].resolve(roundResult("rebuttal")));
-    await act(async () => roundCalls[2].resolve(roundResult("closing")));
+    await act(async () => evaluationCalls[0].reject(new Error("evaluation down")));
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
 
     const after = new Event("beforeunload", { cancelable: true });
@@ -204,33 +195,24 @@ describe("Final grading progress overlay and per-turn indicator", () => {
     expect(afterSpy).not.toHaveBeenCalled();
   });
 
-  it("closes the overlay on an error, shows the banner with a retry, and the retry only redoes the failed steps", async () => {
+  it("closes the overlay on an error, shows the banner with a retry, and the retry fetches the result again", async () => {
     await renderRoom();
     await completeThreeRounds();
     await submitFinal();
 
-    await act(async () => roundCalls[0].resolve(roundResult("opening")));
-    await act(async () => roundCalls[1].reject(new Error("round 2 down")));
-    // Still grading: closing runs in parallel and is waited for (and kept) before the error is shown
-    expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
-    await act(async () => roundCalls[2].resolve(roundResult("closing")));
+    await act(async () => evaluationCalls[0].reject({ success: false, status: 404, message: "No evaluation found" }));
 
     expect(screen.queryByTestId("grading-overlay")).not.toBeInTheDocument();
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Chưa chấm được kết quả tranh biện");
-    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3);
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("retry-finish-evaluation-btn"));
     });
-    // Opening and closing already succeeded: the retry only redoes the rebuttal
     expect(screen.getByTestId("grading-overlay")).toBeInTheDocument();
-    expect(progress()).toHaveTextContent("Đang chấm các vòng (xong 2/3)...");
-    expect(roundCalls[3].stage).toBe("rebuttal");
+    expect(progress()).toHaveTextContent("Đang tổng hợp kết quả...");
 
-    await act(async () => roundCalls[3].resolve(roundResult("rebuttal")));
-    await act(async () => sessionCalls[0].resolve(sessionResult));
-
-    expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(4); // not 6
+    await act(async () => evaluationCalls[1].resolve(officialResult));
+    expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("result-page")).toHaveTextContent("Điểm: 60");
   });
 

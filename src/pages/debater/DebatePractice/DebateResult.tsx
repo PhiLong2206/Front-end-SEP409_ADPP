@@ -1,14 +1,127 @@
-import React from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import ScoreBreakdown from "../../../components/debate/ScoreBreakdown";
 import EvidenceCheckPanel from "../../../components/debate/EvidenceCheckPanel";
-import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText } from "lucide-react";
-import { DebateResultData, PERCENT_MAX } from "../../../utils/debateScoring";
+import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText, Loader2 } from "lucide-react";
+import { debateApi } from "../../../api";
+import { useAuth } from "../../../hooks/useAuth";
+import { isSameUserId } from "../../../utils/debateSpeaker";
+import {
+  DebateResultData,
+  PERCENT_MAX,
+  buildDebateResultFromEvaluation,
+  getErrorMessage,
+} from "../../../utils/debateScoring";
+
+const LOAD_ERROR = "Không tải được kết quả tranh biện.";
+
+/**
+ * The result of the debate the user took part in, from the official result (GET /evaluation) when the page is
+ * opened without the room's navigation state: F5 in a new tab, the history page, a shared link.
+ */
+async function loadOfficialResult(sessionId: number, userId: number | string | null): Promise<DebateResultData> {
+  const [sessionRes, evaluationRes] = await Promise.all([
+    debateApi.getSessionDetails(sessionId),
+    debateApi.getEvaluation(sessionId),
+  ]);
+  if (!sessionRes?.success || !sessionRes.data) throw new Error(sessionRes?.message || "không tải được phiên tranh biện");
+  if (!evaluationRes?.success || !evaluationRes.data) throw new Error(evaluationRes?.message || "chưa có kết quả chấm");
+
+  const session = sessionRes.data;
+  const me = session.participants.find((p) => !p.isAI && isSameUserId(p.userId, userId));
+  const side = me?.side === 1 || String(me?.side) === "PRO" ? "pro" : me?.side === 2 || String(me?.side) === "CON" ? "con" : null;
+  if (!side) throw new Error("bạn không tham gia phiên tranh biện này");
+
+  const result = buildDebateResultFromEvaluation(evaluationRes.data, side, session.topic || session.title);
+  if (!result) throw new Error("AI Evaluator không trả về điểm tổng kết");
+  return result;
+}
 
 const DebateResult: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const result: DebateResultData | null = (location.state as { result?: DebateResultData })?.result || null;
+  const { sessionId } = useParams();
+  const { user } = useAuth();
+  const currentUserId = user?.userId ?? user?.id ?? null;
+  const stateResult: DebateResultData | null = (location.state as { result?: DebateResultData })?.result || null;
+  const numSessionId = Number(sessionId);
+  const canLoad = !stateResult && Number.isInteger(numSessionId) && numSessionId > 0;
+
+  const [loadedResult, setLoadedResult] = useState<DebateResultData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(canLoad);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Number of the latest load; 0 once the page is gone. An answer of an older load (or after leaving) is ignored.
+  const latestLoadRef = useRef(0);
+  useEffect(() => () => {
+    latestLoadRef.current = 0;
+  }, []);
+
+  // State is only set once the requests answer (the initial loading state comes from useState)
+  const fetchResult = useCallback(async () => {
+    const load = ++latestLoadRef.current;
+    try {
+      const loaded = await loadOfficialResult(numSessionId, currentUserId);
+      if (load !== latestLoadRef.current) return;
+      setLoadedResult(loaded);
+      setLoadError(null);
+    } catch (err) {
+      if (load !== latestLoadRef.current) return;
+      console.error("Error loading the debate result:", err);
+      setLoadError(`${LOAD_ERROR} (${getErrorMessage(err, "lỗi không xác định")})`);
+    }
+    setIsLoading(false);
+  }, [numSessionId, currentUserId]);
+
+  const retry = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    void fetchResult();
+  };
+
+  useEffect(() => {
+    if (canLoad) void fetchResult();
+  }, [canLoad, fetchResult]);
+
+  const result = stateResult ?? loadedResult;
+
+  if (!result && isLoading) {
+    return (
+      <div data-testid="result-loading" className="space-y-3 max-w-4xl mx-auto py-16 text-center">
+        <Loader2 size={32} className="mx-auto text-[#008A64] animate-spin" />
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Đang tải kết quả tranh biện...</p>
+        <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
+          Nếu phiên vừa kết thúc, AI có thể đang chấm điểm, vui lòng chờ trong giây lát.
+        </p>
+      </div>
+    );
+  }
+
+  if (!result && loadError) {
+    return (
+      <div data-testid="result-load-error" className="space-y-3 max-w-4xl mx-auto py-16 text-center">
+        <AlertCircle size={36} className="mx-auto text-amber-500" />
+        <p className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">{loadError}</p>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            data-testid="result-retry-btn"
+            onClick={retry}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-2xl"
+          >
+            <RotateCcw size={14} />
+            <span>Thử lại</span>
+          </button>
+          <Link
+            to="/debater/history"
+            className="px-5 py-2.5 border border-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl"
+          >
+            Lịch sử tranh biện
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!result) {
     return (
@@ -50,7 +163,7 @@ const DebateResult: React.FC = () => {
           {/* Circular Score Badge Center */}
           <div className="my-6 flex flex-col items-center justify-center">
             <div className="w-32 h-32 rounded-full border-4 border-[#008A64] flex flex-col items-center justify-center bg-[#ECFDF5]/50 dark:bg-[rgba(16,185,129,0.1)] shadow-sm shadow-[#008A64]/10">
-              <span className="text-4xl font-black text-slate-900 dark:text-[#F8FAFC] font-mono leading-none">
+              <span data-testid="result-overall-score" className="text-4xl font-black text-slate-900 dark:text-[#F8FAFC] font-mono leading-none">
                 {result.overallScore}
               </span>
               <span className="text-[11px] font-bold text-slate-500 dark:text-[#94A3B8] mt-1">/ {PERCENT_MAX}</span>

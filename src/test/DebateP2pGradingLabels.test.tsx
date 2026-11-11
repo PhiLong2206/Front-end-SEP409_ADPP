@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act, configure } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, configure } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
 import DebateResult from "../pages/debater/DebatePractice/DebateResult";
@@ -29,6 +29,7 @@ const mockGetTranscript = vi.fn();
 const mockEvaluateDebateRound = vi.fn();
 const mockEvaluateDebateSession = vi.fn();
 const mockEvaluateSpeechArgument = vi.fn();
+const mockGetEvaluation = vi.fn();
 
 vi.mock("../api", () => ({
   aiApi: {
@@ -43,6 +44,7 @@ vi.mock("../api", () => ({
   debateApi: {
     getSessionDetails: (...args: unknown[]) => mockGetSessionDetails(...args),
     getTranscript: (...args: unknown[]) => mockGetTranscript(...args),
+    getEvaluation: (...args: unknown[]) => mockGetEvaluation(...args),
     getPendingSwapRequests: vi.fn().mockResolvedValue({ success: true, data: [] }),
     submitArgument: vi.fn(),
     startDebateSession: vi.fn(),
@@ -175,12 +177,53 @@ const submitOnceLoaded = async (speech: string) => {
   await screen.findByTestId("result-page");
 };
 
-const turnsOfStage = (stage: string) =>
-  mockEvaluateDebateRound.mock.calls.map((c) => c[0]).find((p) => p.stage === stage)?.turns;
+const STAGES = ["opening", "rebuttal", "closing"];
 
-const gradedStages = () => mockEvaluateDebateRound.mock.calls.map((c) => c[0].stage);
+/** One side of the official result (GET /evaluation), score 0-10. */
+const sideEvaluation = (side: string, overallScore: number, skippedStages: string[] = []) => ({
+  side,
+  speakerName: side,
+  overallScore,
+  stageBreakdown: Object.fromEntries(STAGES.filter((s) => !skippedStages.includes(s)).map((s) => [s, overallScore])),
+  skippedStages,
+  progressTrend: `xu hướng ${side}`,
+  strengths: [`điểm mạnh ${side}`],
+  weaknesses: [],
+  suggestions: [],
+  roundEvaluations: STAGES.filter((s) => !skippedStages.includes(s)).map((stage, i) => ({
+    roundNumber: i + 1,
+    stage,
+    roundScore: overallScore,
+    consistencyNote: "",
+    criteria: [{ name: "Logic", score: 4, reasoning: "Tốt" }],
+    strengths: [],
+    weaknesses: [],
+    suggestions: [],
+    evidenceChecks: [],
+  })),
+});
 
-describe("Final grading attributes every speech to the right person", () => {
+/** PRO 8/10 (shown as 80), CON 6/10 (shown as 60): the page must show the user's side. */
+const officialResult = (overrides: Record<string, unknown> = {}) => ({
+  success: true,
+  message: "ok",
+  data: {
+    judgementId: 9,
+    sessionId: 123,
+    suggestedWinnerSide: "PRO",
+    overallScorePro: 8,
+    overallScoreCon: 6,
+    evaluatedAt: "2026-11-11T10:00:00Z",
+    proEvaluation: sideEvaluation("PRO", 8),
+    conEvaluation: sideEvaluation("CON", 6),
+    ...overrides,
+  },
+});
+
+/** The big circular overall score of the result page. */
+const shownScore = () => screen.getByTestId("result-overall-score").textContent;
+
+describe("Final grading reads the official result (GET /evaluation) and shows the user's side", () => {
   beforeEach(() => {
     nextArgumentId = 1;
     mockAuthUser = SIGNED_IN_USER;
@@ -193,20 +236,7 @@ describe("Final grading attributes every speech to the right person", () => {
       success: true,
       data: { arguments: currentTranscript },
     }));
-    mockEvaluateDebateRound.mockImplementation(async ({ stage }: { stage: string }) => ({
-      stage,
-      round_score: 7,
-      overall_reasoning: "Ổn",
-      criteria: [],
-      strengths: [],
-      weaknesses: [],
-      suggestions: [],
-    }));
-    mockEvaluateDebateSession.mockResolvedValue({
-      overall_score: 7,
-      stage_breakdown: {},
-      progress_trend: "ổn định",
-    });
+    mockGetEvaluation.mockResolvedValue(officialResult());
     mockEvaluateSpeechArgument.mockResolvedValue({
       overall_score: 8,
       overall_reasoning: "Tốt",
@@ -224,42 +254,26 @@ describe("Final grading attributes every speech to the right person", () => {
 
   describe("with the debateType the Backend will return", () => {
     it.each([
-      ["P2pMatch (số)", 2],
-      ["P2pMatch (chuỗi)", "P2pMatch"],
-      ["Direct1v1 (số)", 3],
-      ["Direct1v1 (chuỗi)", "Direct1v1"],
-    ])("1v1 %s: only my turns are 'learner'", async (_name, debateType) => {
-      seedSession(debateType, oneVsOne, fullOneVsOne());
+      ["1v1 P2pMatch (số)", 2, false],
+      ["1v1 P2pMatch (chuỗi)", "P2pMatch", false],
+      ["1v1 Direct1v1 (số)", 3, false],
+      ["1v1 Direct1v1 (chuỗi)", "Direct1v1", false],
+      ["2v2 (số)", 2, true],
+    ])("%s: one GET /evaluation, no direct evaluator call, my side's score", async (_name, debateType, isTwoVsTwo) => {
+      seedSession(debateType, isTwoVsTwo ? twoVsTwo : oneVsOne, isTwoVsTwo ? fullTwoVsTwo() : fullOneVsOne());
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(gradedStages()).toEqual(["opening", "rebuttal", "closing"]);
-      expect(turnsOfStage("opening")).toEqual([
-        { speaker: "learner", text: "Tôi vòng 1" },
-        { speaker: "opponent", text: "Đối thủ vòng 1" },
-      ]);
+      expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
+      expect(mockGetEvaluation).toHaveBeenCalledWith("123");
+      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+      expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
+      expect(shownScore()).toBe("80");
+      expect(screen.getByText("xu hướng PRO")).toBeInTheDocument();
     });
 
-    it.each([
-      ["số", 2],
-      ["chuỗi", "P2pMatch"],
-    ])("2v2 (%s): I am 'learner', both opposing players are 'opponent', my teammate is left out", async (_name, debateType) => {
-      seedSession(debateType, twoVsTwo, fullTwoVsTwo());
-      renderRoom();
-      await submitOnceLoaded("Tôi vòng 1");
-
-      expect(turnsOfStage("opening")).toEqual([
-        { speaker: "learner", text: "Tôi vòng 1" },
-        { speaker: "opponent", text: "Đối thủ 1 vòng 1" },
-        { speaker: "opponent", text: "Đối thủ 2 vòng 1" },
-      ]);
-    });
-
-    it.each([
-      ["số", 1],
-      ["chuỗi", "AiPractice"],
-    ])("AI (%s): my turns are 'learner', the AI's are 'opponent', and my side comes from the Backend", async (_name, debateType) => {
-      seedSession(debateType, [
+    it("AI session: my side comes from the Backend (CON here)", async () => {
+      seedSession(1, [
         { userId: ME, side: CON, speakerName: MY_NAME },
         { userId: null, side: PRO, speakerName: "AI Opponent", isAI: true },
       ], []);
@@ -287,18 +301,13 @@ describe("Final grading attributes every speech to the right person", () => {
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(turnsOfStage("closing")).toEqual([
-        { speaker: "opponent", text: "AI vòng 3" },
-        { speaker: "learner", text: "Tôi vòng 3" },
-      ]);
-      expect(mockEvaluateDebateRound.mock.calls[0][0].side).toBe("con");
-      // An AI session's transcript is local: the P2P completeness check does not apply.
-      expect(mockGetTranscript).not.toHaveBeenCalled();
+      expect(shownScore()).toBe("60");
+      expect(screen.getByText("xu hướng CON")).toBeInTheDocument();
     });
   });
 
   describe("who is who", () => {
-    it("1v1: same result from the CON player's seat, and the evaluator is told the real side", async () => {
+    it("1v1 from the CON player's seat: the CON result", async () => {
       seedSession(
         2,
         [
@@ -310,57 +319,49 @@ describe("Final grading attributes every speech to the right person", () => {
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(turnsOfStage("opening")?.[0]).toEqual({ speaker: "learner", text: "Tôi vòng 1" });
-      expect(mockEvaluateDebateRound.mock.calls[0][0].side).toBe("con");
-      expect(mockEvaluateDebateSession.mock.calls[0][0].side).toBe("con");
+      expect(shownScore()).toBe("60");
     });
 
-    it("1v1: an opponent with my exact full name is still the opponent", async () => {
-      seedSession(
-        3,
-        [
-          { userId: ME, side: PRO, speakerName: MY_NAME },
-          { userId: 2, side: CON, speakerName: MY_NAME },
-        ],
-        [1, 2, 3].flatMap((stage) => [
-          arg(stage, PRO, MY_NAME, `Tôi vòng ${stage}`),
-          arg(stage, CON, MY_NAME, `Đối thủ trùng tên vòng ${stage}`),
-        ])
-      );
+    it("a string account id matches the numeric participant id", async () => {
+      seedSession(2, oneVsOne, fullOneVsOne());
+      mockAuthUser = { id: "1", fullName: MY_NAME, role: "Debater" };
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(turnsOfStage("opening")).toEqual([
-        { speaker: "learner", text: "Tôi vòng 1" },
-        { speaker: "opponent", text: "Đối thủ trùng tên vòng 1" },
-      ]);
+      expect(shownScore()).toBe("80");
     });
 
-    it("transcript userId wins: a teammate with my exact name is told apart once the Backend sends it", async () => {
-      const sameName: Participant[] = [
-        { userId: ME, side: PRO, speakerName: MY_NAME },
-        { userId: 3, side: PRO, speakerName: MY_NAME },
-        { userId: 2, side: CON, speakerName: OPPONENT },
-        { userId: 4, side: CON, speakerName: OPPONENT_2 },
-      ];
+    it("account id 0 is a real id, not 'still loading'", async () => {
       seedSession(
         2,
-        sameName,
-        [1, 2, 3].flatMap((stage) => [
-          arg(stage, PRO, MY_NAME, `Tôi vòng ${stage}`, ME),
-          arg(stage, CON, OPPONENT, `Đối thủ 1 vòng ${stage}`, 2),
-          arg(stage, PRO, MY_NAME, `Đồng đội trùng tên vòng ${stage}`, 3),
-          arg(stage, CON, OPPONENT_2, `Đối thủ 2 vòng ${stage}`, 4),
-        ])
+        [
+          { userId: 0, side: PRO, speakerName: MY_NAME },
+          { userId: 2, side: CON, speakerName: OPPONENT },
+        ],
+        fullOneVsOne()
       );
+      mockAuthUser = { userId: 0, fullName: MY_NAME, role: "Debater" };
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(turnsOfStage("opening")).toEqual([
-        { speaker: "learner", text: "Tôi vòng 1" },
-        { speaker: "opponent", text: "Đối thủ 1 vòng 1" },
-        { speaker: "opponent", text: "Đối thủ 2 vòng 1" },
-      ]);
+      expect(shownScore()).toBe("80");
+    });
+
+    it("a signed-in user missing from the participants gets no result (no guessed side)", async () => {
+      seedSession(
+        2,
+        [
+          { userId: 7, side: PRO, speakerName: "Người khác" },
+          { userId: 2, side: CON, speakerName: OPPONENT },
+        ],
+        fullOneVsOne()
+      );
+      renderRoom();
+      await clickSubmitOnce("Tôi vòng 1");
+
+      expect((await screen.findAllByText(/bạn không tham gia phiên tranh biện này/)).length).toBeGreaterThan(0);
+      expect(mockGetEvaluation).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
     });
 
     it("getSpeakerRelation: userId is authoritative over a misleading side and name", () => {
@@ -382,130 +383,52 @@ describe("Final grading attributes every speech to the right person", () => {
   });
 
   describe("a stage I did not speak in", () => {
-    it("is not graded, is reported to the session evaluator, and shows 'Không phát biểu'", async () => {
+    it("shows 'Không phát biểu' for the stage the Backend reports as skipped", async () => {
       seedSession(2, twoVsTwo, fullTwoVsTwo([1, 3]));
+      mockGetEvaluation.mockResolvedValue(officialResult({ proEvaluation: sideEvaluation("PRO", 8, ["rebuttal"]) }));
       renderRoom();
       await submitOnceLoaded("Tôi vòng 1");
 
-      expect(gradedStages()).toEqual(["opening", "closing"]);
-      const sessionPayload = mockEvaluateDebateSession.mock.calls[0][0];
-      expect(sessionPayload.skipped_stages).toEqual(["rebuttal"]);
-      expect(sessionPayload.rounds.map((r: { stage: string }) => r.stage)).toEqual(["opening", "closing"]);
       expect(screen.getAllByText("Không phát biểu")).toHaveLength(1);
       expect(screen.getByText("Phản biện")).toBeInTheDocument();
     });
 
-    it("sends no skipped_stages when I spoke in every stage", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      renderRoom();
-      await submitOnceLoaded("Tôi vòng 1");
-
-      expect(mockEvaluateDebateSession.mock.calls[0][0]).not.toHaveProperty("skipped_stages");
-      expect(screen.queryByText("Không phát biểu")).not.toBeInTheDocument();
-    });
-
-    it("if I never spoke, nothing is graded and all three stages show 'Không phát biểu'", async () => {
+    it("if I never spoke (no evaluation for my side, score 0), all three stages show 'Không phát biểu'", async () => {
       seedSession(2, twoVsTwo, fullTwoVsTwo([]));
+      mockGetEvaluation.mockResolvedValue(officialResult({ proEvaluation: null, overallScorePro: 0 }));
       renderRoom();
       await submitOnceLoaded("Đối thủ 1 vòng 1");
 
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-      expect(mockEvaluateDebateSession).not.toHaveBeenCalled();
       expect(screen.getAllByText("Không phát biểu")).toHaveLength(3);
+      expect(shownScore()).toBe("0");
     });
   });
 
   describe("error handling", () => {
-    const ambiguous: Participant[] = [
-      { userId: ME, side: PRO, speakerName: MY_NAME },
-      { userId: 3, side: PRO, speakerName: MY_NAME },
-      { userId: 2, side: CON, speakerName: OPPONENT },
-      { userId: 4, side: CON, speakerName: OPPONENT_2 },
-    ];
-    const ambiguousTranscript = () =>
-      [1, 2, 3].flatMap((stage) => [
-        arg(stage, PRO, MY_NAME, `Trùng tên A vòng ${stage}`),
-        arg(stage, CON, OPPONENT, `Đối thủ 1 vòng ${stage}`),
-        arg(stage, PRO, MY_NAME, `Trùng tên B vòng ${stage}`),
-        arg(stage, CON, OPPONENT_2, `Đối thủ 2 vòng ${stage}`),
-      ]);
-
-    it("data error (speaker cannot be identified): clear message, no retry button, submit stays disabled", async () => {
-      seedSession(2, ambiguous, ambiguousTranscript());
+    it("the official result is not ready (404): banner with a retry, which shows the result once it is", async () => {
+      seedSession(2, oneVsOne, fullOneVsOne());
+      mockGetEvaluation.mockRejectedValueOnce({ success: false, status: 404, message: "No evaluation found for this debate session." });
       renderRoom();
-      await clickSubmitOnce("Trùng tên A vòng 1");
+      await clickSubmitOnce("Tôi vòng 1");
 
-      expect(await screen.findByText(/không xác định được người nói/i)).toBeInTheDocument();
-      expect(screen.queryByTestId("retry-finish-evaluation-btn")).not.toBeInTheDocument();
-      expect(screen.getByTestId("header-submit-debate-btn")).toBeDisabled();
-      expect(screen.getByTestId("submit-and-view-result-btn")).toBeDisabled();
+      const retry = await screen.findByTestId("retry-finish-evaluation-btn");
+      expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("No evaluation found");
       expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+
+      fireEvent.click(retry);
+      await screen.findByTestId("result-page");
+      expect(mockGetEvaluation).toHaveBeenCalledTimes(2);
+      expect(shownScore()).toBe("80");
     });
 
-    it("a string account id matches the numeric participant id, so grading works", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      mockAuthUser = { id: "1", fullName: MY_NAME, role: "Debater" };
-      renderRoom();
-      await submitOnceLoaded("Tôi vòng 1");
-
-      expect(turnsOfStage("opening")?.[0]).toEqual({ speaker: "learner", text: "Tôi vòng 1" });
-    });
-
-    it("account id 0 is a real id, not 'still loading'", async () => {
-      seedSession(
-        2,
-        [
-          { userId: 0, side: PRO, speakerName: MY_NAME },
-          { userId: 2, side: CON, speakerName: OPPONENT },
-        ],
-        fullOneVsOne()
-      );
-      mockAuthUser = { userId: 0, fullName: MY_NAME, role: "Debater" };
-      renderRoom();
-      await submitOnceLoaded("Tôi vòng 1");
-
-      expect(turnsOfStage("opening")?.[0]).toEqual({ speaker: "learner", text: "Tôi vòng 1" });
-    });
-
-    it("a non-numeric account id is not 'still loading': it is not a participant, so it is a data error with no retry", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      mockAuthUser = { id: "abc-123", fullName: MY_NAME, role: "Debater" };
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      expect(await screen.findByText(/Thử lại sẽ không khắc phục được/)).toBeInTheDocument();
-      expect(screen.queryByTestId("retry-finish-evaluation-btn")).not.toBeInTheDocument();
-      expect(screen.queryByText(/chưa tải xong thông tin tài khoản/)).not.toBeInTheDocument();
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-    });
-
-    it("a signed-in user missing from the participants stays a data error", async () => {
-      seedSession(
-        2,
-        [
-          { userId: 7, side: PRO, speakerName: "Người khác" },
-          { userId: 2, side: CON, speakerName: OPPONENT },
-        ],
-        fullOneVsOne()
-      );
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      expect(await screen.findByText(/Thử lại sẽ không khắc phục được/)).toBeInTheDocument();
-      expect(screen.queryByTestId("retry-finish-evaluation-btn")).not.toBeInTheDocument();
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-    });
-
-    it("temporary error (account not loaded yet): offers a retry instead of blocking, which works once it loads", async () => {
+    it("temporary error (account not loaded yet): offers a retry, which works once it loads", async () => {
       seedSession(2, oneVsOne, fullOneVsOne());
       mockAuthUser = null;
       const view = renderRoom();
       await clickSubmitOnce("Tôi vòng 1");
 
       const retry = await screen.findByTestId("retry-finish-evaluation-btn");
-      expect(screen.queryByText(/Thử lại sẽ không khắc phục được/)).not.toBeInTheDocument();
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+      expect(mockGetEvaluation).not.toHaveBeenCalled();
 
       mockAuthUser = SIGNED_IN_USER;
       view.rerender(
@@ -518,8 +441,7 @@ describe("Final grading attributes every speech to the right person", () => {
       );
       fireEvent.click(retry);
       await screen.findByTestId("result-page");
-
-      expect(turnsOfStage("opening")?.[0]).toEqual({ speaker: "learner", text: "Tôi vòng 1" });
+      expect(mockGetEvaluation).toHaveBeenCalledTimes(1);
     });
 
     it("no query string: shows the loading screen while the session fails to load, and the room once it loads", async () => {
@@ -560,137 +482,12 @@ describe("Final grading attributes every speech to the right person", () => {
       await clickSubmitOnce("Tôi đã lưu");
 
       const retry = await screen.findByTestId("retry-finish-evaluation-btn");
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
+      expect(mockGetEvaluation).not.toHaveBeenCalled();
 
-      // The session arrives (this makes the room a P2P one, so the transcript replaces the stored speeches)
       await screen.findByText("Tôi vòng 1");
       fireEvent.click(retry);
       await screen.findByTestId("result-page");
-
-      expect(turnsOfStage("opening")?.[1]).toEqual({ speaker: "opponent", text: "Đối thủ vòng 1" });
-    });
-  });
-
-  describe("missing final turn", () => {
-    const withoutLastTurn = () => fullOneVsOne().slice(0, 5);
-
-    it("waits and re-reads: grades only after the last turn has arrived", async () => {
-      seedSession(2, oneVsOne, withoutLastTurn());
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      });
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-
-      currentTranscript = fullOneVsOne();
-      await screen.findByTestId("result-page", undefined, { timeout: 4000 });
-
-      expect(turnsOfStage("closing")).toEqual([
-        { speaker: "learner", text: "Tôi vòng 3" },
-        { speaker: "opponent", text: "Đối thủ vòng 3" },
-      ]);
-    });
-
-    it("does not grade if the turn never arrives: offers a retry instead", async () => {
-      seedSession(2, oneVsOne, withoutLastTurn());
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      const retry = await screen.findByTestId("retry-finish-evaluation-btn", undefined, { timeout: 4000 });
-      expect(screen.getAllByText(/chưa đủ lượt/).length).toBeGreaterThan(0);
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-
-      currentTranscript = fullOneVsOne();
-      fireEvent.click(retry);
-      await screen.findByTestId("result-page");
-      expect(gradedStages()).toEqual(["opening", "rebuttal", "closing"]);
-    });
-
-    it("does not grade while the Backend still reports a current turn", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne(), { currentTurn: { turnId: 3 } });
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      await screen.findByTestId("retry-finish-evaluation-btn", undefined, { timeout: 4000 });
-      expect(mockEvaluateDebateRound).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("reusing round results on retry", () => {
-    it("reuses a round whose turns did not change", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      mockEvaluateDebateSession.mockRejectedValueOnce(new Error("lỗi tổng hợp"));
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-
-      fireEvent.click(await screen.findByTestId("retry-finish-evaluation-btn"));
-      await screen.findByTestId("result-page");
-
-      expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3);
-      expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(2);
-    });
-
-    it("re-grades only the round whose turns changed, and redoes the session summary", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      mockEvaluateDebateSession.mockRejectedValueOnce(new Error("lỗi tổng hợp"));
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-      const retry = await screen.findByTestId("retry-finish-evaluation-btn");
-      expect(mockEvaluateDebateRound).toHaveBeenCalledTimes(3);
-
-      currentTranscript = currentTranscript.map((a) =>
-        a.content === "Đối thủ vòng 2" ? { ...a, content: "Đối thủ vòng 2 đã sửa" } : a
-      );
-      mockEvaluateDebateRound.mockClear();
-      fireEvent.click(retry);
-      await screen.findByTestId("result-page");
-
-      expect(gradedStages()).toEqual(["rebuttal"]);
-      expect(turnsOfStage("rebuttal")?.[1].text).toBe("Đối thủ vòng 2 đã sửa");
-      expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(2);
-    });
-
-    it("does not reuse the session summary when a retry happens after a round changed", async () => {
-      seedSession(2, oneVsOne, fullOneVsOne());
-      // The summary succeeds, but the result cannot be built: the next attempt starts from the caches.
-      mockEvaluateDebateSession.mockResolvedValueOnce({ stage_breakdown: {}, progress_trend: "" });
-      mockEvaluateDebateRound.mockImplementationOnce(async () => ({
-        stage: "opening",
-        round_score: null,
-        criteria: [],
-        strengths: [],
-        weaknesses: [],
-        suggestions: [],
-      }));
-      mockEvaluateDebateRound.mockImplementationOnce(async () => ({
-        stage: "rebuttal",
-        round_score: null,
-        criteria: [],
-        strengths: [],
-        weaknesses: [],
-        suggestions: [],
-      }));
-      mockEvaluateDebateRound.mockImplementationOnce(async () => ({
-        stage: "closing",
-        round_score: null,
-        criteria: [],
-        strengths: [],
-        weaknesses: [],
-        suggestions: [],
-      }));
-      renderRoom();
-      await clickSubmitOnce("Tôi vòng 1");
-      const retry = await screen.findByTestId("retry-finish-evaluation-btn");
-
-      currentTranscript = currentTranscript.map((a) =>
-        a.content === "Tôi vòng 3" ? { ...a, content: "Tôi vòng 3 đã sửa" } : a
-      );
-      fireEvent.click(retry);
-      await screen.findByTestId("result-page");
-
-      expect(mockEvaluateDebateSession).toHaveBeenCalledTimes(2);
+      expect(shownScore()).toBe("80");
     });
   });
 
