@@ -68,7 +68,7 @@ const CompetitionFormModal: React.FC<Props> = ({
       setTitle("");
       setDescription("");
       setCompetitionType("INDIVIDUAL");
-      setFormatId("");
+      setFormatId(2);
       setMaxParticipants(16);
       setRegistrationStart(toDateInputString(now));
       setRegistrationEnd(toDateInputString(inOneWeek));
@@ -276,10 +276,18 @@ const CompetitionFormModal: React.FC<Props> = ({
               disabled={isEditing}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-500"
               value={competitionType}
-              onChange={(e) => setCompetitionType(e.target.value as CompetitionType)}
+              onChange={(e) => {
+                const nextType = e.target.value as CompetitionType;
+                setCompetitionType(nextType);
+                if (nextType === "INDIVIDUAL") {
+                  setFormatId(2);
+                } else if (nextType === "TEAM") {
+                  setFormatId(4);
+                }
+              }}
             >
-              <option value="INDIVIDUAL">Cá nhân (INDIVIDUAL)</option>
-              <option value="TEAM">Đồng đội (TEAM - 2 người)</option>
+              <option value="INDIVIDUAL">Cá nhân (INDIVIDUAL - 1v1)</option>
+              <option value="TEAM">Đồng đội (TEAM - 2v2)</option>
             </select>
             {isEditing && (
               <p className="text-[10px] text-slate-400 mt-0.5">Không thể đổi hình thức thi đấu khi đã tạo.</p>
@@ -293,12 +301,17 @@ const CompetitionFormModal: React.FC<Props> = ({
               value={formatId}
               onChange={(e) => setFormatId(e.target.value ? Number(e.target.value) : "")}
             >
-              <option value="">-- Mặc định hệ thống --</option>
-              <option value="1">User vs AI (FormatId: 1)</option>
-              <option value="2">1 vs 1 Đối kháng (FormatId: 2)</option>
-              <option value="3">Solo Practice (FormatId: 3)</option>
-              <option value="4">Team Debate (FormatId: 4)</option>
+              {competitionType === "INDIVIDUAL" ? (
+                <option value="2">1 vs 1 Đối kháng (FormatId: 2)</option>
+              ) : (
+                <option value="4">Team Debate 2v2 (FormatId: 4)</option>
+              )}
             </select>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              {competitionType === "INDIVIDUAL"
+                ? "Giải đấu đối kháng trực tiếp 1v1 giữa hai thí sinh."
+                : "Giải đấu đối kháng 2v2 (Captain và 1 thành viên mỗi đội)."}
+            </p>
           </div>
         </div>
 

@@ -69,9 +69,10 @@ describe("Payments - Direct PayOS Checkout Redirect", () => {
 
     // Mock window.location
     const originalLocation = window.location;
-    // @ts-expect-error mock window.location
-    delete window.location;
-    window.location = { ...originalLocation, href: "" } as Location;
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...originalLocation, href: "" },
+    });
 
     render(
       <MemoryRouter>
@@ -92,7 +93,10 @@ describe("Payments - Direct PayOS Checkout Redirect", () => {
     // Không còn mở modal quét QR với ảnh fallback QR server
     expect(screen.queryByText(/Quét mã QR bằng ứng dụng Ngân hàng/i)).not.toBeInTheDocument();
 
-    window.location = originalLocation;
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: originalLocation,
+    });
   });
 
   it("hiển thị thông báo thành công khi PayOS redirect về với status=PAID", async () => {

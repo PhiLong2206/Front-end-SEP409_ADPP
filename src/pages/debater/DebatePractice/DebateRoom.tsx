@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
+  AlertTriangle,
   Shield,
   Flame,
   Swords,
@@ -52,6 +53,7 @@ import {
   DebateSessionResponse,
   SideSwapRequestResponse,
   DebateRoomMode,
+  DebateRoleInRoom,
   DebateTeamGroup,
 } from "../../../types";
 import {
@@ -331,7 +333,24 @@ const DebateRoom: React.FC = () => {
           (sessionDetails.title.toLowerCase().includes("2 vs 2") ||
             sessionDetails.title.toLowerCase().includes("2v2"))))
   );
-  const isCompetition = sessionId.startsWith("session-comp-");
+  const myParticipant = sessionDetails?.participants.find((p) => isSameUserId(p.userId, currentUserId));
+  const isParticipant = Boolean(myParticipant);
+  const queryRole = searchParams.get("role")?.toLowerCase();
+  const userRoleInRoom: DebateRoleInRoom = !isBackendSession
+    ? "Debater"
+    : isParticipant
+    ? "Debater"
+    : queryRole === "judge"
+    ? "Judge"
+    : "Spectator";
+
+  const isCompetition =
+    searchParams.get("mode") === "competition" ||
+    Boolean(
+      sessionDetails &&
+        (sessionDetails.debateType === 4 ||
+          (sessionDetails.title && sessionDetails.title.includes("[Giải đấu]")))
+    );
   const roomMode: DebateRoomMode = isCompetition
     ? "competition"
     : is2v2
@@ -352,7 +371,6 @@ const DebateRoom: React.FC = () => {
         : proParticipants.length >= 1 && conParticipants.length >= 1)
   );
 
-  const myParticipant = sessionDetails?.participants.find((p) => isSameUserId(p.userId, currentUserId));
   const mySide = myParticipant?.side;
 
   // ONE source for the session data sent to the AI services: the Backend session first, then the URL.
@@ -493,11 +511,17 @@ const DebateRoom: React.FC = () => {
     !pendingTurnEvaluation &&
     !hasDebaterSpokenInCurrentRound;
 
-  const canSpeak = isP2pOr2v2
-    ? isMyP2pTurn && !isSubmitting && !EffectiveDebateCompleted && !EffectiveExpired
-    : isDebaterTurnInAiMode;
+  const canSpeak =
+    userRoleInRoom === "Debater" &&
+    (isP2pOr2v2
+      ? isMyP2pTurn && !isSubmitting && !EffectiveDebateCompleted && !EffectiveExpired
+      : isDebaterTurnInAiMode);
 
-  const cannotSpeakReason = EffectiveDebateCompleted
+  const cannotSpeakReason = userRoleInRoom === "Judge"
+    ? "Bạn đang ở chế độ Giám khảo theo dõi trận đấu (Read-only)."
+    : userRoleInRoom === "Spectator"
+    ? "Bạn đang ở chế độ Giám sát/Khán giả theo dõi trận đấu (Read-only)."
+    : EffectiveDebateCompleted
     ? "Đã hoàn thành 3 vòng tranh biện. Nhấn 'Nộp bài' ở góc trên để xem kết quả."
     : opponentInitFailed
     ? "Chưa kết nối được Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
@@ -1861,13 +1885,35 @@ const DebateRoom: React.FC = () => {
     (pendingTurnEvaluation ? TURN_EVALUATION_ERROR : null) ||
     (finishEvaluationFailed ? FINISH_EVALUATION_ERROR : null);
 
+  if (sessionId.startsWith("session-comp-")) {
+    return (
+      <div className="min-h-[500px] bg-slate-50 flex flex-col items-center justify-center p-6 text-center rounded-2xl border border-slate-200 shadow-xs m-4">
+        <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4 shadow-xs">
+          <AlertTriangle size={32} />
+        </div>
+        <h2 className="text-xl font-black text-slate-900 mb-2">Định danh phòng thi không hợp lệ</h2>
+        <p className="text-xs sm:text-sm text-slate-600 max-w-md mb-6 leading-relaxed">
+          Đường dẫn dạng <code className="px-1.5 py-0.5 bg-slate-200 rounded font-mono">{sessionId}</code> là định danh cũ không còn sử dụng.
+          Mỗi trận đấu trong giải đấu có một phiên tranh biện (DebateSession ID) riêng biệt. 
+          Vui lòng quay lại trang Giải đấu để xem nhánh đấu và tham gia đúng trận của bạn.
+        </p>
+        <button
+          onClick={() => navigate("/debater/competitions")}
+          className="px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+        >
+          Trở về Danh sách Giải đấu
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#0B1813] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
       {/* 1. COMPACT STICKY HEADER */}
       <DebateHeader
         motionText={motionText}
         mode={roomMode}
-        userRoleInRoom="Debater"
+        userRoleInRoom={userRoleInRoom}
         debaterSide={debaterSide}
         currentRound={currentRound}
         secondsRemaining={secondsRemaining}
@@ -2291,7 +2337,7 @@ const DebateRoom: React.FC = () => {
               isDebateCompleted={EffectiveDebateCompleted}
               canSpeak={canSpeak && !isSessionCancelled}
               cannotSpeakReason={isSessionCancelled ? "Phiên tranh biện đã bị huỷ." : cannotSpeakReason}
-              userRoleInRoom="Debater"
+              userRoleInRoom={userRoleInRoom}
               activeSidebarTab={isSidebarOpen ? sidebarTab : null}
               hasNewEvaluation={hasNewEvaluation}
               latestScore={evaluationResult?.overall_score ?? null}
@@ -2306,7 +2352,7 @@ const DebateRoom: React.FC = () => {
           <DebateSidebar
             isOpen={isSidebarOpen}
             mode={roomMode}
-            userRoleInRoom="Debater"
+            userRoleInRoom={userRoleInRoom}
             activeTab={sidebarTab}
             proTeam={proTeamGroup}
             conTeam={conTeamGroup}
