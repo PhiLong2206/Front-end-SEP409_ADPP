@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import competitionApi from "../api/competitionApi";
-import debateApi from "../api/debateApi";
+import debateApi, { EVALUATION_TIMEOUT_MS } from "../api/debateApi";
 import axiosClient from "../api/axiosClient";
 import {
   CreateCompetitionDto,
@@ -485,11 +485,13 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
         success: true,
         message: "Success",
         data: {
+          judgementId: 1,
           sessionId: 999,
           summary: "Bên PRO có lập luận chặt chẽ hơn về mặt thực chứng.",
-          winnerSide: "PRO",
-          proScore: 8.5,
-          conScore: 7.2,
+          suggestedWinnerSide: "PRO",
+          overallScorePro: 8.5,
+          overallScoreCon: 7.2,
+          evaluatedAt: "2026-11-11T10:00:00Z",
         },
       };
 
@@ -500,9 +502,10 @@ describe("Competition & Debate Lifecycle API Suite (16 Steps, 5 Phases)", () => 
       const getRes = await debateApi.getEvaluation(999);
 
       expect(axiosClient.post).toHaveBeenCalledWith("/debate/999/evaluate");
-      expect(axiosClient.get).toHaveBeenCalledWith("/debate/999/evaluation");
+      // The Backend may evaluate during this call: it gets a long timeout
+      expect(axiosClient.get).toHaveBeenCalledWith("/debate/999/evaluation", { timeout: EVALUATION_TIMEOUT_MS });
       expect(triggerRes.success).toBe(true);
-      expect((getRes.data as { winnerSide: string }).winnerSide).toBe("PRO");
+      expect(getRes.data?.suggestedWinnerSide).toBe("PRO");
     });
 
     it("Bước 15: Judge xem hồ sơ review trận đấu (GET /api/competitions/{id}/matches/{matchId}/review)", async () => {

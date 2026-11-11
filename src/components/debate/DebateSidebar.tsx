@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import RebuttalSuggestion, { RebuttalTips } from "./RebuttalSuggestion";
 import AICoachingPanel, { CoachingAdvice } from "./AICoachingPanel";
+import { CRITERION_MAX_SCORE, OVERALL_MAX_SCORE } from "../../utils/debateScoring";
 import {
   DebateRoomMode,
   DebateRoleInRoom,
@@ -474,7 +475,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                       </p>
                     </div>
                     <div className="text-2xl font-black text-[#008A64] dark:text-[#34D399] shrink-0 pl-3">
-                      {evaluationResult.overall_score}/10
+                      {evaluationResult.overall_score}/{OVERALL_MAX_SCORE}
                     </div>
                   </div>
 
@@ -492,7 +493,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                           >
                             <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
                               <span>{c.name}</span>
-                              <span className="text-[#008A64]">{c.score}/5</span>
+                              <span className="text-[#008A64]">{c.score}/{c.max_score ?? CRITERION_MAX_SCORE}</span>
                             </div>
                             <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
                               {c.reasoning}

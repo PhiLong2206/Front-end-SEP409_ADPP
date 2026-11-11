@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { Bot, ArrowDown, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Bot, ArrowDown, Clock, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import DebateMessageItem, { DebateMessageData } from "./DebateMessageItem";
 import { DebateRoomMode } from "../../types";
 
@@ -14,6 +14,8 @@ export interface DebateChatProps {
   isTurnExpired?: boolean;
   isDebateCompleted?: boolean;
   canSubmitDebate?: boolean;
+  /** Id of the learner message whose turn evaluation is running: shows a small, non-blocking indicator. */
+  evaluatingMessageId?: string | null;
   isP2pOr2v2?: boolean;
   onAdvanceTimedOutRound?: () => void;
   onSubmitDebate?: () => void;
@@ -30,6 +32,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   isTurnExpired = false,
   isDebateCompleted = false,
   canSubmitDebate = false,
+  evaluatingMessageId = null,
   isP2pOr2v2 = false,
   onAdvanceTimedOutRound,
   onSubmitDebate,
@@ -37,19 +40,27 @@ const DebateChat: React.FC<DebateChatProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // "Near the bottom" = within this many pixels of the end: only then new messages scroll the chat
+  const NEAR_BOTTOM_PX = 120;
+
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+  // Read by the effects below without being a dependency (scrolling must never re-trigger auto-scroll)
+  const isNearBottomRef = useRef(true);
   const prevMsgCountRef = useRef(messages.length);
+  const prevLastMsgIdRef = useRef(messages[messages.length - 1]?.id);
+  const prevCompletedRef = useRef(isDebateCompleted);
 
   const checkIfNearBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return true;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    return distanceFromBottom <= 140;
+    return distanceFromBottom <= NEAR_BOTTOM_PX;
   }, []);
 
   const handleScroll = useCallback(() => {
     const nearBottom = checkIfNearBottom();
+    isNearBottomRef.current = nearBottom;
     setIsNearBottom(nearBottom);
     if (nearBottom) {
       setHasUnreadBelow(false);
@@ -58,26 +69,56 @@ const DebateChat: React.FC<DebateChatProps> = ({
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
+    isNearBottomRef.current = true;
     setHasUnreadBelow(false);
     setIsNearBottom(true);
   }, []);
 
+  // On entering the page, show the end of the conversation once (also for a finished debate)
   useEffect(() => {
-    const latestMsg = messages[messages.length - 1];
-    const isNewMessage = messages.length > prevMsgCountRef.current;
-    prevMsgCountRef.current = messages.length;
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  }, []);
 
+  // Auto-scroll ONLY when a new message arrived (count grew or the last id changed), and only if the user
+  // is near the bottom. Re-renders, polling, the clock and scrolling itself never move the view.
+  useEffect(() => {
+    const count = messages.length;
+    const lastId = messages[count - 1]?.id;
+    const isNewMessage = count > prevMsgCountRef.current || (count > 0 && lastId !== prevLastMsgIdRef.current);
+    prevMsgCountRef.current = count;
+    prevLastMsgIdRef.current = lastId;
+
+    const wasCompleted = prevCompletedRef.current;
+    prevCompletedRef.current = isDebateCompleted;
+
+    // The debate just ended: bring the completion card into view if the user is following along
+    if (!wasCompleted && isDebateCompleted && isNearBottomRef.current) {
+      scrollToBottom("smooth");
+      return;
+    }
+    if (!isNewMessage) return;
+    // A finished debate is only read: never pull the user down again
+    if (wasCompleted && isDebateCompleted) return;
+
+    const latestMsg = messages[count - 1];
     const sentByDebater =
       latestMsg &&
       (latestMsg.isCurrentUser ??
         (latestMsg.speaker === "Debater" || latestMsg.speaker === "Learner"));
 
-    if (isNearBottom || (isNewMessage && sentByDebater) || isTurnExpired || isDebateCompleted) {
+    if (isNearBottomRef.current || sentByDebater) {
       scrollToBottom("smooth");
-    } else if (isNewMessage || isAiGenerating) {
+    } else {
       setHasUnreadBelow(true);
     }
-  }, [messages, isAiGenerating, isTurnExpired, isDebateCompleted, isNearBottom, scrollToBottom]);
+  }, [messages, isDebateCompleted, scrollToBottom]);
+
+  // The typing indicator appears at the bottom: follow it only if the user is following the conversation
+  useEffect(() => {
+    if (isAiGenerating && !isDebateCompleted && isNearBottomRef.current) {
+      scrollToBottom("smooth");
+    }
+  }, [isAiGenerating, isDebateCompleted, scrollToBottom]);
 
   const round1Messages = messages.filter((m) => m.roundNumber === 1);
   const round2Messages = messages.filter((m) => m.roundNumber === 2);
@@ -139,7 +180,19 @@ const DebateChat: React.FC<DebateChatProps> = ({
 
         {/* Messages in this round */}
         {roundMsgs.map((msg) => (
-          <DebateMessageItem key={msg.id} message={msg} />
+          <React.Fragment key={msg.id}>
+            <DebateMessageItem message={msg} />
+            {msg.id === evaluatingMessageId && (
+              <div
+                data-testid="turn-evaluating-indicator"
+                role="status"
+                className="flex items-center justify-end gap-1.5 pr-1 text-[11px] text-slate-400 dark:text-slate-500"
+              >
+                <Loader2 size={11} className="animate-spin" />
+                <span>Đang chấm lượt này...</span>
+              </div>
+            )}
+          </React.Fragment>
         ))}
 
         {/* System Timeout Notice for this Round */}
@@ -195,6 +248,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   return (
     <div
       ref={scrollContainerRef}
+      data-testid="debate-chat-scroll"
       onScroll={handleScroll}
       className="relative flex-1 overflow-y-auto px-3 sm:px-6 py-4 scroll-smooth bg-slate-50/40 dark:bg-[#091511]"
     >

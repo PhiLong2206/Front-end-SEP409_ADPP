@@ -17,7 +17,6 @@ export interface DebateHeaderProps {
   isEvaluating?: boolean;
   isDebateCompleted?: boolean;
   canSubmitDebate?: boolean;
-  isAiOfflineMode?: boolean;
   onExit: () => void;
   onSubmitDebate: () => void;
 }
@@ -37,7 +36,6 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
   isEvaluating = false,
   isDebateCompleted = false,
   canSubmitDebate = false,
-  isAiOfflineMode = false,
   onExit,
   onSubmitDebate,
 }) => {
@@ -175,19 +173,6 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
               <span>
                 {opponentLabel}: {opponentSideLabel}
               </span>
-
-              {isAiOfflineMode && (
-                <>
-                  <span className="text-slate-300 dark:text-slate-600">•</span>
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500"
-                    title="Dịch vụ AI Python chưa chạy cục bộ — hệ thống đang sử dụng phản hồi và chấm điểm mô phỏng tự động"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span>Mô phỏng</span>
-                  </span>
-                </>
-              )}
 
               <span className="hidden sm:inline text-slate-300 dark:text-slate-600">•</span>
               {renderTurnStatusBadge()}

@@ -38,8 +38,8 @@ vi.mock("../api", () => ({
   },
 }));
 
-const renderDebateRoom = (initialEntry = "/debater/debate/test-session?role=PRO&difficulty=Trung%20b%C3%ACnh") => {
-  return render(
+const renderDebateRoom = async (initialEntry = "/debater/debate/test-session?role=PRO&difficulty=Trung%20b%C3%ACnh") => {
+  const utils = render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
@@ -47,6 +47,9 @@ const renderDebateRoom = (initialEntry = "/debater/debate/test-session?role=PRO&
       </Routes>
     </MemoryRouter>
   );
+  // The input stays locked until the AI opponent session is ready: let the init promises settle
+  await act(async () => {});
+  return utils;
 };
 
 describe("DebateRoom Timer Expiration & State Machine", () => {
@@ -77,7 +80,7 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
   });
 
   it("1. handles timeout at 00:00 with no submitted argument (disables input/Send, updates status, no fake AI response)", async () => {
-    renderDebateRoom("/debater/debate/session-timeout-1?role=PRO");
+    await renderDebateRoom("/debater/debate/session-timeout-1?role=PRO");
 
     // Initially in Round 1 (02:15), active turn indicator is "Đến lượt bạn phát biểu"
     expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("02:15");
@@ -104,7 +107,7 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
     expect(sendBtn).toBeDisabled();
 
     // Timeout notification and round timeout notice are visible
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Đã hết thời gian phát biểu");
+    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Hết giờ, bạn chưa phát biểu");
     expect(screen.getByTestId("round-1-timeout-notice")).toBeInTheDocument();
 
     // No fake AI Opponent turn was generated on timeout
@@ -112,7 +115,7 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
   });
 
   it("2. handles timeout in subsequent round after an argument has been submitted in Round 1", async () => {
-    renderDebateRoom("/debater/debate/session-timeout-2?role=PRO");
+    await renderDebateRoom("/debater/debate/session-timeout-2?role=PRO");
 
     const textarea = screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement;
     const sendBtn = screen.getByLabelText("Gửi lập luận") as HTMLButtonElement;
@@ -148,7 +151,7 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
   });
 
   it("3. transitions cleanly between Opening (Round 1), Rebuttal (Round 2), and Conclusion (Round 3)", async () => {
-    renderDebateRoom("/debater/debate/session-transitions?role=PRO");
+    await renderDebateRoom("/debater/debate/session-transitions?role=PRO");
 
     // Round 1 (Opening) times out at 00:00
     await act(async () => {
@@ -181,7 +184,7 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
   });
 
   it("4. completes the final round (Conclusion / Round 3) both on timeout at 00:00 and on submission", async () => {
-    renderDebateRoom("/debater/debate/session-final-timeout?role=PRO");
+    await renderDebateRoom("/debater/debate/session-final-timeout?role=PRO");
 
     // Round 1 timeout -> advance to Round 2
     await act(async () => {
@@ -214,158 +217,132 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
     expect(screen.getByLabelText("Gửi lập luận")).toBeDisabled();
   });
 
-  it("5. does NOT mark Round 3 complete when PRO submits conclusion until AI Opponent (CON) responds", async () => {
-    renderDebateRoom("/debater/debate/session-r3-pending?role=PRO");
+  const turnReply = (turn: number, text: string) => ({
+    turn_index: turn,
+    round_type: turn <= 2 ? "opening" : turn <= 4 ? "rebuttal" : "closing",
+    mode: "reply",
+    speech_text: text,
+  });
+
+  it("5. PRO learner: after the rebuttal the AI (CON) speaks turn 4 THEN turn 5 (closing, CON first); PRO's closing (turn 6) completes the debate", async () => {
+    await renderDebateRoom("/debater/debate/session-r3-order?role=PRO");
 
     const textarea = screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement;
     const sendBtn = screen.getByLabelText("Gửi lập luận") as HTMLButtonElement;
 
-    // Round 1: Debater submits -> AI Opponent responds -> advance to Round 2
-    mockGenerateOpponentTurn.mockResolvedValueOnce({
-      turn_index: 2,
-      round_type: "opening",
-      mode: "opening_reply",
-      speech_text: "Phản hồi Mở đầu của phe CON ở Vòng 1.",
-    });
+    // Round 1: PRO speaks turn 1 -> AI replies turn 2
+    mockGenerateOpponentTurn.mockResolvedValueOnce(turnReply(2, "Phản hồi Mở đầu của phe CON ở Vòng 1."));
     fireEvent.change(textarea, { target: { value: "Luận điểm Mở đầu của phe PRO ở Vòng 1." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
     expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
-    expect(screen.getByText("Phản hồi Mở đầu của phe CON ở Vòng 1.")).toBeInTheDocument();
-
-    // Round 2: Debater submits -> AI Opponent responds -> advance to Round 3
-    mockGenerateOpponentTurn.mockResolvedValueOnce({
-      turn_index: 4,
-      round_type: "rebuttal",
-      mode: "rebuttal_reply",
-      speech_text: "Phản hồi Phản biện của phe CON ở Vòng 2.",
+    expect(mockGenerateOpponentTurn.mock.calls[0][1]).toMatchObject({
+      turn_index: 2,
+      new_learner_speeches: [{ turn_index: 1, round_type: "opening" }],
     });
+
+    // Round 2: PRO speaks turn 3 -> AI replies turn 4 and then, back to back, turn 5 (closing CON)
+    mockGenerateOpponentTurn.mockResolvedValueOnce(turnReply(4, "Phản hồi Phản biện của phe CON ở Vòng 2."));
+    let resolveTurn5!: (value: unknown) => void;
+    mockGenerateOpponentTurn.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveTurn5 = resolve;
+        })
+    );
     fireEvent.change(textarea, { target: { value: "Luận điểm Phản biện của phe PRO ở Vòng 2." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
-    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
+
+    // Turn 4 is shown, turn 5 is still pending: the round has NOT advanced yet
     expect(screen.getByText("Phản hồi Phản biện của phe CON ở Vòng 2.")).toBeInTheDocument();
+    expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
+    expect(screen.getByTestId("turn-status-indicator")).toHaveTextContent("Đối thủ AI đang phản hồi...");
 
-    // Round 3: Hold AI Opponent response in a pending promise
-    let resolveRound3AiTurn!: (value: unknown) => void;
-    mockGenerateOpponentTurn.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveRound3AiTurn = resolve;
-        })
-    );
+    await act(async () => {
+      resolveTurn5(turnReply(5, "Kết luận mở màn của phe CON ở Vòng 3."));
+    });
 
-    fireEvent.change(textarea, { target: { value: "Luận điểm Kết luận của phe PRO ở Vòng 3." } });
+    expect(mockGenerateOpponentTurn.mock.calls[1][1]).toMatchObject({
+      turn_index: 4,
+      new_learner_speeches: [{ turn_index: 3, round_type: "rebuttal" }],
+    });
+    expect(mockGenerateOpponentTurn.mock.calls[2][1]).toEqual({ turn_index: 5, new_learner_speeches: [] });
+    expect(screen.getByText("Kết luận mở màn của phe CON ở Vòng 3.")).toBeInTheDocument();
+    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
+    expect(screen.queryByTestId("debate-completed-banner")).not.toBeInTheDocument();
+
+    // Round 3: PRO speaks last (turn 6): nothing is requested from the AI and the debate is complete
+    fireEvent.change(textarea, { target: { value: "Kết luận cuối của phe PRO ở Vòng 3." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
-
-    // While CON has NOT responded yet:
-    // - Debate MUST NOT be marked completed
-    // - "Nộp bài & Xem kết quả" MUST NOT be rendered/enabled
-    // - Status must show AI is responding
-    expect(screen.getByText("Luận điểm Kết luận của phe PRO ở Vòng 3.")).toBeInTheDocument();
-    expect(screen.queryByTestId("debate-completed-banner")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("submit-and-view-result-btn")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("header-submit-debate-btn")).not.toBeInTheDocument();
-    expect(screen.getByTestId("turn-status-indicator")).toHaveTextContent("Đối thủ AI đang phản hồi...");
-    expect(screen.getByTestId("ai-typing-indicator")).toBeInTheDocument();
-
-    // Now resolve CON's Round 3 response
-    await act(async () => {
-      resolveRound3AiTurn({
-        turn_index: 6,
-        round_type: "closing",
-        mode: "closing_reply",
-        speech_text: "Phản hồi Kết luận cuối cùng của phe CON ở Vòng 3.",
-      });
-    });
-
-    // Only AFTER CON's Round 3 speech is recorded does the debate complete
-    expect(screen.getByText("Phản hồi Kết luận cuối cùng của phe CON ở Vòng 3.")).toBeInTheDocument();
+    expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(3);
     expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
     expect(screen.getByTestId("submit-and-view-result-btn")).not.toBeDisabled();
-    expect(screen.getByTestId("header-submit-debate-btn")).not.toBeDisabled();
-    expect(screen.getByTestId("turn-status-indicator")).toHaveTextContent("Đã hoàn thành 3 vòng");
   });
 
-  it("6. shows error/waiting state (not completed) if AI Opponent request fails or times out in Round 3, and completes upon retry", async () => {
-    renderDebateRoom("/debater/debate/session-r3-error?role=PRO");
+  it("6. shows error/waiting state (not advancing) if the AI's closing turn 5 fails after the rebuttal, and continues upon retry", async () => {
+    await renderDebateRoom("/debater/debate/session-r3-error?role=PRO");
 
     const textarea = screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement;
     const sendBtn = screen.getByLabelText("Gửi lập luận") as HTMLButtonElement;
 
-    // Complete Round 1 & Round 2
+    // Round 1
     fireEvent.change(textarea, { target: { value: "Lập luận Vòng 1 của PRO." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
+
+    // Round 2: turn 4 works, turn 5 fails
+    mockGenerateOpponentTurn.mockResolvedValueOnce(turnReply(4, "Phản hồi Vòng 2 của CON."));
+    mockGenerateOpponentTurn.mockRejectedValueOnce(new Error("Request timeout"));
     fireEvent.change(textarea, { target: { value: "Lập luận Vòng 2 của PRO." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
-    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
 
-    // Round 3 AI Opponent request fails/times out
-    mockGenerateOpponentTurn.mockRejectedValueOnce(new Error("Request timeout"));
-
-    fireEvent.change(textarea, { target: { value: "Lập luận Kết luận Vòng 3 của PRO." } });
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-
-    // Must NOT be marked completed — must stay in waiting-for-opponent state with error & retry option
-    expect(screen.queryByTestId("debate-completed-banner")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("submit-and-view-result-btn")).not.toBeInTheDocument();
-    expect(screen.getByTestId("turn-status-indicator")).toHaveTextContent("Đang chờ lượt đối thủ");
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent(
-      "Không nhận được phản hồi từ Đối thủ AI"
-    );
+    // Must NOT advance to round 3 — stay blocked with error & retry option
+    expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
+    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Không nhận được phản hồi từ Đối thủ AI");
     expect(screen.getByTestId("retry-ai-turn-btn")).toBeInTheDocument();
+    expect(screen.getByLabelText("Lập luận của bạn")).toBeDisabled();
 
-    // Retry succeeds -> records AI Opponent's Round 3 speech and completes debate
-    mockGenerateOpponentTurn.mockResolvedValueOnce({
-      turn_index: 6,
-      round_type: "closing",
-      mode: "closing_reply",
-      speech_text: "Phản hồi Kết luận Vòng 3 của CON sau khi thử lại.",
-    });
-
+    // Retry asks for turn 5 again (no learner speech: it was already delivered with turn 4)
+    mockGenerateOpponentTurn.mockResolvedValueOnce(turnReply(5, "Kết luận mở màn của CON sau khi thử lại."));
     await act(async () => {
       fireEvent.click(screen.getByTestId("retry-ai-turn-btn"));
     });
 
-    expect(screen.getByText("Phản hồi Kết luận Vòng 3 của CON sau khi thử lại.")).toBeInTheDocument();
-    expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
-    expect(screen.getByTestId("submit-and-view-result-btn")).not.toBeDisabled();
+    const lastCall = mockGenerateOpponentTurn.mock.calls[mockGenerateOpponentTurn.mock.calls.length - 1][1];
+    expect(lastCall).toEqual({ turn_index: 5, new_learner_speeches: [] });
+    expect(screen.getByText("Kết luận mở màn của CON sau khi thử lại.")).toBeInTheDocument();
+    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Lập luận của bạn")).not.toBeDisabled();
   });
 
-  it("7. prevents timer reaching 00:00 during a pending AI response from prematurely completing the debate", async () => {
-    renderDebateRoom("/debater/debate/session-r3-timer-race?role=PRO");
+  it("7. prevents timer reaching 00:00 during a pending AI response from prematurely timing out the round", async () => {
+    await renderDebateRoom("/debater/debate/session-timer-race?role=PRO");
 
     const textarea = screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement;
     const sendBtn = screen.getByLabelText("Gửi lập luận") as HTMLButtonElement;
 
-    // Complete Round 1 & Round 2
+    // Round 1
     fireEvent.change(textarea, { target: { value: "Lập luận Vòng 1." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
-    fireEvent.change(textarea, { target: { value: "Lập luận Vòng 2." } });
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
+    expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
 
-    // Advance 118s in Round 3 so only 2s remain on the clock
+    // Advance 118s in Round 2 so only 2s remain on the clock
     await act(async () => {
       vi.advanceTimersByTime(118_000);
     });
     expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("00:02");
 
-    // Submit Round 3 argument while AI Opponent takes 15 seconds to respond
+    // Submit the Round 2 argument while the AI Opponent takes a long time to respond
     let resolvePendingAi!: (value: unknown) => void;
     mockGenerateOpponentTurn.mockImplementationOnce(
       () =>
@@ -373,38 +350,31 @@ describe("DebateRoom Timer Expiration & State Machine", () => {
           resolvePendingAi = resolve;
         })
     );
-
-    fireEvent.change(textarea, { target: { value: "Kết luận Vòng 3 sát giờ." } });
+    fireEvent.change(textarea, { target: { value: "Phản biện Vòng 2 sát giờ." } });
     await act(async () => {
       fireEvent.click(sendBtn);
     });
 
-    // Advance 30 seconds past the original deadline while AI is still responding
+    // 30 seconds past the original deadline while the AI is still responding
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
 
-    // Must NOT prematurely complete or trigger timeout while AI response is pending
-    expect(screen.queryByTestId("debate-completed-banner")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("submit-and-view-result-btn")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("round-2-timeout-notice")).not.toBeInTheDocument();
     expect(screen.getByTestId("turn-status-indicator")).toHaveTextContent("Đối thủ AI đang phản hồi...");
 
-    // Resolve AI response -> now completes cleanly
+    // Resolve the AI response -> the chain continues (turn 5) and the debate moves to Round 3 cleanly
     await act(async () => {
-      resolvePendingAi({
-        turn_index: 6,
-        round_type: "closing",
-        mode: "closing_reply",
-        speech_text: "Kết luận của CON hoàn tất.",
-      });
+      resolvePendingAi(turnReply(4, "Phản hồi của CON hoàn tất."));
     });
 
-    expect(screen.getByText("Kết luận của CON hoàn tất.")).toBeInTheDocument();
-    expect(screen.getByTestId("debate-completed-banner")).toBeInTheDocument();
+    expect(screen.getByText("Phản hồi của CON hoàn tất.")).toBeInTheDocument();
+    expect(screen.getByText(/Vòng 3\/3/)).toBeInTheDocument();
+    expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("02:00");
   });
 
   it("8. prevents double submission and duplicate AI turns on rapid clicks", async () => {
-    renderDebateRoom("/debater/debate/session-no-dup?role=PRO");
+    await renderDebateRoom("/debater/debate/session-no-dup?role=PRO");
 
     const textarea = screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement;
     const sendBtn = screen.getByLabelText("Gửi lập luận") as HTMLButtonElement;

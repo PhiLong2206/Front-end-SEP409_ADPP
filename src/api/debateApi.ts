@@ -15,13 +15,22 @@ import {
   RespondSwapSideRequest,
   SideSwapRequestResponse,
   SubmitArgumentRequest,
+  SubmitAiArgumentRequest,
+  SubmitAiArgumentResponse,
   DebateSessionResponse,
   DebateTranscriptResponse,
   DebateHistoryItemDto,
   CreateChallengeRequest,
   ChallengeResponse,
   DebateAiEvaluationResponse,
+  DebateEvaluationResponse,
 } from "../types";
+
+/**
+ * Waiting for the official result. Above the Backend's own limit (each evaluator call 120 s, gateway 180 s),
+ * so a slow evaluation ends with the Backend's error rather than a client timeout.
+ */
+export const EVALUATION_TIMEOUT_MS = 200_000;
 
 const debateApi = {
   // ── Debate Practice & P2P Endpoints (SystemService) ────────
@@ -120,6 +129,15 @@ const debateApi = {
     axiosClient.post(`/debate/${sessionId}/start`),
 
   /**
+   * POST /api/Debate/{sessionId}/leave [Authorized]
+   * Cancels the session for every participant. The timeout keeps a slow server from trapping the user in the room.
+   */
+  leaveSession: (
+    sessionId: number | string
+  ): Promise<ApiResponse<DebateSessionResponse>> =>
+    axiosClient.post(`/debate/${sessionId}/leave`, undefined, { timeout: 5000 }),
+
+  /**
    * GET /api/Debate/{sessionId} [Authorized]
    * Retrieves debate session details, participants and turns.
    */
@@ -161,18 +179,32 @@ const debateApi = {
 
   /**
    * GET /api/Debate/{sessionId}/evaluation [Authorized]
-   * Retrieves the AI evaluation results and judgement for a debate session.
+   * The official result of a debate (stored AIJudgement). For a completed debate without one yet, the Backend
+   * evaluates it first (or waits for the evaluation already running), so the call can take a while:
+   * EVALUATION_TIMEOUT_MS. Fails (404) when the session is not completed or has no speech to grade.
    */
   getEvaluation: (
     sessionId: number | string
-  ): Promise<ApiResponse<DebateAiEvaluationResponse | object>> =>
-    axiosClient.get(`/debate/${sessionId}/evaluation`),
+  ): Promise<ApiResponse<DebateEvaluationResponse>> =>
+    axiosClient.get(`/debate/${sessionId}/evaluation`, { timeout: EVALUATION_TIMEOUT_MS }),
 
   // Alias for getEvaluation
   getAiEvaluation: (
     sessionId: number | string
-  ): Promise<ApiResponse<DebateAiEvaluationResponse | object>> =>
-    axiosClient.get(`/debate/${sessionId}/evaluation`),
+  ): Promise<ApiResponse<DebateEvaluationResponse>> =>
+    axiosClient.get(`/debate/${sessionId}/evaluation`, { timeout: EVALUATION_TIMEOUT_MS }),
+
+  /**
+   * POST /api/Debate/{sessionId}/ai-arguments [Authorized]
+   * Records the AI opponent's argument for `turnIndex` (idempotent: a repeated call returns alreadyRecorded).
+   * Errors carry `errors.code`: INVALID_REQUEST, NOT_AI_SESSION, NOT_AI_TURN, NOT_PARTICIPANT,
+   * SESSION_NOT_FOUND, TURN_OUT_OF_ORDER, SESSION_NOT_IN_PROGRESS, CONCURRENT_SUBMISSION.
+   */
+  submitAiArgument: (
+    sessionId: number | string,
+    data: SubmitAiArgumentRequest
+  ): Promise<ApiResponse<SubmitAiArgumentResponse>> =>
+    axiosClient.post(`/debate/${sessionId}/ai-arguments`, data),
 
   /**
    * GET /api/Debate/{sessionId}/transcript [Authorized]

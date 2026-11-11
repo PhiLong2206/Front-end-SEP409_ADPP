@@ -40,8 +40,8 @@ vi.mock("../api", () => ({
   },
 }));
 
-const renderWithSidebarAndRoutes = (initialEntry: string) => {
-  return render(
+const renderWithSidebarAndRoutes = async (initialEntry: string) => {
+  const utils = render(
     <MemoryRouter initialEntries={["/debater/dashboard", initialEntry]} initialIndex={1}>
       <div>
         <nav aria-label="Test Sidebar">
@@ -57,6 +57,9 @@ const renderWithSidebarAndRoutes = (initialEntry: string) => {
       </div>
     </MemoryRouter>
   );
+  // The input stays locked until the AI opponent session is ready: let the init promises settle
+  await act(async () => {});
+  return utils;
 };
 
 describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () => {
@@ -89,7 +92,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
   });
 
   it("1. AI Debate 1v1: intercepts Header Back button, Sidebar NavLink, and Browser Back; supports 'Ở lại trận đấu' and 'Rời trận'", async () => {
-    renderWithSidebarAndRoutes("/debater/debate/ai-session-1?role=PRO");
+    await renderWithSidebarAndRoutes("/debater/debate/ai-session-1?role=PRO");
 
     // Advance timer 15s to verify timer is not reset when modal opens/cancels
     await act(async () => {
@@ -132,7 +135,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
   });
 
   it("2. Browser refresh / tab close: triggers native beforeunload without opening custom modal, and removes beforeunload when completed", async () => {
-    renderWithSidebarAndRoutes("/debater/debate/ai-session-unload?role=PRO");
+    await renderWithSidebarAndRoutes("/debater/debate/ai-session-unload?role=PRO");
 
     // Dispatch beforeunload while debate is active
     const activeUnloadEvent = new Event("beforeunload", { cancelable: true }) as BeforeUnloadEvent;
@@ -187,7 +190,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
       },
     });
 
-    const { unmount } = renderWithSidebarAndRoutes("/debater/debate/101");
+    const { unmount } = await renderWithSidebarAndRoutes("/debater/debate/101");
     await act(async () => {});
 
     expect(screen.getByText("Phòng chờ (Waiting)")).toBeInTheDocument();
@@ -220,7 +223,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
       },
     });
 
-    renderWithSidebarAndRoutes("/debater/debate/102");
+    await renderWithSidebarAndRoutes("/debater/debate/102");
     await act(async () => {});
 
     // Clicking Sidebar link while P2P 1v1 is InProgress opens confirmation modal
@@ -290,7 +293,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
       },
     });
 
-    renderWithSidebarAndRoutes("/debater/debate/202");
+    await renderWithSidebarAndRoutes("/debater/debate/202");
     await act(async () => {});
 
     // Attempt to leave via Header Back button
@@ -315,7 +318,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
   });
 
   it("5. Session recovery & reconnection: preserves timer/messages across F5 refresh and shows reconnecting indicator on temporary disconnect", async () => {
-    const { unmount } = renderWithSidebarAndRoutes("/debater/debate/ai-session-recover?role=PRO");
+    const { unmount } = await renderWithSidebarAndRoutes("/debater/debate/ai-session-recover?role=PRO");
 
     // Submit Round 1 argument and advance timer 20s in Round 2
     const textarea = screen.getByLabelText("Lập luận của bạn");
@@ -343,7 +346,7 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
 
     // Simulate F5 refresh (unmount & remount same route) -> preserves messages, round 2, and remaining countdown (01:40)
     unmount();
-    renderWithSidebarAndRoutes("/debater/debate/ai-session-recover?role=PRO");
+    await renderWithSidebarAndRoutes("/debater/debate/ai-session-recover?role=PRO");
 
     expect(screen.getByText("Lập luận vòng 1 đã lưu")).toBeInTheDocument();
     expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("01:40");

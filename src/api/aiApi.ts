@@ -41,7 +41,11 @@ aiOpponentClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.data) {
-      return Promise.reject(error.response.data);
+      const data = error.response.data;
+      // Keep the HTTP status: callers distinguish a temporary 409 (still planning) from real failures
+      return Promise.reject(
+        typeof data === "object" ? { ...data, status: error.response.status } : data
+      );
     }
     return Promise.reject(error);
   }

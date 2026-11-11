@@ -45,6 +45,9 @@ const DebateHistory: React.FC = () => {
     }
   };
 
+  // The Backend sends the enum as a number (3) or, depending on its JSON settings, as its name
+  const isCompleted = (status: number | string) => status === 3 || String(status) === "Completed";
+
   const getStatusLabel = (status: number) => {
     switch (status) {
       case 1:
@@ -163,7 +166,17 @@ const DebateHistory: React.FC = () => {
                           year: "numeric"
                         })}
                       </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <td className="px-5 py-4 text-right whitespace-nowrap space-x-2">
+                        {isCompleted(item.status) && (
+                          <Link
+                            to={`/debater/debate/${item.sessionId}/result`}
+                            data-testid={`history-result-link-${item.sessionId}`}
+                            className="px-3.5 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"
+                          >
+                            <span>Xem kết quả</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                        )}
                         <Link
                           to={`/debater/debate/${item.sessionId}`}
                           className="px-3.5 py-1.5 bg-white hover:bg-[#ECFDF5] border border-slate-200 text-[#008A64] text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"

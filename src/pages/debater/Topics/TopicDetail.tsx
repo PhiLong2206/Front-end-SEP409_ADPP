@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { Topic } from "../../../types";
 import Badge from "../../../components/common/Badge";
 import DifficultyBadge from "../../../components/topic/DifficultyBadge";
-import { ArrowLeft, BookOpen, FileText, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, FileText, Play, RefreshCw } from "lucide-react";
 import topicApi from "../../../api/topicApi";
+import { debateApi } from "../../../api";
+import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 
 const TopicDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +21,9 @@ const TopicDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"overview" | "materials">("overview");
   const [selectedSide, setSelectedSide] = useState<"Ủng hộ" | "Phản đối">("Ủng hộ");
   const [selectedDifficulty, setSelectedDifficulty] = useState<"Dễ" | "Trung bình" | "Khó">("Trung bình");
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const activeDebateSession = useMemo(() => readActiveDebateSession(), []);
 
   useEffect(() => {
     if (!topic && id) {
@@ -58,10 +63,42 @@ const TopicDetail: React.FC = () => {
     );
   }
 
-  const topicId = topic.topicId ?? topic.id;
+  // With a topicId the Backend debates Topic.Description, or the title when there is none.
+  const motion = topic.motion || topic.description || topic.title;
 
-  const handleStartDebate = () => {
-    navigate(`/debater/debate/session-${topicId}`);
+  // Always a new Backend session: continuing an unfinished one is the user's choice, through the banner below.
+  const handleStartDebate = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setApiError(null);
+
+    const role = selectedSide === "Ủng hộ" ? "PRO" : "CON";
+    const topicId = Number(topic.topicId ?? topic.id ?? id);
+
+    try {
+      const res = await debateApi.createAiPracticeSession({
+        topicId: Number.isInteger(topicId) && topicId > 0 ? topicId : undefined,
+        title: topic.title,
+        topic: motion,
+        userSide: role === "PRO" ? 1 : 2,
+        isAI: true,
+        difficulty: selectedDifficulty === "Khó" ? "Hard" : selectedDifficulty === "Dễ" ? "Easy" : "Medium",
+        turnTimeLimitSeconds: 180,
+      });
+
+      const sessionId = res?.data?.sessionId;
+      if (!sessionId) {
+        throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
+      }
+      navigate(
+        `/debater/debate/${sessionId}?role=${role}&difficulty=${selectedDifficulty}&motion=${encodeURIComponent(motion)}`
+      );
+    } catch (err: unknown) {
+      const e = err as { message?: string; response?: { data?: { message?: string } } };
+      setApiError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,6 +114,32 @@ const TopicDetail: React.FC = () => {
         </Link>
       </div>
 
+      {/* Active Debate Recovery Banner */}
+      {activeDebateSession && (
+        <div
+          data-testid="active-debate-recovery-banner"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-[#ECFDF5] dark:bg-emerald-950/30 border border-[#008A64]/30 text-slate-800 dark:text-slate-100 shadow-xs"
+        >
+          <div className="space-y-0.5 min-w-0">
+            <p className="text-xs font-bold text-[#008A64] dark:text-emerald-400">
+              Bạn đang có một phiên tranh biện chưa kết thúc
+            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
+              &ldquo;{activeDebateSession.topicTitle}&rdquo;
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="resume-active-debate-btn"
+            onClick={() => navigate(activeDebateSession.url)}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+          >
+            <span>Tiếp tục trận tranh biện</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Main Topic Header Card */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center gap-2">
@@ -90,7 +153,7 @@ const TopicDetail: React.FC = () => {
 
         {(topic.motion || topic.description) && (
           <p className="text-xs sm:text-sm text-slate-600 italic">
-            Kiến nghị: &ldquo;{topic.motion || topic.title}&rdquo;
+            Kiến nghị: &ldquo;{motion}&rdquo;
           </p>
         )}
       </div>
@@ -251,6 +314,12 @@ const TopicDetail: React.FC = () => {
               </div>
             </div>
 
+            {apiError && (
+              <p role="alert" data-testid="topic-start-error" className="text-xs font-semibold text-rose-600">
+                {apiError}
+              </p>
+            )}
+
             {/* Bottom Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-100">
               <Link
@@ -263,7 +332,8 @@ const TopicDetail: React.FC = () => {
               <button
                 type="button"
                 onClick={handleStartDebate}
-                className="px-7 py-3 bg-[#008A64] hover:bg-[#007457] text-white text-sm font-bold rounded-2xl shadow-md shadow-[#008A64]/20 transition-all inline-flex items-center gap-2 hover:scale-102"
+                disabled={submitting}
+                className="px-7 py-3 bg-[#008A64] hover:bg-[#007457] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold rounded-2xl shadow-md shadow-[#008A64]/20 transition-all inline-flex items-center gap-2 hover:scale-102"
               >
                 <Play size={15} className="fill-current" />
                 <span>Bắt đầu tranh biện</span>

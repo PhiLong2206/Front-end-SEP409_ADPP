@@ -1,50 +1,36 @@
 import React from "react";
-
-export interface ScoreItem {
-  label: string;
-  score: number; // 0 - 100
-  weight?: string;
-}
+import { NormalizedCriterion, PERCENT_MAX } from "../../utils/debateScoring";
 
 export interface ScoreBreakdownProps {
-  scores: {
-    logic: number;
-    evidence: number;
-    relevance: number;
-    structure: number;
-    persuasiveness: number;
-  };
+  /** Already normalized — `percent` is 0..PERCENT_MAX, `null` when the criterion was not scored. */
+  criteria: NormalizedCriterion[];
 }
 
-const ScoreBreakdown: React.FC<ScoreBreakdownProps> = ({ scores }) => {
-  const items: ScoreItem[] = [
-    { label: "Lập luận", score: scores.logic },
-    { label: "Dẫn chứng", score: scores.evidence },
-    { label: "Tính liên quan", score: scores.relevance },
-    { label: "Cấu trúc", score: scores.structure },
-    { label: "Tính thuyết phục", score: scores.persuasiveness },
-  ];
+const getColorClass = (percent: number) => {
+  if (percent >= 80) return "bg-[#008A64]";
+  if (percent >= 70) return "bg-emerald-500";
+  if (percent >= 50) return "bg-amber-500";
+  return "bg-rose-500";
+};
 
-  const getColorClass = (score: number) => {
-    if (score >= 80) return "bg-[#008A64]";
-    if (score >= 70) return "bg-emerald-500";
-    if (score >= 50) return "bg-amber-500";
-    return "bg-rose-500";
-  };
-
+const ScoreBreakdown: React.FC<ScoreBreakdownProps> = ({ criteria }) => {
   return (
     <div className="space-y-4">
-      {items.map((item) => (
-        <div key={item.label} className="space-y-1.5">
+      {criteria.map((item) => (
+        <div key={item.key} className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-slate-700">{item.label}</span>
-            <span className="font-bold text-slate-900 font-mono">{item.score} / 100</span>
+            <span className="font-bold text-slate-900 font-mono">
+              {item.percent === null ? "—" : `${item.percent} / ${PERCENT_MAX}`}
+            </span>
           </div>
           <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-            <div
-              className={`h-full rounded-full transition-all duration-500 shadow-xs ${getColorClass(item.score)}`}
-              style={{ width: `${Math.min(100, Math.max(0, item.score))}%` }}
-            />
+            {item.percent !== null && (
+              <div
+                className={`h-full rounded-full transition-all duration-500 shadow-xs ${getColorClass(item.percent)}`}
+                style={{ width: `${item.percent}%` }}
+              />
+            )}
           </div>
         </div>
       ))}

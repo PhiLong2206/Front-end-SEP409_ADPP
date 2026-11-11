@@ -1,11 +1,30 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Award, ArrowRight, Swords } from "lucide-react";
+import { debateApi } from "../../../api";
+import { countCompletedDebates } from "../../../utils/debateStats";
 
 const Progress: React.FC = () => {
-  // Real state: when debate session records API is available, fetch real stats
-  const totalDebates = 0;
+  // null until the history has loaded, or when it could not be: nothing is shown rather than a made-up 0
+  const [completedDebates, setCompletedDebates] = useState<number | null>(null);
   const avgScore = 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    debateApi
+      .getUserHistory()
+      .then((res) => {
+        if (!cancelled && res?.success && Array.isArray(res.data)) {
+          setCompletedDebates(countCompletedDebates(res.data));
+        }
+      })
+      .catch(() => {
+        // The metric stays hidden
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-8">
@@ -35,19 +54,24 @@ const Progress: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Tổng số phiên tranh biện
-          </span>
-          <div className="my-4">
-            <div className="text-4xl font-black text-slate-900 dark:text-[#F8FAFC]">
-              {totalDebates}
-            </div>
-            <span className="text-xs text-slate-400 mt-1 inline-block">
-              0 trận hoàn thành
+        {completedDebates !== null && (
+          <div
+            data-testid="progress-total-debates"
+            className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs"
+          >
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Tổng số phiên tranh biện
             </span>
+            <div className="my-4">
+              <div className="text-4xl font-black text-slate-900 dark:text-[#F8FAFC]">
+                {completedDebates}
+              </div>
+              <span className="text-xs text-slate-400 mt-1 inline-block">
+                Chỉ tính các trận đã hoàn thành
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -65,25 +89,30 @@ const Progress: React.FC = () => {
       </div>
 
       {/* Empty State Banner */}
-      <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] p-12 text-center shadow-xs">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 text-[#008A64] dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-xs">
-          <Award size={32} />
-        </div>
-        <h3 className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mb-2">
-          Chưa có phiên tranh biện nào được ghi nhận
-        </h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
-          Dữ liệu tiến độ, biểu đồ radar 5 tiêu chí kỹ năng và lịch sử điểm số sẽ được cập nhật tự động khi bạn hoàn thành các trận thi đấu hoặc luyện tập thực tế trên hệ thống.
-        </p>
-        <Link
-          to="/debater/competitions"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#008A64] hover:bg-[#007457] text-white text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all cursor-pointer"
+      {completedDebates === 0 && (
+        <div
+          data-testid="progress-empty-state"
+          className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] p-12 text-center shadow-xs"
         >
-          <Swords size={16} />
-          <span>Tham gia giải đấu ngay</span>
-          <ArrowRight size={14} />
-        </Link>
-      </div>
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 text-[#008A64] dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-xs">
+            <Award size={32} />
+          </div>
+          <h3 className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mb-2">
+            Chưa có phiên tranh biện nào được ghi nhận
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+            Dữ liệu tiến độ, biểu đồ radar 5 tiêu chí kỹ năng và lịch sử điểm số sẽ được cập nhật tự động khi bạn hoàn thành các trận thi đấu hoặc luyện tập thực tế trên hệ thống.
+          </p>
+          <Link
+            to="/debater/competitions"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#008A64] hover:bg-[#007457] text-white text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all cursor-pointer"
+          >
+            <Swords size={16} />
+            <span>Tham gia giải đấu ngay</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
     </div>
   );
 };
