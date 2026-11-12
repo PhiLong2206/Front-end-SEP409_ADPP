@@ -24,6 +24,7 @@ import {
   CaseFileResponse,
   ArgumentEvaluationResult,
   CompetitionMatchDetail,
+  MultimodalTurnResult,
 } from "../../types";
 
 export interface DebateSidebarProps {
@@ -36,7 +37,9 @@ export interface DebateSidebarProps {
   currentRound: number;
   casePlan: CaseFileResponse | null;
   evaluationResult: ArgumentEvaluationResult | null;
+  multimodalResult?: MultimodalTurnResult | null;
   isEvaluating?: boolean;
+  isCoachingLoading?: boolean;
   evaluatorError?: string | null;
   rebuttalTips?: RebuttalTips | null;
   coachingAdvice?: CoachingAdvice[];
@@ -57,7 +60,9 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
   currentRound: _currentRound,
   casePlan,
   evaluationResult,
+  multimodalResult,
   isEvaluating = false,
+  isCoachingLoading = false,
   evaluatorError,
   rebuttalTips,
   coachingAdvice,
@@ -422,10 +427,10 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
             <div className="space-y-4">
               <RebuttalSuggestion tips={rebuttalTips} />
               <AICoachingPanel
-                costPerUse={2000}
+                costPerUse={0}
                 advice={coachingAdvice}
                 onRequestCoaching={onRequestCoaching}
-                isLoading={isEvaluating}
+                isLoading={isCoachingLoading || isEvaluating}
               />
             </div>
           )}
@@ -451,6 +456,93 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   <span>{evaluatorError}</span>
                 </div>
               )}
+
+              {/* Multimodal Delivery & Voice Report (DeepFace + Faster-Whisper) */}
+              {(multimodalResult || evaluationResult?.delivery_analytics) && (() => {
+                const da = multimodalResult?.delivery_analytics ?? evaluationResult?.delivery_analytics;
+                const overallDemeanor =
+                  multimodalResult?.overall_demeanor_score ??
+                  da?.overallDemeanorScore ??
+                  da?.overall_demeanor_score ??
+                  0;
+                const composure =
+                  multimodalResult?.facial?.composure_score ??
+                  da?.composureScore ??
+                  da?.composure_score ??
+                  0;
+                const eyeContact =
+                  multimodalResult?.facial?.eye_contact_rate ??
+                  da?.eyeContactRate ??
+                  da?.eye_contact_rate ??
+                  0;
+                const domEmotion =
+                  multimodalResult?.facial?.dominant_emotion ??
+                  da?.dominantEmotion ??
+                  da?.dominant_emotion ??
+                  "neutral";
+                const wpmVal = multimodalResult?.voice?.wpm ?? da?.wpm ?? 0;
+                const paceEval =
+                  multimodalResult?.voice?.pace_evaluation ??
+                  da?.paceEvaluation ??
+                  da?.pace_evaluation ??
+                  "";
+                const fluencyVal =
+                  multimodalResult?.voice?.fluency_score ??
+                  da?.fluencyScore ??
+                  da?.fluency_score ??
+                  100;
+                const fillerCnt =
+                  multimodalResult?.voice?.filler_count ??
+                  da?.fillerCount ??
+                  da?.filler_count ??
+                  0;
+
+                return (
+                  <div className="p-3.5 bg-slate-50 dark:bg-[#091713] border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Phong thái & Giọng nói (DeepFace + Whisper)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#008A64] dark:bg-emerald-950/60 dark:text-[#34D399] font-black">
+                        {overallDemeanor}/100
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                        <p className="text-slate-400">Điềm tĩnh (Composure)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                          {composure}% ({domEmotion})
+                        </p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                        <p className="text-slate-400">Tương tác mắt</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{eyeContact}%</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                        <p className="text-slate-400">Tốc độ nói (WPM)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                          {wpmVal} WPM {paceEval ? `· ${paceEval}` : ""}
+                        </p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                        <p className="text-slate-400">Độ trôi chảy (Fluency)</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">
+                          {fluencyVal}/100 ({fillerCnt} từ đệm)
+                        </p>
+                      </div>
+                    </div>
+                    {multimodalResult?.report_chart_base64 && (
+                      <div className="pt-1">
+                        <img
+                          src={multimodalResult.report_chart_base64}
+                          alt="Biểu đồ phân tích Multimodal"
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {!evaluationResult ? (
                 <div className="py-12 text-center text-slate-400 space-y-2.5">

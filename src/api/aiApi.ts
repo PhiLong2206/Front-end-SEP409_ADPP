@@ -1,14 +1,5 @@
 import axios from "axios";
-import axiosClient from "./axiosClient";
 import {
-  AIOpponentRequest,
-  AIOpponentResponse,
-  AIEvaluationRequest,
-  AIEvaluationResponse,
-  AIRebuttalRequest,
-  AIRebuttalResponse,
-  AIJudgeResult,
-  ApiResponse,
   CreateOpponentSessionRequest,
   CreateOpponentSessionResponse,
   SessionResponse,
@@ -22,6 +13,16 @@ import {
   SessionEvaluationRequest,
   SessionEvaluationResult,
   AIHealthResponse,
+  ArgumentCoachingRequest,
+  RoundCoachingRequest,
+  CoachingResult,
+  MultimodalHealthResponse,
+  FrameAnalysisRequest,
+  FrameAnalysisResult,
+  MultimodalTurnRequest,
+  MultimodalTurnResult,
+  IntegratedDebateEvaluationRequest,
+  IntegratedDebateEvaluationResult,
 } from "../types";
 
 // Dedicated client for AI Opponent Generation Service (port 8002)
@@ -73,33 +74,47 @@ aiEvaluatorClient.interceptors.response.use(
   }
 );
 
+// Dedicated client for AI Coaching endpoints on Evaluator Service (port 8000: /coaching/*)
+const aiCoachingClient = axios.create({
+  baseURL: "/coaching",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+aiCoachingClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.response?.data) {
+      return Promise.reject(error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Dedicated client for AI Multimodal Debate Service (port 8003: /multimodal/*)
+const AI_MULTIMODAL_BASE_URL =
+  import.meta.env.VITE_AI_MULTIMODAL_URL ||
+  "/multimodal";
+
+const aiMultimodalClient = axios.create({
+  baseURL: AI_MULTIMODAL_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+aiMultimodalClient.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.response?.data) {
+      return Promise.reject(error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);
+
 const aiApi = {
-  // ── Existing Debate Practice AI (via SystemService Backend) ──
-  generateOpponentArgument: (
-    data: AIOpponentRequest
-  ): Promise<ApiResponse<AIOpponentResponse>> =>
-    axiosClient.post("/ai/debate/opponent-response", data),
-
-  evaluateArgument: (
-    data: AIEvaluationRequest
-  ): Promise<ApiResponse<AIEvaluationResponse>> =>
-    axiosClient.post("/ai/debate/evaluate-argument", data),
-
-  getRebuttalSuggestions: (
-    data: AIRebuttalRequest
-  ): Promise<ApiResponse<AIRebuttalResponse>> =>
-    axiosClient.post("/ai/debate/rebuttal-suggestions", data),
-
-  judgeSession: (sessionId: string): Promise<ApiResponse<AIJudgeResult>> =>
-    axiosClient.post(`/ai/debate/judge/${sessionId}`),
-
-  getScoreExplanation: (data: {
-    criteria: string;
-    score: number;
-    argumentText: string;
-  }): Promise<ApiResponse<{ explanation: string }>> =>
-    axiosClient.post("/ai/debate/score-explanation", data),
-
   // ── AI Opponent Generation Service (port 8002: /opponent/*) ──
   checkOpponentHealth: async (): Promise<AIHealthResponse> => {
     try {
@@ -160,6 +175,51 @@ const aiApi = {
     data: SessionEvaluationRequest
   ): Promise<SessionEvaluationResult> =>
     aiEvaluatorClient.post("/session", data),
+
+  // 4. POST /coaching/argument - Generate coaching drills & rewrite for a single argument
+  coachArgument: (
+    data: ArgumentCoachingRequest
+  ): Promise<CoachingResult> =>
+    aiCoachingClient.post("/argument", data),
+
+  // 5. POST /coaching/round - Generate coaching summary & drills for a full round
+  coachRound: (
+    data: RoundCoachingRequest
+  ): Promise<CoachingResult> =>
+    aiCoachingClient.post("/round", data),
+
+  // ── AI Multimodal Debate Service (port 8003: /multimodal/*) ──
+  checkMultimodalHealth: async (): Promise<MultimodalHealthResponse> => {
+    try {
+      const res = await axios.get("/multimodal-health");
+      return res.data;
+    } catch {
+      const res = await axios.get("http://localhost:8003/health");
+      return res.data;
+    }
+  },
+
+  // 1. POST /multimodal/analyze-frame - Realtime webcam frame emotion & face detection (DeepFace YuNet)
+  analyzeFrame: (
+    data: FrameAnalysisRequest
+  ): Promise<FrameAnalysisResult> =>
+    aiMultimodalClient.post("/analyze-frame", data),
+
+  // 2. POST /multimodal/analyze-turn - End-of-turn STT (Faster-Whisper) + facial metrics + chart PNG
+  analyzeTurn: (
+    data: MultimodalTurnRequest
+  ): Promise<MultimodalTurnResult> =>
+    aiMultimodalClient.post("/analyze-turn", data),
+
+  // 3. POST /multimodal/evaluate-speech - Integrated multimodal + content rubric evaluation
+  evaluateSpeechMultimodal: (
+    data: IntegratedDebateEvaluationRequest
+  ): Promise<IntegratedDebateEvaluationResult> =>
+    aiMultimodalClient.post("/evaluate-speech", data),
+
+  // 4. POST /multimodal/demo-sample-audio - Test sample audio & emotion timeline
+  runDemoSampleAudio: (): Promise<MultimodalTurnResult> =>
+    aiMultimodalClient.post("/demo-sample-audio"),
 };
 
 export default aiApi;

@@ -1,3 +1,5 @@
+import type { DeliveryAnalytics } from "./ai.types";
+
 export type DebateStage = "Opening" | "Rebuttal" | "Closing";
 export type DebateSide = "Affirmative" | "Negative"; // For / Against
 export type DebateMode = "AI_Opponent" | "Two_Learners" | "Two_Debaters";
@@ -181,6 +183,8 @@ export interface SideSwapRequestResponse {
 
 export interface SubmitArgumentRequest {
   content: string;
+  durationSeconds?: number;
+  deliveryAnalytics?: DeliveryAnalytics;
 }
 
 /** POST /api/debate/{sessionId}/ai-arguments — records the AI opponent's turn. */
@@ -246,11 +250,14 @@ export interface ArgumentDetailDto {
   turnOrder: number;
   stage: BackendDebateStage | number;
   side: SystemDebateSide | number;
-  /** Author of the speech; null for the AI. Absent until the Backend ships this field. */
+  /** Author of the speech; null for the AI. */
   userId?: number | null;
   speakerName: string;
   isAI: boolean;
   content: string;
+  wordCount?: number | null;
+  durationSeconds?: number | null;
+  deliveryAnalytics?: DeliveryAnalytics | null;
   submittedAt: string;
 }
 
@@ -400,4 +407,19 @@ export interface DebateAiEvaluationResponse {
   scores?: DebateEvaluationCriteriaScore[];
   evaluatedAt?: string;
   [key: string]: unknown;
+}
+
+export interface SingleArgumentEvaluationResponse {
+  argumentId: number;
+  sessionId: number;
+  stage: string;
+  side: string;
+  speakerName: string;
+  overallScore: number;
+  overallReasoning: string;
+  criteria: Array<{ name: string; score: number; reasoning: string }>;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+  deliveryAnalytics?: DeliveryAnalytics | null;
 }

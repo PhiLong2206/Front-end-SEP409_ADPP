@@ -55,7 +55,108 @@ const CompetitionBracketView: React.FC<Props> = ({
     try {
       const res = await competitionApi.getBracket(competitionId);
       if (res && res.success && res.data) {
-        setBracketData(res.data);
+        const rawBracket = res.data;
+        // Enrich matches from MatchReviewResponse when proParticipant/conParticipant are not embedded in BracketResponse
+        const enrichedRounds: TournamentRound[] = await Promise.all(
+          (rawBracket.rounds || []).map(async (round) => {
+            const enrichedMatches = await Promise.all(
+              (round.matches || []).map(async (m) => {
+                if (m.proParticipant && m.conParticipant && m.debateSessionId !== undefined) {
+                  return m;
+                }
+                try {
+                  const revRes = await competitionApi.getMatchReview(competitionId, m.matchId);
+                  if (revRes?.success && revRes.data) {
+                    const rev = revRes.data;
+                    const revPro = rev.participants?.find(
+                      (p) => String(p.side).toUpperCase() === "PRO" || String(p.side) === "1"
+                    );
+                    const revCon = rev.participants?.find(
+                      (p) => String(p.side).toUpperCase() === "CON" || String(p.side) === "2"
+                    );
+                    const judgeObj = judges.find((j) => j.userId === rev.assignedJudgeUserId);
+                    return {
+                      ...m,
+                      matchNumber: m.matchNumber ?? m.bracketPosition ?? m.matchId,
+                      debateSessionId: rev.debateSessionId ?? m.debateSessionId ?? null,
+                      assignedJudgeUserId: rev.assignedJudgeUserId ?? m.assignedJudgeUserId ?? null,
+                      assignedJudgeName: judgeObj?.fullName ?? m.assignedJudgeName ?? null,
+                      proParticipant:
+                        m.proParticipant ??
+                        (revPro
+                          ? {
+                            matchParticipantId: revPro.matchParticipantId,
+                            matchId: m.matchId,
+                            userId: revPro.userId ?? m.proUserId,
+                            userName: revPro.displayName || revPro.userName,
+                            teamId: revPro.teamId ?? m.proTeamId,
+                            teamName: revPro.displayName || revPro.teamName,
+                            side: "PRO",
+                            isWinner:
+                              Boolean(m.winnerUserId && m.winnerUserId === (revPro.userId ?? m.proUserId)) ||
+                              Boolean(m.winnerTeamId && m.winnerTeamId === (revPro.teamId ?? m.proTeamId)),
+                          }
+                          : m.proUserId || m.proTeamId
+                            ? {
+                              matchParticipantId: 0,
+                              matchId: m.matchId,
+                              userId: m.proUserId,
+                              userName: m.proUserId ? `Thí sinh #${m.proUserId}` : null,
+                              teamId: m.proTeamId,
+                              teamName: m.proTeamId ? `Đội #${m.proTeamId}` : null,
+                              side: "PRO",
+                              isWinner:
+                                Boolean(m.winnerUserId && m.winnerUserId === m.proUserId) ||
+                                Boolean(m.winnerTeamId && m.winnerTeamId === m.proTeamId),
+                            }
+                            : null),
+                      conParticipant:
+                        m.conParticipant ??
+                        (revCon
+                          ? {
+                            matchParticipantId: revCon.matchParticipantId,
+                            matchId: m.matchId,
+                            userId: revCon.userId ?? m.conUserId,
+                            userName: revCon.displayName || revCon.userName,
+                            teamId: revCon.teamId ?? m.conTeamId,
+                            teamName: revCon.displayName || revCon.teamName,
+                            side: "CON",
+                            isWinner:
+                              Boolean(m.winnerUserId && m.winnerUserId === (revCon.userId ?? m.conUserId)) ||
+                              Boolean(m.winnerTeamId && m.winnerTeamId === (revCon.teamId ?? m.conTeamId)),
+                          }
+                          : m.conUserId || m.conTeamId
+                            ? {
+                              matchParticipantId: 0,
+                              matchId: m.matchId,
+                              userId: m.conUserId,
+                              userName: m.conUserId ? `Thí sinh #${m.conUserId}` : null,
+                              teamId: m.conTeamId,
+                              teamName: m.conTeamId ? `Đội #${m.conTeamId}` : null,
+                              side: "CON",
+                              isWinner:
+                                Boolean(m.winnerUserId && m.winnerUserId === m.conUserId) ||
+                                Boolean(m.winnerTeamId && m.winnerTeamId === m.conTeamId),
+                            }
+                            : null),
+                    };
+                  }
+                } catch {
+                  // Ignore review lookup errors and fall back to IDs on match
+                }
+                return m;
+              })
+            );
+            return {
+              ...round,
+              matches: enrichedMatches,
+            };
+          })
+        );
+        setBracketData({
+          ...rawBracket,
+          rounds: enrichedRounds,
+        });
       } else {
         setBracketData(null);
       }
@@ -72,7 +173,7 @@ const CompetitionBracketView: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
-  }, [competitionId]);
+  }, [competitionId, judges]);
 
   useEffect(() => {
     loadBracket();
@@ -260,11 +361,10 @@ const CompetitionBracketView: React.FC<Props> = ({
                         <div className="p-3 space-y-2">
                           {/* PRO Side */}
                           <div
-                            className={`p-2 rounded-xl border flex items-center justify-between ${
-                              pro?.isWinner
+                            className={`p-2 rounded-xl border flex items-center justify-between ${pro?.isWinner
                                 ? "bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800"
                                 : "bg-slate-50/60 border-slate-100 dark:bg-[#0B1713]/40 dark:border-slate-800"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-1.5 min-w-0 pr-2">
                               <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-sm shrink-0">
@@ -283,11 +383,10 @@ const CompetitionBracketView: React.FC<Props> = ({
 
                           {/* CON Side */}
                           <div
-                            className={`p-2 rounded-xl border flex items-center justify-between ${
-                              con?.isWinner
+                            className={`p-2 rounded-xl border flex items-center justify-between ${con?.isWinner
                                 ? "bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800"
                                 : "bg-slate-50/60 border-slate-100 dark:bg-[#0B1713]/40 dark:border-slate-800"
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-1.5 min-w-0 pr-2">
                               <span className="text-[10px] font-black text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded-sm shrink-0">

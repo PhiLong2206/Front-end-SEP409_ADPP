@@ -7,15 +7,73 @@ import { countCompletedDebates } from "../../../utils/debateStats";
 const Progress: React.FC = () => {
   // null until the history has loaded, or when it could not be: nothing is shown rather than a made-up 0
   const [completedDebates, setCompletedDebates] = useState<number | null>(null);
-  const avgScore = 0;
+  const [avgScore, setAvgScore] = useState<number>(0);
+  const [topSkill, setTopSkill] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
     debateApi
       .getUserHistory()
-      .then((res) => {
+      .then(async (res) => {
         if (!cancelled && res?.success && Array.isArray(res.data)) {
-          setCompletedDebates(countCompletedDebates(res.data));
+          const completedCount = countCompletedDebates(res.data);
+          setCompletedDebates(completedCount);
+
+          const completedItems = res.data
+            .filter((item) => item.status === 3 || String(item.status) === "Completed")
+            .slice(0, 5);
+
+          if (completedItems.length > 0) {
+            const evalResults = await Promise.allSettled(
+              completedItems.map((item) => debateApi.getEvaluation(item.sessionId))
+            );
+            if (cancelled) return;
+
+            const scores: number[] = [];
+            const criteriaTotals: Record<string, { sum: number; count: number }> = {};
+
+            evalResults.forEach((evRes, idx) => {
+              if (evRes.status === "fulfilled" && evRes.value?.success && evRes.value.data) {
+                const ev = evRes.value.data;
+                const item = completedItems[idx];
+                const isPro = item.userSide === 1 || String(item.userSide) === "PRO";
+                const myScore = isPro
+                  ? ev.overallScorePro ?? ev.proEvaluation?.overallScore ?? ev.overallScore
+                  : ev.overallScoreCon ?? ev.conEvaluation?.overallScore ?? ev.overallScore;
+                if (typeof myScore === "number" && myScore > 0) {
+                  scores.push(myScore);
+                }
+
+                const myEval = isPro ? ev.proEvaluation : ev.conEvaluation;
+                myEval?.roundEvaluations?.forEach((r) => {
+                  r.criteria?.forEach((c) => {
+                    if (!criteriaTotals[c.name]) {
+                      criteriaTotals[c.name] = { sum: 0, count: 0 };
+                    }
+                    criteriaTotals[c.name].sum += Number(c.score || 0);
+                    criteriaTotals[c.name].count += 1;
+                  });
+                });
+              }
+            });
+
+            if (scores.length > 0) {
+              setAvgScore(scores.reduce((a, b) => a + b, 0) / scores.length);
+            }
+
+            let bestCriterion = "";
+            let bestAvg = -1;
+            Object.entries(criteriaTotals).forEach(([name, stats]) => {
+              const avg = stats.sum / stats.count;
+              if (avg > bestAvg) {
+                bestAvg = avg;
+                bestCriterion = name;
+              }
+            });
+            if (bestCriterion) {
+              setTopSkill(bestCriterion);
+            }
+          }
         }
       })
       .catch(() => {
@@ -49,7 +107,7 @@ const Progress: React.FC = () => {
               {avgScore > 0 ? avgScore.toFixed(1) : "--"}
             </div>
             <span className="text-xs text-slate-400 mt-1 inline-block">
-              Chưa có dữ liệu chấm điểm
+              {avgScore > 0 ? "Thang điểm 10.0 (AI Evaluator)" : "Chưa có dữ liệu chấm điểm"}
             </span>
           </div>
         </div>
@@ -79,10 +137,10 @@ const Progress: React.FC = () => {
           </span>
           <div className="my-4">
             <div className="text-xl font-bold text-slate-700 dark:text-slate-300">
-              Đang phân tích
+              {topSkill || "Đang phân tích"}
             </div>
             <span className="text-xs text-slate-400 mt-1 inline-block">
-              Cần tối thiểu 3 phiên để đánh giá
+              {topSkill ? "Tiêu chí đạt điểm cao nhất" : "Hoàn thành phiên tranh biện để đánh giá"}
             </span>
           </div>
         </div>

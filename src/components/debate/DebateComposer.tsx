@@ -1,12 +1,17 @@
 import React, { useRef, useEffect } from "react";
-import { Mic, Send, Lightbulb, Award, BookOpen, Loader2 } from "lucide-react";
-import { DebateRoleInRoom } from "../../types";
+import { Mic, Send, Lightbulb, Award, BookOpen, Loader2, Video, Sparkles } from "lucide-react";
+import { DebateRoleInRoom, FrameAnalysisResult } from "../../types";
 
 export interface DebateComposerProps {
   argumentText: string;
   isAiGenerating?: boolean;
   isSubmitting?: boolean;
   isRecording?: boolean;
+  isAnalyzingMultimodal?: boolean;
+  liveFrameAnalysis?: FrameAnalysisResult | null;
+  videoPreviewRef?: React.RefObject<HTMLVideoElement | null>;
+  overlayCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  hasActiveCamera?: boolean;
   isTurnExpired?: boolean;
   isDebateCompleted?: boolean;
   canSpeak: boolean;
@@ -18,6 +23,7 @@ export interface DebateComposerProps {
   onArgumentChange: (text: string) => void;
   onSend: () => void;
   onToggleRecording: () => void;
+  onRunSampleMultimodal?: () => void;
   onToggleAssistantTab: (tab: "coach" | "caseplan" | "evaluator") => void;
 }
 
@@ -26,6 +32,11 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   isAiGenerating = false,
   isSubmitting = false,
   isRecording = false,
+  isAnalyzingMultimodal = false,
+  liveFrameAnalysis = null,
+  videoPreviewRef,
+  overlayCanvasRef,
+  hasActiveCamera = false,
   isTurnExpired = false,
   isDebateCompleted = false,
   canSpeak = true,
@@ -36,6 +47,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   onArgumentChange,
   onSend,
   onToggleRecording,
+  onRunSampleMultimodal,
   onToggleAssistantTab,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -64,7 +76,92 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
 
   return (
     <div className="sticky bottom-0 z-20 px-3 sm:px-6 py-2.5 bg-white/95 dark:bg-[#0D1D17]/95 backdrop-blur-md border-t border-slate-200/70 dark:border-slate-800 shrink-0">
-      <div className="max-w-[880px] mx-auto w-full">
+      <div className="max-w-[880px] mx-auto w-full space-y-2">
+        {/* Live Multimodal Webcam + Audio Recording Banner */}
+        {(isRecording || isAnalyzingMultimodal) && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/95 text-white border border-emerald-500/30 shadow-md">
+            <div className="flex items-center gap-3">
+              {/* Live Webcam Feed + Bounding Box Overlay */}
+              <div
+                className={`relative w-28 h-20 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 shrink-0 ${
+                  hasActiveCamera ? "block" : "hidden"
+                }`}
+              >
+                <video
+                  ref={videoPreviewRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <canvas
+                  ref={overlayCanvasRef}
+                  width={320}
+                  height={240}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                />
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-2 font-bold text-emerald-400">
+                  {isAnalyzingMultimodal ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Đang phân tích giọng nói (Faster-Whisper) & biểu cảm (DeepFace)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                      <span>Đang ghi âm & phân tích biểu cảm trực tiếp (DeepFace YuNet + Whisper)</span>
+                    </>
+                  )}
+                </div>
+                {liveFrameAnalysis && liveFrameAnalysis.face_detected ? (
+                  <p className="text-[11px] text-slate-300">
+                    Biểu cảm:{" "}
+                    <span className="font-semibold text-emerald-300">
+                      {liveFrameAnalysis.dominant_emotion.toUpperCase()} ({liveFrameAnalysis.dominant_score}%)
+                    </span>{" "}
+                    · Điềm tĩnh (Composure):{" "}
+                    <span className="font-semibold text-amber-300">
+                      {liveFrameAnalysis.composure_instant}%
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400">
+                    {hasActiveCamera
+                      ? "Hãy nhìn thẳng vào camera và trình bày lập luận rõ ràng..."
+                      : "Đang thu âm giọng nói từ microphone. Nhấn nút Mic lần nữa để hoàn tất."}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {onRunSampleMultimodal && !isAnalyzingMultimodal && (
+                <button
+                  type="button"
+                  onClick={onRunSampleMultimodal}
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-400/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Chạy mẫu âm thanh & biểu cảm thử nghiệm (debate_audio.wav)"
+                >
+                  <Sparkles size={12} />
+                  <span>Thử mẫu AI</span>
+                </button>
+              )}
+              {isRecording && (
+                <button
+                  type="button"
+                  onClick={onToggleRecording}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Dừng & Phân tích
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -174,20 +271,33 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               </span>
             )}
 
-            {/* Microphone */}
+            {/* Microphone & Camera Multimodal Recording */}
             <button
               type="button"
               onClick={onToggleRecording}
-              disabled={isLocked}
-              aria-label={isRecording ? "Dừng ghi âm" : "Ghi âm giọng nói"}
-              title={isRecording ? "Dừng ghi âm" : "Ghi âm giọng nói"}
-              className={`p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+              disabled={isLocked || isAnalyzingMultimodal}
+              aria-label={isRecording ? "Dừng ghi âm" : "Ghi âm giọng nói & phân tích biểu cảm"}
+              title={
+                isRecording
+                  ? "Dừng ghi âm & phân tích giọng nói/biểu cảm"
+                  : "Ghi âm giọng nói (Faster-Whisper) & phân tích biểu cảm (DeepFace)"
+              }
+              className={`p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 flex items-center gap-1 ${
                 isRecording
                   ? "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 animate-pulse"
+                  : isAnalyzingMultimodal
+                  ? "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/50 dark:text-[#34D399]"
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800"
               }`}
             >
-              <Mic size={17} />
+              {isAnalyzingMultimodal ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <>
+                  <Mic size={17} />
+                  <Video size={14} className="hidden sm:inline opacity-70" />
+                </>
+              )}
             </button>
 
             {/* Visually Emphasized Send Button */}

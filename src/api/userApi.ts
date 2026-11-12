@@ -35,13 +35,6 @@ const userApi = {
   updateProfile: (data: UpdateProfileRequest): Promise<ApiResponse<UserProfileResponse>> =>
     axiosClient.put("/users/me", data),
 
-  /**
-   * GET /api/admin/test [Authorized(Roles = "Admin")]
-   * Tests administrator authorization and role validation.
-   */
-  testAdminAuth: (): Promise<ApiResponse<object>> =>
-    axiosClient.get("/admin/test"),
-
   // -------------------------------------------------------------
   // Admin Management Endpoints
   // -------------------------------------------------------------
@@ -56,15 +49,6 @@ const userApi = {
 
   getUserById: (id: string | number): Promise<ApiResponse<User>> =>
     axiosClient.get(`/admin/users/${id}`),
-
-  createUser: (data: Partial<User>): Promise<ApiResponse<User>> =>
-    axiosClient.post("/admin/users", data),
-
-  updateUser: (id: string | number, data: Partial<User>): Promise<ApiResponse<User>> =>
-    axiosClient.put(`/admin/users/${id}`, data),
-
-  deleteUser: (id: string | number): Promise<ApiResponse<void>> =>
-    axiosClient.delete(`/admin/users/${id}`),
 
   updateUserStatus: (id: string | number, isActive: boolean): Promise<ApiResponse<User>> =>
     axiosClient.patch(`/admin/users/${id}/status`, { isActive }),

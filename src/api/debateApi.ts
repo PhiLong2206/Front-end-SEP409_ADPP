@@ -24,6 +24,7 @@ import {
   ChallengeResponse,
   DebateAiEvaluationResponse,
   DebateEvaluationResponse,
+  SingleArgumentEvaluationResponse,
 } from "../types";
 
 /**
@@ -154,13 +155,25 @@ const debateApi = {
 
   /**
    * POST /api/Debate/{sessionId}/arguments [Authorized]
-   * Submits an argument for the current user's turn.
+   * Submits an argument for the current user's turn (with optional durationSeconds & deliveryAnalytics).
    */
   submitArgument: (
     sessionId: number | string,
     data: SubmitArgumentRequest
   ): Promise<ApiResponse<DebateSessionResponse>> =>
     axiosClient.post(`/debate/${sessionId}/arguments`, data),
+
+  /**
+   * POST /api/Debate/{sessionId}/arguments/{argumentId}/evaluate [Authorized]
+   * Evaluates a single argument in a session (including stored DeliveryAnalytics).
+   */
+  evaluateSingleArgument: (
+    sessionId: number | string,
+    argumentId: number | string
+  ): Promise<ApiResponse<SingleArgumentEvaluationResponse>> =>
+    axiosClient.post(`/debate/${sessionId}/arguments/${argumentId}/evaluate`, undefined, {
+      timeout: EVALUATION_TIMEOUT_MS,
+    }),
 
   /**
    * POST /api/Debate/{sessionId}/evaluate [Authorized]

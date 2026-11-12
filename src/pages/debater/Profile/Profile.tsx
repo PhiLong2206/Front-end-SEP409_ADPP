@@ -10,6 +10,8 @@ import {
 } from "recharts";
 import { useAuth } from "../../../hooks/useAuth";
 import userApi from "../../../api/userApi";
+import { debateApi } from "../../../api";
+import { countCompletedDebates } from "../../../utils/debateStats";
 import { ROLES } from "../../../utils/constants";
 import {
   CheckCircle2,
@@ -22,12 +24,12 @@ import {
   Calendar,
 } from "lucide-react";
 
-const SKILL_DATA = [
-  { subject: "Lập luận", A: 85, fullMark: 100 },
-  { subject: "Phản biện", A: 78, fullMark: 100 },
-  { subject: "Giải quyết vấn đề", A: 82, fullMark: 100 },
-  { subject: "Tư duy logic", A: 90, fullMark: 100 },
-  { subject: "Dẫn dắt", A: 70, fullMark: 100 },
+const EMPTY_SKILL_DATA = [
+  { subject: "Logic", A: 0, fullMark: 100 },
+  { subject: "Dẫn chứng", A: 0, fullMark: 100 },
+  { subject: "Liên quan", A: 0, fullMark: 100 },
+  { subject: "Cấu trúc", A: 0, fullMark: 100 },
+  { subject: "Thuyết phục", A: 0, fullMark: 100 },
 ];
 
 const normalizeGender = (g?: string | null): "Male" | "Female" | "Other" => {
@@ -60,6 +62,10 @@ const DebaterProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  const [avgScore100, setAvgScore100] = useState<number | null>(null);
+  const [streakDays, setStreakDays] = useState<number>(0);
+  const [skillData, setSkillData] = useState(EMPTY_SKILL_DATA);
 
   const roleStr = String(user?.role || "");
   const isAdmin =
@@ -76,7 +82,100 @@ const DebaterProfile: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
+    fetchRealDebateStats();
   }, []);
+
+  const fetchRealDebateStats = async () => {
+    try {
+      const historyRes = await debateApi.getUserHistory();
+      if (historyRes?.success && Array.isArray(historyRes.data)) {
+        setCompletedCount(countCompletedDebates(historyRes.data));
+
+        const uniqueDays = Array.from(
+          new Set(
+            historyRes.data
+              .filter((item) => item.createdAt)
+              .map((item) => new Date(item.createdAt).toISOString().slice(0, 10))
+          )
+        ).sort((a, b) => (a > b ? -1 : 1));
+
+        if (uniqueDays.length > 0) {
+          let streak = 1;
+          for (let i = 1; i < uniqueDays.length; i++) {
+            const diffDays = Math.round(
+              (new Date(uniqueDays[i - 1]).getTime() - new Date(uniqueDays[i]).getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+            if (diffDays === 1) streak += 1;
+            else break;
+          }
+          setStreakDays(streak);
+        }
+
+        const completedSessions = historyRes.data
+          .filter((item) => item.status === 3 || String(item.status) === "Completed")
+          .slice(0, 5);
+
+        if (completedSessions.length > 0) {
+          const evals = await Promise.allSettled(
+            completedSessions.map((s) => debateApi.getEvaluation(s.sessionId))
+          );
+          const scores: number[] = [];
+          const critSums: Record<string, { total: number; count: number }> = {
+            Logic: { total: 0, count: 0 },
+            "Dẫn chứng": { total: 0, count: 0 },
+            "Liên quan": { total: 0, count: 0 },
+            "Cấu trúc": { total: 0, count: 0 },
+            "Thuyết phục": { total: 0, count: 0 },
+          };
+
+          evals.forEach((evRes, idx) => {
+            if (evRes.status === "fulfilled" && evRes.value?.success && evRes.value.data) {
+              const ev = evRes.value.data;
+              const s = completedSessions[idx];
+              const isPro = s.userSide === 1 || String(s.userSide) === "PRO";
+              const myOverall = isPro
+                ? ev.overallScorePro ?? ev.proEvaluation?.overallScore ?? ev.overallScore
+                : ev.overallScoreCon ?? ev.conEvaluation?.overallScore ?? ev.overallScore;
+              if (typeof myOverall === "number" && myOverall > 0) {
+                scores.push(myOverall * 10);
+              }
+              const myEval = isPro ? ev.proEvaluation : ev.conEvaluation;
+              myEval?.roundEvaluations?.forEach((r) => {
+                r.criteria?.forEach((c) => {
+                  const n = (c.name || "").toLowerCase();
+                  const bucket = n.includes("logic")
+                    ? "Logic"
+                    : n.includes("evidence") || n.includes("bằng chứng") || n.includes("dẫn chứng")
+                    ? "Dẫn chứng"
+                    : n.includes("relevan") || n.includes("liên quan") || n.includes("trọng tâm")
+                    ? "Liên quan"
+                    : n.includes("struct") || n.includes("cấu trúc") || n.includes("bố cục")
+                    ? "Cấu trúc"
+                    : "Thuyết phục";
+                  critSums[bucket].total += Number(c.score || 0) * 20;
+                  critSums[bucket].count += 1;
+                });
+              });
+            }
+          });
+
+          if (scores.length > 0) {
+            setAvgScore100(Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
+          }
+          setSkillData(
+            Object.entries(critSums).map(([subject, { total, count }]) => ({
+              subject,
+              A: count > 0 ? Math.round(total / count) : 0,
+              fullMark: 100,
+            }))
+          );
+        }
+      }
+    } catch {
+      // Ignore stats error
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -645,7 +744,7 @@ const DebaterProfile: React.FC = () => {
                 {/* Stat 1 */}
                 <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
                   <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    12
+                    {completedCount}
                   </div>
                   <div className="text-[11px] font-medium text-slate-500 mt-0.5">
                     Phiên hoàn thành
@@ -655,17 +754,17 @@ const DebaterProfile: React.FC = () => {
                 {/* Stat 2 */}
                 <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
                   <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    76
+                    {avgScore100 !== null ? avgScore100 : "--"}
                   </div>
                   <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Điểm trung bình
+                    Điểm trung bình (/100)
                   </div>
                 </div>
 
                 {/* Stat 3 */}
                 <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
                   <div className="text-xl sm:text-2xl font-black text-amber-500">
-                    5
+                    {streakDays}
                   </div>
                   <div className="text-[11px] font-medium text-slate-500 mt-0.5">
                     Ngày liên tiếp
@@ -675,10 +774,10 @@ const DebaterProfile: React.FC = () => {
                 {/* Stat 4 */}
                 <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
                   <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    Top 15%
+                    {completedCount > 0 ? "Hoạt động" : "Mới"}
                   </div>
                   <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Xếp hạng
+                    Trạng thái
                   </div>
                 </div>
               </div>
@@ -687,12 +786,12 @@ const DebaterProfile: React.FC = () => {
             {/* Bottom: Kỹ năng Radar Chart */}
             <div>
               <h3 className="text-sm font-bold text-[#0F172A] mb-2">
-                Kỹ năng
+                Kỹ năng (Rubric 5 tiêu chí)
               </h3>
 
               <div className="w-full h-64 sm:h-72 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={SKILL_DATA} cx="50%" cy="50%" outerRadius="75%">
+                  <RadarChart data={skillData} cx="50%" cy="50%" outerRadius="75%">
                     <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                     <PolarAngleAxis
                       dataKey="subject"

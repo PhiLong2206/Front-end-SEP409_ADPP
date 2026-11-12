@@ -30,6 +30,34 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
+      "/coaching": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/api/coaching": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+      "/multimodal-health": {
+        target: "http://localhost:8003",
+        changeOrigin: true,
+        secure: false,
+        rewrite: () => "/health",
+      },
+      "/multimodal": {
+        target: "http://localhost:8003",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/api/multimodal": {
+        target: "http://localhost:8003",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
       "/ai-health": {
         target: "http://localhost:8002",
         changeOrigin: true,

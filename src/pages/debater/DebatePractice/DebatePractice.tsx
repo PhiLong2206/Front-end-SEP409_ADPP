@@ -26,89 +26,6 @@ const QUICK_PROMPTS = [
   "Làm việc từ xa (Remote work) mang lại hiệu quả cao hơn làm việc truyền thống.",
 ];
 
-const FALLBACK_TOPICS: Topic[] = [
-  {
-    id: "1",
-    title: "Kiểm soát AI bằng luật pháp quốc tế",
-    motion: "Trí tuệ nhân tạo (AI) nên được kiểm soát chặt chẽ bởi luật pháp quốc tế.",
-    description: "Thiết lập hiệp ước quốc tế để điều chỉnh nghiên cứu và ứng dụng trí tuệ nhân tạo.",
-    category: "Công nghệ",
-    difficulty: "Trung bình",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    title: "Cấm điện thoại thông minh trong trường học",
-    motion: "Nên cấm sử dụng điện thoại thông minh trong các trường phổ thông.",
-    description: "Đánh giá tác động của điện thoại đối với khả năng tập trung, học tập và tâm lý học sinh.",
-    category: "Giáo dục",
-    difficulty: "Dễ",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    title: "Năng lượng hạt nhân & Biến đổi khí hậu",
-    motion: "Năng lượng hạt nhân là giải pháp tất yếu để chống biến đổi khí hậu toàn cầu.",
-    description: "Cân nhắc hiệu quả giảm phát thải carbon so với các rủi ro phóng xạ và xử lý chất thải.",
-    category: "Môi trường",
-    difficulty: "Khó",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "4",
-    title: "Tác động của mạng xã hội đến giới trẻ",
-    motion: "Mạng xã hội đang gây hại nhiều hơn mang lại lợi ích cho giới trẻ.",
-    description: "Phân tích giữa việc kết nối thông tin với những nguy cơ trầm cảm và suy giảm giao tiếp thực tế.",
-    category: "Xã hội",
-    difficulty: "Dễ",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "5",
-    title: "Quy định mã hóa đầu cuối bắt buộc",
-    motion: "Chính phủ có nên áp đặt quy định mã hóa đầu cuối bắt buộc đối với dịch vụ nhắn tin?",
-    description: "Sự cân bằng giữa quyền riêng tư cá nhân và yêu cầu an ninh quốc gia, điều tra tội phạm.",
-    category: "Công nghệ",
-    difficulty: "Khó",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "6",
-    title: "Làm việc từ xa (Remote Work) vs Truyền thống",
-    motion: "Làm việc từ xa mang lại năng suất và chất lượng sống cao hơn làm việc truyền thống.",
-    description: "Lợi ích về thời gian, cân bằng cuộc sống đối chiếu với gắn kết đội ngũ và quản trị năng suất.",
-    category: "Kinh tế",
-    difficulty: "Trung bình",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "7",
-    title: "Tuần làm việc 4 ngày",
-    motion: "Các doanh nghiệp nên áp dụng tuần làm việc 4 ngày thay vì 5 ngày mà vẫn giữ nguyên lương.",
-    description: "Xu hướng làm việc linh hoạt, tăng hiệu suất theo giờ và giảm kiệt sức cho người lao động.",
-    category: "Kinh tế",
-    difficulty: "Dễ",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "8",
-    title: "Miễn học phí đại học công lập",
-    motion: "Chính phủ nên miễn hoàn toàn học phí cho sinh viên theo học các trường đại học công lập.",
-    description: "Cơ hội bình đẳng tiếp cận giáo dục đại học và gánh nặng ngân sách nhà nước.",
-    category: "Giáo dục",
-    difficulty: "Trung bình",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
 const DebatePractice: React.FC = () => {
   const navigate = useNavigate();
 
@@ -116,9 +33,9 @@ const DebatePractice: React.FC = () => {
   const [mode, setMode] = useState<PracticeMode>("custom");
 
   // Mode 1: Available Topics State
-  const [topics, setTopics] = useState<Topic[]>(FALLBACK_TOPICS);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
-  const [topicApiAvailable, setTopicApiAvailable] = useState<boolean | null>(true);
+  const [topicApiAvailable, setTopicApiAvailable] = useState<boolean | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
@@ -155,27 +72,21 @@ const DebatePractice: React.FC = () => {
         ? (raw as { items: any[] }).items
         : [];
 
-      if (rawItems.length > 0) {
-        const list: Topic[] = rawItems.map((t: any) => ({
-          id: String(t.topicId ?? t.id ?? Math.random()),
-          title: t.title || "Chủ đề tranh biện",
-          motion: t.motion || t.description || t.title || "",
-          description: t.description || t.title || "",
-          category: t.category || "Chung",
-          difficulty: (t.difficulty === "Easy" ? "Dễ" : t.difficulty === "Hard" ? "Khó" : "Trung bình") as any,
-          isActive: t.isActive ?? true,
-          createdAt: t.createdAt || new Date().toISOString(),
-        }));
-        setTopics(list);
-      } else {
-        setTopics(FALLBACK_TOPICS);
-      }
+      const list: Topic[] = rawItems.map((t: any) => ({
+        id: String(t.topicId ?? t.id ?? ""),
+        title: t.title || "Chủ đề tranh biện",
+        motion: t.motion || t.description || t.title || "",
+        description: t.description || t.title || "",
+        category: t.category || "Chung",
+        difficulty: (t.difficulty === "Easy" ? "Dễ" : t.difficulty === "Hard" ? "Khó" : "Trung bình") as any,
+        isActive: t.isActive ?? true,
+        createdAt: t.createdAt || new Date().toISOString(),
+      }));
+      setTopics(list);
       setTopicApiAvailable(true);
     } catch {
-      // Khi server trả về 404 (do backend đang restart) hoặc lỗi kết nối,
-      // tự động dùng danh mục chủ đề chuẩn bị sẵn để người dùng luôn chọn được chủ đề
-      setTopics(FALLBACK_TOPICS);
-      setTopicApiAvailable(true);
+      setTopics([]);
+      setTopicApiAvailable(false);
     } finally {
       setLoadingTopics(false);
     }

@@ -14,6 +14,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { debateApi } from "../../../api";
+import { useAuth } from "../../../hooks/useAuth";
+import { isSameUserId } from "../../../utils/debateSpeaker";
 
 export interface PlayerResult {
   name: string;
@@ -76,6 +78,8 @@ const Debate1v1Result: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { matchId } = useParams<{ matchId: string }>();
+  const { user } = useAuth();
+  const currentUserId = user?.userId ?? user?.id ?? null;
 
   const stateMatch = (location.state as { match?: MatchResultDetail })?.match || null;
   const [match, setMatch] = useState<MatchResultDetail | null>(stateMatch);
@@ -93,7 +97,8 @@ const Debate1v1Result: React.FC = () => {
       Promise.allSettled([
         debateApi.getSessionDetails(numId),
         debateApi.getTranscript(numId),
-      ]).then(([sessionRes, transcriptRes]) => {
+        debateApi.getEvaluation(numId),
+      ]).then(([sessionRes, transcriptRes, evalRes]) => {
         if (sessionRes.status === "fulfilled" && sessionRes.value?.success && sessionRes.value.data) {
           const s = sessionRes.value.data;
           const pro = s.participants.find((p) => p.side === 1 || String(p.side) === "PRO");
@@ -101,51 +106,106 @@ const Debate1v1Result: React.FC = () => {
 
           const transcript = transcriptRes.status === "fulfilled" && transcriptRes.value?.success ? transcriptRes.value.data : null;
           const argCount = transcript?.arguments?.length || 0;
+          const ev = evalRes.status === "fulfilled" && evalRes.value?.success ? evalRes.value.data : null;
+
+          const isCurrentUserCon = con && currentUserId != null && isSameUserId(con.userId, currentUserId);
+          const myParticipant = isCurrentUserCon ? con : pro;
+          const oppParticipant = isCurrentUserCon ? pro : con;
+          const myRole = isCurrentUserCon ? "CON" : "PRO";
+          const oppRole = isCurrentUserCon ? "PRO" : "CON";
+
+          const proEval = ev?.proEvaluation ?? null;
+          const conEval = ev?.conEvaluation ?? null;
+          const myEval = isCurrentUserCon ? conEval : proEval;
+          const oppEval = isCurrentUserCon ? proEval : conEval;
+
+          const proScore10 = ev?.overallScorePro ?? proEval?.overallScore ?? 0;
+          const conScore10 = ev?.overallScoreCon ?? conEval?.overallScore ?? 0;
+          const myScore100 = Math.round((isCurrentUserCon ? conScore10 : proScore10) * 10);
+          const oppScore100 = Math.round((isCurrentUserCon ? proScore10 : conScore10) * 10);
+
+          const winnerSide = (ev?.suggestedWinnerSide || "").toUpperCase();
+          let resultStatus: "WIN" | "LOSE" | "DRAW" = "DRAW";
+          if (winnerSide.includes(myRole)) {
+            resultStatus = "WIN";
+          } else if (winnerSide.includes(oppRole)) {
+            resultStatus = "LOSE";
+          } else if (myScore100 > oppScore100) {
+            resultStatus = "WIN";
+          } else if (myScore100 < oppScore100) {
+            resultStatus = "LOSE";
+          }
+
+          const extractCriteria100 = (partEval: typeof proEval): Record<string, number> => {
+            const out: Record<string, number> = {
+              logic: 0,
+              evidence: 0,
+              relevance: 0,
+              structure: 0,
+              persuasiveness: 0,
+            };
+            const rounds = partEval?.roundEvaluations || [];
+            if (rounds.length === 0) return out;
+            const sums: Record<string, { total: number; count: number }> = {};
+            rounds.forEach((r) => {
+              (r.criteria || []).forEach((c) => {
+                const n = (c.name || "").toLowerCase();
+                const key = n.includes("logic")
+                  ? "logic"
+                  : n.includes("evidence") || n.includes("bằng chứng") || n.includes("dẫn chứng")
+                  ? "evidence"
+                  : n.includes("relevan") || n.includes("liên quan") || n.includes("trọng tâm")
+                  ? "relevance"
+                  : n.includes("struct") || n.includes("cấu trúc") || n.includes("bố cục")
+                  ? "structure"
+                  : "persuasiveness";
+                if (!sums[key]) sums[key] = { total: 0, count: 0 };
+                sums[key].total += Number(c.score || 0);
+                sums[key].count += 1;
+              });
+            });
+            Object.keys(out).forEach((k) => {
+              if (sums[k] && sums[k].count > 0) {
+                // Criterion score is 0-5 -> scale to 0-100
+                out[k] = Math.round((sums[k].total / sums[k].count) * 20);
+              }
+            });
+            return out;
+          };
 
           setMatch({
             id: String(s.sessionId),
             topic: s.topic || s.title || "Tranh biện 1 vs 1",
             date: s.startedAt ? new Date(s.startedAt).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN"),
-            duration: s.startedAt && s.endedAt ? `${Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 60000)} phút` : "Hoàn thành",
+            duration: s.startedAt && s.endedAt ? `${Math.max(1, Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 60000))} phút` : "Hoàn thành",
             rules: "Luật WSDC chuẩn",
-            result: "WIN",
+            result: resultStatus,
             playerA: {
-              name: pro?.speakerName || "Người tham gia PRO",
-              avatar: (pro?.speakerName || "PRO").slice(0, 2).toUpperCase(),
-              role: "PRO",
-              score: 80,
+              name: myParticipant?.speakerName || `Người tham gia ${myRole}`,
+              avatar: (myParticipant?.speakerName || myRole).slice(0, 2).toUpperCase(),
+              role: myRole,
+              score: myScore100,
             },
             playerB: {
-              name: con?.speakerName || "Người tham gia CON",
-              avatar: (con?.speakerName || "CON").slice(0, 2).toUpperCase(),
-              role: "CON",
-              score: 75,
+              name: oppParticipant?.speakerName || `Người tham gia ${oppRole}`,
+              avatar: (oppParticipant?.speakerName || oppRole).slice(0, 2).toUpperCase(),
+              role: oppRole,
+              score: oppScore100,
             },
-            scores: {
-              logic: 80,
-              evidence: 78,
-              relevance: 82,
-              structure: 80,
-              persuasiveness: 80,
-            },
-            opponentScores: {
-              logic: 75,
-              evidence: 75,
-              relevance: 76,
-              structure: 74,
-              persuasiveness: 75,
-            },
-            aiJudgeVerdict: `Trận đấu gồm ${argCount} lượt phát biểu đã kết thúc. Cả hai phía đã thể hiện tinh thần tranh biện xuất sắc và tuân thủ chặt chẽ thời gian quy định.`,
+            scores: extractCriteria100(myEval),
+            opponentScores: extractCriteria100(oppEval),
+            aiJudgeVerdict:
+              ev?.summary ||
+              ev?.overallFeedback ||
+              myEval?.progressTrend ||
+              `Trận đấu gồm ${argCount} lượt phát biểu đã hoàn tất.`,
             judgeComments: [
-              "Hệ thống luận điểm rõ ràng, phản biện đúng trọng tâm kiến nghị.",
-              "Khả năng kiểm soát thời gian của các lượt nói đạt tiêu chuẩn.",
+              ...(myEval?.roundEvaluations?.map((r) => `Vòng ${r.roundNumber} (${r.stage}): ${r.consistencyNote}`).filter(Boolean) || []),
             ],
-            myStrengths: [
-              "Bố cục bài tranh biện mạch lạc.",
-              "Phản bác kịp thời các luận cứ từ phía đối thủ.",
-            ],
+            myStrengths: myEval?.strengths || [],
             myImprovements: [
-              "Cần mở rộng thêm dẫn chứng từ các nguồn dữ liệu tin cậy.",
+              ...(myEval?.weaknesses || []),
+              ...(myEval?.suggestions || []),
             ],
           });
         }
@@ -155,7 +215,7 @@ const Debate1v1Result: React.FC = () => {
     } else {
       setLoading(false);
     }
-  }, [stateMatch, matchId]);
+  }, [stateMatch, matchId, currentUserId]);
 
   if (loading) {
     return (

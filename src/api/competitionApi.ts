@@ -338,6 +338,25 @@ const competitionApi = {
     ),
 
   /**
+   * GET /api/competitions/{competitionId}/matches/{matchId}
+   * Retrieves detailed match information including participants, judge, topic, and status.
+   */
+  getMatchDetail: (
+    competitionId: number | string,
+    matchId: number | string
+  ): Promise<ApiResponse<TournamentMatch>> =>
+    axiosClient.get(`/competitions/${competitionId}/matches/${matchId}`),
+
+  /**
+   * GET /api/competitions/{competitionId}/sessions
+   * Retrieves all debate sessions created for matches in the competition.
+   */
+  getCompetitionSessions: (
+    competitionId: number | string
+  ): Promise<ApiResponse<unknown[]>> =>
+    axiosClient.get(`/competitions/${competitionId}/sessions`),
+
+  /**
    * POST /api/competitions/{competitionId}/matches/{matchId}/finalize [Authorized - Assigned Judge]
    * Submits official judge scoring and finalizes match result.
    */

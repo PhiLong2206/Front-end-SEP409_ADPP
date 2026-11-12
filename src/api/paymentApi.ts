@@ -1,17 +1,14 @@
 import axiosClient from "./axiosClient";
 import {
-  PaymentTransaction,
-  SubscriptionPlan,
-  CreatePaymentDto,
-  PaymentFilterParams,
   ApiResponse,
-  PaginatedResponse,
   DebaterCreditPackage,
   WalletInfo,
   WalletTransactionItem,
   CreateTopUpPaymentRequest,
   PaymentLinkResponse,
   PaymentStatusResponse,
+  RewardStatusResponse,
+  RewardClaimResponse,
 } from "../types";
 
 const paymentApi = {
@@ -56,32 +53,19 @@ const paymentApi = {
   }): Promise<ApiResponse<WalletTransactionItem[]>> =>
     axiosClient.get("/wallets/me/transactions", { params }),
 
-  // Debater payments legacy
-  createPaymentUrl: (data: CreatePaymentDto): Promise<ApiResponse<{ paymentUrl: string }>> =>
-    axiosClient.post("/payments/create-url", data),
+  /**
+   * GET /api/rewards/status
+   * Kiểm tra trạng thái nhận thưởng điểm danh hàng ngày & lần đầu đăng nhập
+   */
+  getRewardStatus: (): Promise<ApiResponse<RewardStatusResponse>> =>
+    axiosClient.get("/rewards/status"),
 
-  getMyTransactions: (
-    params?: PaymentFilterParams
-  ): Promise<ApiResponse<PaginatedResponse<PaymentTransaction>>> =>
-    axiosClient.get("/payments/my-transactions", { params }),
-
-  getTransactionDetails: (id: string): Promise<ApiResponse<PaymentTransaction>> =>
-    axiosClient.get(`/payments/transactions/${id}`),
-
-  getSubscriptionPlans: (): Promise<ApiResponse<SubscriptionPlan[]>> =>
-    axiosClient.get("/payments/plans"),
-
-  // Admin management
-  getAllTransactions: (
-    params?: PaymentFilterParams
-  ): Promise<ApiResponse<PaginatedResponse<PaymentTransaction>>> =>
-    axiosClient.get("/admin/payments/transactions", { params }),
-
-  getPaymentStats: (): Promise<ApiResponse<{ totalRevenue: number; monthlyRevenue: number }>> =>
-    axiosClient.get("/admin/payments/stats"),
-
-  refundTransaction: (id: string, reason: string): Promise<ApiResponse<PaymentTransaction>> =>
-    axiosClient.post(`/admin/payments/transactions/${id}/refund`, { reason }),
+  /**
+   * POST /api/rewards/daily-login
+   * Nhận thưởng điểm tín chỉ đăng nhập hàng ngày
+   */
+  claimDailyLoginReward: (): Promise<ApiResponse<RewardClaimResponse>> =>
+    axiosClient.post("/rewards/daily-login"),
 };
 
 export default paymentApi;

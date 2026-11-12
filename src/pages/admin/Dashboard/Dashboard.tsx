@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import adminApi from "../../../api/adminApi";
 import topicApi from "../../../api/topicApi";
-import userApi from "../../../api/userApi";
 import { Topic, AdminDashboardStats } from "../../../types";
 import {
   Users,
@@ -71,22 +70,11 @@ const AdminDashboard: React.FC = () => {
     setLoading(true);
     setAdminAuthStatus("checking");
 
-    // 1. Verify real backend Admin authorization endpoint: GET /api/admin/test
-    try {
-      const authRes = await userApi.testAdminAuth().catch(() => null);
-      if (authRes && authRes.success) {
-        setAdminAuthStatus("verified");
-      } else {
-        setAdminAuthStatus("failed");
-      }
-    } catch {
-      setAdminAuthStatus("failed");
-    }
-
-    // 2. Fetch real stats: GET /api/admin/dashboard/stats
+    // 1. Fetch real stats & verify Admin authorization: GET /api/admin/dashboard/stats
     try {
       const statsRes = await adminApi.getDashboardStats().catch(() => null);
       if (statsRes && statsRes.success && statsRes.data) {
+        setAdminAuthStatus("verified");
         setStats(statsRes.data);
         setServices((prev) =>
           prev.map((s) =>
@@ -95,9 +83,11 @@ const AdminDashboard: React.FC = () => {
               : s
           )
         );
+      } else {
+        setAdminAuthStatus("failed");
       }
     } catch {
-      // Keep null
+      setAdminAuthStatus("failed");
     }
 
     // 3. Query real topics from Backend: GET /api/topics
@@ -343,7 +333,7 @@ const AdminDashboard: React.FC = () => {
             <div className="mt-4">
               <div className="space-y-1">
                 <p className="text-2xl sm:text-3xl font-black text-[#008A64] dark:text-emerald-400 tracking-tight">
-                  100% Sẵn sàng
+                  {services.filter((s) => s.status === "connected").length}/{services.length} Dịch vụ
                 </p>
                 <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#008A64] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/40">
                   <CheckCircle2 size={11} /> Bảo mật vai trò đầy đủ

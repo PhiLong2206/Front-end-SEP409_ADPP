@@ -20,6 +20,7 @@ import {
   DebaterCreditPackage,
   WalletInfo,
   WalletTransactionItem,
+  RewardStatusResponse,
 } from "../../../types";
 
 const Payments: React.FC = () => {
@@ -29,6 +30,8 @@ const Payments: React.FC = () => {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [packages, setPackages] = useState<DebaterCreditPackage[]>([]);
   const [transactions, setTransactions] = useState<WalletTransactionItem[]>([]);
+  const [rewardStatus, setRewardStatus] = useState<RewardStatusResponse | null>(null);
+  const [claimingReward, setClaimingReward] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [redirectingPackageId, setRedirectingPackageId] = useState<number | null>(null);
 
@@ -44,10 +47,13 @@ const Payments: React.FC = () => {
     setLoading(true);
     setErrorMsg("");
     try {
-      const [walletRes, packagesRes, txnsRes] = await Promise.all([
+      const [walletRes, packagesRes, txnsRes, rewardRes] = await Promise.all([
         paymentApi.getMyWallet().catch(() => null),
         paymentApi.getActivePackages().catch(() => null),
         paymentApi.getMyWalletTransactions({ page: 1, pageSize: 20 }).catch(() => null),
+        typeof paymentApi.getRewardStatus === "function"
+          ? paymentApi.getRewardStatus().catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       if (walletRes && walletRes.success && walletRes.data) {
@@ -61,6 +67,10 @@ const Payments: React.FC = () => {
       if (txnsRes && txnsRes.success && txnsRes.data) {
         setTransactions(txnsRes.data);
       }
+
+      if (rewardRes && rewardRes.success && rewardRes.data) {
+        setRewardStatus(rewardRes.data);
+      }
     } catch (err: unknown) {
       const errObj = err as { message?: string };
       setErrorMsg(errObj?.message || "Lỗi khi tải thông tin ví và gói nạp.");
@@ -68,6 +78,28 @@ const Payments: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  const handleClaimDailyReward = async () => {
+    setClaimingReward(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const res = await paymentApi.claimDailyLoginReward();
+      if (res && res.success && res.data) {
+        setSuccessMsg(
+          `Điểm danh thành công! Bạn đã nhận +${res.data.creditAmount} Credit (Số dư mới: ${res.data.newBalance} Credit).`
+        );
+        await fetchData();
+      } else {
+        setErrorMsg(res?.message || "Bạn đã nhận thưởng hôm nay hoặc không thể nhận thưởng lúc này.");
+      }
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setErrorMsg(errObj?.message || "Không thể nhận thưởng điểm danh hàng ngày.");
+    } finally {
+      setClaimingReward(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -191,6 +223,27 @@ const Payments: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {rewardStatus && (
+              <button
+                type="button"
+                onClick={handleClaimDailyReward}
+                disabled={!rewardStatus.canClaimDailyLogin || claimingReward}
+                className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                  rewardStatus.canClaimDailyLogin
+                    ? "bg-amber-400 hover:bg-amber-300 text-slate-900 border-amber-200 cursor-pointer shadow-md"
+                    : "bg-white/10 text-emerald-100 border-white/15 opacity-80 cursor-not-allowed"
+                }`}
+              >
+                <Gift size={16} />
+                <span>
+                  {claimingReward
+                    ? "Đang nhận thưởng..."
+                    : rewardStatus.canClaimDailyLogin
+                    ? `Nhận thưởng hôm nay (+${rewardStatus.dailyLoginAmount} Credit)`
+                    : "Đã nhận thưởng hàng ngày"}
+                </span>
+              </button>
+            )}
             <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 text-xs text-emerald-50 space-y-1">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-emerald-200">Cổng thanh toán:</span>

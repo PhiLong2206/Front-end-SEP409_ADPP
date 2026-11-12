@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
-  AlertTriangle,
   Shield,
   Flame,
   Swords,
@@ -51,6 +50,11 @@ import {
   DebateRoomMode,
   DebateRoleInRoom,
   DebateTeamGroup,
+  DeliveryAnalytics,
+  EmotionSample,
+  FrameAnalysisResult,
+  MultimodalTurnResult,
+  CoachingResult,
 } from "../../../types";
 import { getErrorMessage } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
@@ -95,6 +99,9 @@ interface TurnEvaluationContext {
   stage: DebateRoundType;
   argumentText: string;
   opponentText: string | null;
+  durationSeconds?: number;
+  deliveryAnalytics?: DeliveryAnalytics | null;
+  multimodalResult?: MultimodalTurnResult | null;
 }
 
 const TURN_EVALUATION_ERROR = "Chưa chấm được lượt phát biểu này. Vui lòng thử lại.";
@@ -106,6 +113,7 @@ const OPPONENT_SESSION_ID_ERROR =
 
 export interface DebateRoomMessage {
   id: string;
+  argumentId?: number;
   speaker: "Debater" | "AI";
   speakerName: string;
   side: "Ủng hộ" | "Phản đối";
@@ -116,7 +124,37 @@ export interface DebateRoomMessage {
   isCurrentUser?: boolean;
   /** The transcript's userId, or the account id on a speech this client just submitted. */
   speakerUserId?: string | number;
+  wordCount?: number | null;
+  durationSeconds?: number | null;
+  deliveryAnalytics?: DeliveryAnalytics | null;
 }
+
+const normalizeDeliveryAnalytics = (raw?: DeliveryAnalytics | null): DeliveryAnalytics | undefined => {
+  if (!raw) return undefined;
+  return {
+    dominantEmotion: raw.dominantEmotion ?? raw.dominant_emotion ?? "neutral",
+    eyeContactRate: raw.eyeContactRate ?? raw.eye_contact_rate ?? 0,
+    composureScore: raw.composureScore ?? raw.composure_score ?? 0,
+    confidenceScore: raw.confidenceScore ?? raw.confidence_score ?? 0,
+    wpm: raw.wpm ?? 0,
+    paceEvaluation: raw.paceEvaluation ?? raw.pace_evaluation ?? "",
+    paceScore: raw.paceScore ?? raw.pace_score ?? 0,
+    fillerCount: raw.fillerCount ?? raw.filler_count ?? 0,
+    fluencyScore: raw.fluencyScore ?? raw.fluency_score ?? 100,
+    overallDemeanorScore: raw.overallDemeanorScore ?? raw.overall_demeanor_score ?? 0,
+    emotionBreakdown: raw.emotionBreakdown ?? raw.emotion_breakdown ?? {},
+    dominant_emotion: raw.dominant_emotion ?? raw.dominantEmotion ?? "neutral",
+    eye_contact_rate: raw.eye_contact_rate ?? raw.eyeContactRate ?? 0,
+    composure_score: raw.composure_score ?? raw.composureScore ?? 0,
+    confidence_score: raw.confidence_score ?? raw.confidenceScore ?? 0,
+    pace_evaluation: raw.pace_evaluation ?? raw.paceEvaluation ?? "",
+    pace_score: raw.pace_score ?? raw.paceScore ?? 0,
+    filler_count: raw.filler_count ?? raw.fillerCount ?? 0,
+    fluency_score: raw.fluency_score ?? raw.fluencyScore ?? 100,
+    overall_demeanor_score: raw.overall_demeanor_score ?? raw.overallDemeanorScore ?? 0,
+    emotion_breakdown: raw.emotion_breakdown ?? raw.emotionBreakdown ?? {},
+  };
+};
 
 const ROUND_1_DEFAULT_SECONDS = 135; // 02:15
 const SUBSEQUENT_ROUND_SECONDS = 120; // 02:00
@@ -236,6 +274,25 @@ const DebateRoom: React.FC = () => {
   const [evaluatorError, setEvaluatorError] = useState<string | null>(null);
   const [casePlan, setCasePlan] = useState<CaseFileResponse | null>(null);
   const [evaluationResult, setEvaluationResult] = useState<ArgumentEvaluationResult | null>(null);
+  const [coachingResult, setCoachingResult] = useState<CoachingResult | null>(null);
+  const [isCoachingLoading, setIsCoachingLoading] = useState<boolean>(false);
+  const [multimodalResult, setMultimodalResult] = useState<MultimodalTurnResult | null>(null);
+  const [recordedDurationSeconds, setRecordedDurationSeconds] = useState<number | null>(null);
+  const [isAnalyzingMultimodal, setIsAnalyzingMultimodal] = useState<boolean>(false);
+  const [liveFrameAnalysis, setLiveFrameAnalysis] = useState<FrameAnalysisResult | null>(null);
+  const [hasActiveCamera, setHasActiveCamera] = useState<boolean>(false);
+
+  // Multimodal Webcam + Microphone Refs
+  const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const frameIntervalRef = useRef<number | null>(null);
+  const emotionTimelineRef = useRef<EmotionSample[]>([]);
+  const totalFramesCapturedRef = useRef<number>(0);
+  const recordingStartTimeRef = useRef<number>(0);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [sidebarTab, setSidebarTab] = useState<string>("evaluator");
   const [hasNewEvaluation, setHasNewEvaluation] = useState<boolean>(false);
@@ -601,6 +658,7 @@ const DebateRoom: React.FC = () => {
                 : 3;
             return {
               id: `arg-${arg.argumentId}`,
+              argumentId: arg.argumentId,
               speaker: arg.isAI ? "AI" : "Debater",
               speakerName: arg.speakerName || (arg.isAI ? "Đối thủ AI" : "Bạn"),
               side: arg.side === 1 || String(arg.side) === "PRO" ? "Ủng hộ" : "Phản đối",
@@ -618,6 +676,9 @@ const DebateRoom: React.FC = () => {
                   ? isSameUserId(arg.userId, currentUserId)
                   : !arg.isAI && (!user?.fullName || arg.speakerName === user.fullName || !isP2pOr2v2),
               speakerUserId: arg.userId ?? undefined,
+              wordCount: arg.wordCount ?? (arg.content ? arg.content.trim().split(/\s+/).length : null),
+              durationSeconds: arg.durationSeconds ?? null,
+              deliveryAnalytics: normalizeDeliveryAnalytics(arg.deliveryAnalytics) ?? null,
             };
           });
           setMessages(loadedMsgs);
@@ -1406,6 +1467,250 @@ const DebateRoom: React.FC = () => {
     [advanceToNextRoundOrComplete, aiSide, appendOpponentMessage, isBackendSession, numSessionId, opponentSessionId]
   );
 
+  // Stop media streams & frame intervals cleanly
+  const stopMediaCaptureResources = useCallback(() => {
+    if (frameIntervalRef.current) {
+      window.clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setHasActiveCamera(false);
+    setLiveFrameAnalysis(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopMediaCaptureResources();
+    };
+  }, [stopMediaCaptureResources]);
+
+  const captureAndAnalyzeWebcamFrame = useCallback(async () => {
+    const video = videoPreviewRef.current;
+    if (!video || video.readyState < 2) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageBase64 = canvas.toDataURL("image/jpeg", 0.65);
+    const elapsedSec = (Date.now() - recordingStartTimeRef.current) / 1000;
+
+    totalFramesCapturedRef.current += 1;
+
+    try {
+      const res = await aiApi.analyzeFrame({
+        image_base64: imageBase64,
+        timestamp: elapsedSec,
+      });
+
+      setLiveFrameAnalysis(res);
+
+      const overlay = overlayCanvasRef.current;
+      if (overlay) {
+        const oCtx = overlay.getContext("2d");
+        if (oCtx) {
+          oCtx.clearRect(0, 0, overlay.width, overlay.height);
+          if (res.face_detected && res.region) {
+            oCtx.strokeStyle = "#10B981";
+            oCtx.lineWidth = 2;
+            oCtx.strokeRect(res.region.x, res.region.y, res.region.w, res.region.h);
+            oCtx.fillStyle = "rgba(16, 185, 129, 0.85)";
+            oCtx.font = "bold 11px sans-serif";
+            oCtx.fillText(
+              `${res.dominant_emotion.toUpperCase()} (${res.dominant_score}%)`,
+              res.region.x,
+              Math.max(14, res.region.y - 4)
+            );
+          }
+        }
+      }
+
+      if (res.face_detected) {
+        emotionTimelineRef.current.push({
+          time: elapsedSec,
+          dominant: res.dominant_emotion,
+          scores: res.emotion_scores,
+          face_detected: true,
+        });
+      }
+    } catch {
+      // Ignore single frame errors during realtime streaming
+    }
+  }, []);
+
+  const handleToggleRecording = useCallback(async () => {
+    if (isRecording) {
+      // Stop recording and run /multimodal/analyze-turn
+      setIsRecording(false);
+      if (frameIntervalRef.current) {
+        window.clearInterval(frameIntervalRef.current);
+        frameIntervalRef.current = null;
+      }
+
+      const durationSec = Math.max(1, Math.round((Date.now() - recordingStartTimeRef.current) / 1000));
+      setRecordedDurationSeconds(durationSec);
+
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        const audioBlobPromise = new Promise<Blob>((resolve) => {
+          recorder.onstop = () => {
+            const mimeType = recorder.mimeType || "audio/webm";
+            resolve(new Blob(audioChunksRef.current, { type: mimeType }));
+          };
+        });
+        recorder.stop();
+        const audioBlob = await audioBlobPromise;
+        stopMediaCaptureResources();
+
+        setIsAnalyzingMultimodal(true);
+        try {
+          const audioBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(String(reader.result || ""));
+            reader.onerror = reject;
+            reader.readAsDataURL(audioBlob);
+          });
+
+          const turnRes = await aiApi.analyzeTurn({
+            audio_base64: audioBase64,
+            emotion_timeline: emotionTimelineRef.current,
+            total_frames_captured: totalFramesCapturedRef.current,
+            duration_seconds: durationSec,
+            transcript_override: argumentTextRef.current.trim() || null,
+            include_report_chart: true,
+          });
+
+          setMultimodalResult(turnRes);
+          if (turnRes.voice?.transcript_text?.trim()) {
+            setArgumentText((prev) =>
+              prev.trim()
+                ? `${prev.trim()} ${turnRes.voice.transcript_text.trim()}`
+                : turnRes.voice.transcript_text.trim()
+            );
+          }
+          setIsSidebarOpen(true);
+          setSidebarTab("evaluator");
+          setRoomFeedback({
+            text: `Đã phân tích giọng nói & biểu cảm (Điểm phong thái: ${turnRes.overall_demeanor_score}/100, tốc độ: ${turnRes.voice.wpm} WPM).`,
+            type: "success",
+          });
+        } catch (err) {
+          console.error("Error analyzing multimodal turn:", err);
+          setRoomFeedback({
+            text: `Không thể phân tích giọng nói/biểu cảm: ${getErrorMessage(err, "Vui lòng kiểm tra AI Multimodal Service (port 8003)")}`,
+            type: "error",
+          });
+        } finally {
+          setIsAnalyzingMultimodal(false);
+        }
+      } else {
+        stopMediaCaptureResources();
+      }
+      return;
+    }
+
+    // Start recording (Webcam + Microphone, fallback to Microphone-only if camera unavailable)
+    try {
+      let stream: MediaStream;
+      let hasVideo = false;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240 },
+          audio: true,
+        });
+        hasVideo = stream.getVideoTracks().length > 0;
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        hasVideo = false;
+      }
+
+      mediaStreamRef.current = stream;
+      setHasActiveCamera(hasVideo);
+      emotionTimelineRef.current = [];
+      totalFramesCapturedRef.current = 0;
+      audioChunksRef.current = [];
+      recordingStartTimeRef.current = Date.now();
+      setIsRecording(true);
+
+      if (hasVideo && videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = stream;
+      }
+
+      const audioOnlyStream = new MediaStream(stream.getAudioTracks());
+      const recorder = new MediaRecorder(audioOnlyStream);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+
+      if (hasVideo) {
+        frameIntervalRef.current = window.setInterval(() => {
+          void captureAndAnalyzeWebcamFrame();
+        }, 600);
+      }
+    } catch (mediaErr) {
+      console.warn("Media device access unavailable, running demo sample audio fallback:", mediaErr);
+      // If browser has no hardware microphone/camera attached (e.g. headless/desktop PC without mic),
+      // run the real Multimodal service sample audio + DeepFace pipeline so the user can still test!
+      setIsAnalyzingMultimodal(true);
+      try {
+        const sampleRes = await aiApi.runDemoSampleAudio();
+        setMultimodalResult(sampleRes);
+        setRecordedDurationSeconds(Math.round(sampleRes.voice.duration_seconds || 16));
+        if (sampleRes.voice?.transcript_text?.trim() && !argumentTextRef.current.trim()) {
+          setArgumentText(sampleRes.voice.transcript_text.trim());
+        }
+        setIsSidebarOpen(true);
+        setSidebarTab("evaluator");
+        setRoomFeedback({
+          text: `Không tìm thấy thiết bị Mic/Camera vật lý — đã chạy phân tích từ file âm thanh mẫu trên AI Multimodal Service (Điểm phong thái: ${sampleRes.overall_demeanor_score}/100).`,
+          type: "success",
+        });
+      } catch (sampleErr) {
+        setRoomFeedback({
+          text: `Không thể truy cập Microphone/Camera: ${getErrorMessage(sampleErr, "Vui lòng cấp quyền trình duyệt.")}`,
+          type: "error",
+        });
+      } finally {
+        setIsAnalyzingMultimodal(false);
+      }
+    }
+  }, [captureAndAnalyzeWebcamFrame, isRecording, stopMediaCaptureResources]);
+
+  const handleRunSampleMultimodal = useCallback(async () => {
+    stopMediaCaptureResources();
+    setIsRecording(false);
+    setIsAnalyzingMultimodal(true);
+    try {
+      const sampleRes = await aiApi.runDemoSampleAudio();
+      setMultimodalResult(sampleRes);
+      setRecordedDurationSeconds(Math.round(sampleRes.voice.duration_seconds || 16));
+      if (sampleRes.voice?.transcript_text?.trim()) {
+        setArgumentText(sampleRes.voice.transcript_text.trim());
+      }
+      setIsSidebarOpen(true);
+      setSidebarTab("evaluator");
+      setRoomFeedback({
+        text: `Đã phân tích mẫu giọng nói & biểu cảm (Điểm phong thái: ${sampleRes.overall_demeanor_score}/100, WPM: ${sampleRes.voice.wpm}).`,
+        type: "success",
+      });
+    } catch (err) {
+      setRoomFeedback({
+        text: `Lỗi khi chạy mẫu Multimodal: ${getErrorMessage(err, "Lỗi không xác định")}`,
+        type: "error",
+      });
+    } finally {
+      setIsAnalyzingMultimodal(false);
+    }
+  }, [stopMediaCaptureResources]);
+
   // Evaluate one submitted turn. On failure the debate is blocked (see pendingTurnEvaluation) until a retry succeeds.
   const runTurnEvaluation = useCallback(
     async (ctx: TurnEvaluationContext) => {
@@ -1413,13 +1718,41 @@ const DebateRoom: React.FC = () => {
       setEvaluatingMessageId(ctx.messageId ?? null);
       setEvaluatorError(null);
       try {
-        const res = await aiApi.evaluateSpeechArgument({
-          motion: resolvedMotion,
-          side: debaterSide,
-          stage: ctx.stage,
-          argument_text: ctx.argumentText,
-          opponent_argument_text: ctx.opponentText,
-        });
+        // Use Integrated Multimodal + Content Evaluator pipeline when multimodal turn data exists,
+        // or call AI Evaluator directly with delivery_analytics attached.
+        let res: ArgumentEvaluationResult | null = null;
+        if (ctx.multimodalResult) {
+          try {
+            const integrated = await aiApi.evaluateSpeechMultimodal({
+              motion: resolvedMotion,
+              side: debaterSide,
+              stage: ctx.stage,
+              opponent_argument_text: ctx.opponentText,
+              turn_data: {
+                transcript_override: ctx.argumentText,
+                duration_seconds: ctx.durationSeconds,
+              },
+              existing_multimodal_result: ctx.multimodalResult,
+            });
+            if (integrated?.content_evaluation) {
+              res = integrated.content_evaluation;
+            }
+          } catch (multiEvalErr) {
+            console.warn("Fallback to direct /evaluate after multimodal pipeline warning:", multiEvalErr);
+          }
+        }
+
+        if (!res) {
+          res = await aiApi.evaluateSpeechArgument({
+            motion: resolvedMotion,
+            side: debaterSide,
+            stage: ctx.stage,
+            argument_text: ctx.argumentText,
+            opponent_argument_text: ctx.opponentText,
+            delivery_analytics: ctx.deliveryAnalytics ?? undefined,
+          });
+        }
+
         setEvaluationResult(res);
         setHasNewEvaluation(true);
         setPendingTurnEvaluation(null);
@@ -1481,6 +1814,14 @@ const DebateRoom: React.FC = () => {
     const stage: DebateRoundType =
       roundAtSubmission === 1 ? "opening" : roundAtSubmission === 2 ? "rebuttal" : "closing";
 
+    const defaultTurnSec =
+      roundAtSubmission === 1 ? ROUND_1_DEFAULT_SECONDS : SUBSEQUENT_ROUND_SECONDS;
+    const elapsedTurnSec = Math.max(1, defaultTurnSec - Math.max(0, secondsRemaining));
+    const turnDurationSec = recordedDurationSeconds ?? elapsedTurnSec;
+    const currentMultimodal = multimodalResult;
+    const normalizedAnalytics = normalizeDeliveryAnalytics(currentMultimodal?.delivery_analytics);
+    const computedWordCount = currentText ? currentText.split(/\s+/).length : 0;
+
     // The Backend rejected (or could not receive) the argument: nothing was submitted, the user keeps
     // their text and the same turn (including its remaining time).
     const abortSubmission = (message: string) => {
@@ -1499,7 +1840,11 @@ const DebateRoom: React.FC = () => {
     let submittedSession: DebateSessionResponse | undefined;
     if (isBackendSession && !argumentsSubmittedRoundsRef.current.has(roundAtSubmission)) {
       try {
-        const res = await debateApi.submitArgument(numSessionId, { content: currentText });
+        const res = await debateApi.submitArgument(numSessionId, {
+          content: currentText,
+          ...(recordedDurationSeconds !== null ? { durationSeconds: recordedDurationSeconds } : {}),
+          ...(normalizedAnalytics ? { deliveryAnalytics: normalizedAnalytics } : {}),
+        });
         if (!res?.success) {
           abortSubmission(getDebateErrorMessage(res, "Máy chủ từ chối lập luận của bạn. Vui lòng thử lại."));
           return;
@@ -1535,10 +1880,14 @@ const DebateRoom: React.FC = () => {
       content: currentText,
       isCurrentUser: true,
       speakerUserId: currentUserId ?? undefined,
+      wordCount: computedWordCount,
+      durationSeconds: turnDurationSec,
+      deliveryAnalytics: normalizedAnalytics ?? null,
     };
 
     setMessages((prev) => [...prev, newDebaterMsg]);
     setArgumentText("");
+    setRecordedDurationSeconds(null);
 
     if (isP2pOr2v2) {
       try {
@@ -1552,7 +1901,7 @@ const DebateRoom: React.FC = () => {
 
     setOpponentError(null);
 
-    // 2. Call AI Evaluator Microservice (POST /evaluate) — independent of AI Opponent turn state
+    // 2. Call AI Evaluator Microservice (POST /evaluate or /multimodal/evaluate-speech) — independent of AI Opponent turn state
     const opponentRecentSpeech =
       messages
         .filter((m) => m.speaker === "AI")
@@ -1563,6 +1912,9 @@ const DebateRoom: React.FC = () => {
       stage,
       argumentText: currentText,
       opponentText: opponentRecentSpeech,
+      durationSeconds: turnDurationSec,
+      deliveryAnalytics: normalizedAnalytics ?? null,
+      multimodalResult: currentMultimodal,
     });
 
     // 3. Call AI Opponent Microservice (POST /opponent/sessions/{id}/turns) for every AI turn that follows.
@@ -1595,49 +1947,97 @@ const DebateRoom: React.FC = () => {
     sendArgumentRef.current = handleSendArgument;
   });
 
-  // Convert evaluation suggestions to coaching advice if available
-  const coachingAdvice: CoachingAdvice[] = evaluationResult
-    ? [
-        ...(evaluationResult.weaknesses?.map((w) => ({
-          type: "weakness" as const,
-          label: "Điểm yếu cần khắc phục",
-          content: w,
-        })) || []),
-        ...(evaluationResult.suggestions?.map((s) => ({
-          type: "strategy" as const,
-          label: "Gợi ý chiến lược tiếp theo",
-          content: s,
-        })) || []),
-      ]
-    : [];
+  // Convert evaluation suggestions & AI Coaching result (/coaching/argument) to coaching advice cards
+  const coachingAdvice: CoachingAdvice[] = [
+    ...(coachingResult
+      ? [
+          ...(coachingResult.focus_area
+            ? [
+                {
+                  type: "weakness" as const,
+                  label: "Trọng tâm cần cải thiện (AI Coach)",
+                  content: `${coachingResult.focus_area} — ${coachingResult.summary}`,
+                },
+              ]
+            : []),
+          ...(coachingResult.rewritten_example
+            ? [
+                {
+                  type: "evidence" as const,
+                  label: "Ví dụ viết lại mẫu từ AI Coach",
+                  content: coachingResult.rewritten_example,
+                },
+              ]
+            : []),
+          ...(coachingResult.drills?.map((d) => ({
+            type: "strategy" as const,
+            label: "Bài tập rèn luyện lập luận",
+            content: d,
+          })) || []),
+          ...(coachingResult.next_turn_advice?.map((a) => ({
+            type: "strategy" as const,
+            label: "Chiến thuật lượt tiếp theo",
+            content: a,
+          })) || []),
+        ]
+      : []),
+    ...(evaluationResult
+      ? [
+          ...(evaluationResult.weaknesses?.map((w) => ({
+            type: "weakness" as const,
+            label: "Điểm yếu cần khắc phục",
+            content: w,
+          })) || []),
+          ...(evaluationResult.suggestions?.map((s) => ({
+            type: "strategy" as const,
+            label: "Gợi ý chiến lược tiếp theo",
+            content: s,
+          })) || []),
+        ]
+      : []),
+  ];
 
-  // Manual "evaluate my latest speech" from the side panel (advisory — does not block the debate)
-  const handleRequestEvaluation = useCallback(() => {
+  // Request AI Coaching (/coaching/argument) & Evaluation from the side panel
+  const handleRequestEvaluation = useCallback(async () => {
     const latestDebaterMsg = messages.filter((m) => getEvaluatorSpeaker(m) === "learner").slice(-1)[0];
     if (!latestDebaterMsg) return;
     const msgRound = latestDebaterMsg.roundNumber;
-    setIsEvaluating(true);
+    const stage: DebateRoundType = msgRound === 1 ? "opening" : msgRound === 2 ? "rebuttal" : "closing";
+    const opponentText =
+      messages.filter((m) => getEvaluatorSpeaker(m) === "opponent").slice(-1)[0]?.content || null;
+
+    setIsCoachingLoading(true);
     setEvaluatorError(null);
-    aiApi
-      .evaluateSpeechArgument({
+    try {
+      let evalRes = evaluationResult;
+      if (!evalRes) {
+        evalRes = await aiApi.evaluateSpeechArgument({
+          motion: resolvedMotion,
+          side: debaterSide,
+          stage,
+          argument_text: latestDebaterMsg.content,
+          opponent_argument_text: opponentText,
+          delivery_analytics: latestDebaterMsg.deliveryAnalytics ?? undefined,
+        });
+        setEvaluationResult(evalRes);
+      }
+
+      const coachRes = await aiApi.coachArgument({
         motion: resolvedMotion,
         side: debaterSide,
-        stage: msgRound === 1 ? "opening" : msgRound === 2 ? "rebuttal" : "closing",
+        stage,
         argument_text: latestDebaterMsg.content,
-        opponent_argument_text:
-          messages.filter((m) => getEvaluatorSpeaker(m) === "opponent").slice(-1)[0]?.content || null,
-      })
-      .then((res) => {
-        setEvaluationResult(res);
-      })
-      .catch((evalErr: unknown) => {
-        console.error("Error evaluating latest speech:", evalErr);
-        setEvaluatorError(`AI Evaluator: ${getErrorMessage(evalErr, "Lỗi không xác định")}`);
-      })
-      .finally(() => {
-        setIsEvaluating(false);
+        opponent_argument_text: opponentText,
+        evaluation: evalRes,
       });
-  }, [messages, resolvedMotion, debaterSide, getEvaluatorSpeaker]);
+      setCoachingResult(coachRes);
+    } catch (evalErr: unknown) {
+      console.error("Error requesting AI coaching:", evalErr);
+      setEvaluatorError(`AI Coaching: ${getErrorMessage(evalErr, "Lỗi không xác định")}`);
+    } finally {
+      setIsCoachingLoading(false);
+    }
+  }, [messages, resolvedMotion, debaterSide, getEvaluatorSpeaker, evaluationResult]);
 
   const handleFinishDebate = async () => {
     if (
@@ -1757,28 +2157,6 @@ const DebateRoom: React.FC = () => {
     (opponentInitFailed && !EffectiveDebateCompleted ? "Chưa kết nối được Đối thủ AI. Vui lòng thử lại." : null) ||
     (pendingTurnEvaluation ? TURN_EVALUATION_ERROR : null) ||
     (finishEvaluationFailed ? FINISH_EVALUATION_ERROR : null);
-
-  if (sessionId.startsWith("session-comp-")) {
-    return (
-      <div className="min-h-[500px] bg-slate-50 flex flex-col items-center justify-center p-6 text-center rounded-2xl border border-slate-200 shadow-xs m-4">
-        <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-4 shadow-xs">
-          <AlertTriangle size={32} />
-        </div>
-        <h2 className="text-xl font-black text-slate-900 mb-2">Định danh phòng thi không hợp lệ</h2>
-        <p className="text-xs sm:text-sm text-slate-600 max-w-md mb-6 leading-relaxed">
-          Đường dẫn dạng <code className="px-1.5 py-0.5 bg-slate-200 rounded font-mono">{sessionId}</code> là định danh cũ không còn sử dụng.
-          Mỗi trận đấu trong giải đấu có một phiên tranh biện (DebateSession ID) riêng biệt. 
-          Vui lòng quay lại trang Giải đấu để xem nhánh đấu và tham gia đúng trận của bạn.
-        </p>
-        <button
-          onClick={() => navigate("/debater/competitions")}
-          className="px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
-        >
-          Trở về Danh sách Giải đấu
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#0B1813] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
@@ -2206,6 +2584,11 @@ const DebateRoom: React.FC = () => {
               isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
               isSubmitting={isSubmitting}
               isRecording={isRecording}
+              isAnalyzingMultimodal={isAnalyzingMultimodal}
+              liveFrameAnalysis={liveFrameAnalysis}
+              videoPreviewRef={videoPreviewRef}
+              overlayCanvasRef={overlayCanvasRef}
+              hasActiveCamera={hasActiveCamera}
               isTurnExpired={EffectiveExpired}
               isDebateCompleted={EffectiveDebateCompleted}
               canSpeak={canSpeak && !isSessionCancelled}
@@ -2216,7 +2599,8 @@ const DebateRoom: React.FC = () => {
               latestScore={evaluationResult?.overall_score ?? null}
               onArgumentChange={setArgumentText}
               onSend={handleSendArgument}
-              onToggleRecording={() => setIsRecording((prev) => !prev)}
+              onToggleRecording={handleToggleRecording}
+              onRunSampleMultimodal={handleRunSampleMultimodal}
               onToggleAssistantTab={handleToggleAssistantTab}
             />
           </div>
@@ -2232,7 +2616,9 @@ const DebateRoom: React.FC = () => {
             currentRound={currentRound}
             casePlan={casePlan}
             evaluationResult={evaluationResult}
+            multimodalResult={multimodalResult}
             isEvaluating={isEvaluating}
+            isCoachingLoading={isCoachingLoading}
             evaluatorError={evaluatorError}
             coachingAdvice={coachingAdvice}
             onTabChange={(tab) => {

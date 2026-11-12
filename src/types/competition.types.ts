@@ -194,11 +194,18 @@ export interface TournamentMatch {
   roundNumber?: number;
   roundName?: string;
   matchNumber?: number;
+  bracketPosition?: number;
   debateSessionId?: number | null;
   assignedJudgeUserId?: number | null;
   assignedJudgeName?: string | null;
   nextMatchId?: number | null;
   status: MatchStatus;
+  proUserId?: number | null;
+  proTeamId?: number | null;
+  conUserId?: number | null;
+  conTeamId?: number | null;
+  winnerUserId?: number | null;
+  winnerTeamId?: number | null;
   winnerMatchParticipantId?: number | null;
   winnerName?: string | null;
   proParticipant?: MatchParticipant | null;
@@ -251,6 +258,7 @@ export interface MatchReviewParticipant {
   userName?: string | null;
   teamId?: number | null;
   teamName?: string | null;
+  displayName?: string | null;
   currentScore?: number | null;
 }
 
@@ -265,7 +273,13 @@ export interface AiJudgementSuggestion {
 
 export interface MatchReviewResponse {
   matchId: number;
-  competitionId: number;
+  competitionId?: number;
+  status?: string;
+  assignedJudgeUserId?: number | null;
+  debateSessionId?: number | null;
+  aiSuggestedWinnerSide?: string | null;
+  aiScorePro?: number | null;
+  aiScoreCon?: number | null;
   participants: MatchReviewParticipant[];
   criteria: DebateCriteria[];
   aiJudgement?: AiJudgementSuggestion | null;

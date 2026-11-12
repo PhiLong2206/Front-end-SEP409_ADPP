@@ -98,10 +98,29 @@ const JudgeEvaluationModal: React.FC<Props> = ({
 
   if (!isOpen || !match) return null;
 
-  const proName = proPart?.userName || proPart?.teamName || "Thí sinh PRO";
-  const conName = conPart?.userName || conPart?.teamName || "Thí sinh CON";
-  const proId = proPart?.matchParticipantId || 1;
-  const conId = conPart?.matchParticipantId || 2;
+  const reviewPro = reviewData?.participants?.find(
+    (p) => String(p.side).toUpperCase() === "PRO" || String(p.side) === "1"
+  );
+  const reviewCon = reviewData?.participants?.find(
+    (p) => String(p.side).toUpperCase() === "CON" || String(p.side) === "2"
+  );
+
+  const proName =
+    reviewPro?.displayName ||
+    reviewPro?.userName ||
+    reviewPro?.teamName ||
+    proPart?.userName ||
+    proPart?.teamName ||
+    "Thí sinh PRO";
+  const conName =
+    reviewCon?.displayName ||
+    reviewCon?.userName ||
+    reviewCon?.teamName ||
+    conPart?.userName ||
+    conPart?.teamName ||
+    "Thí sinh CON";
+  const proId = reviewPro?.matchParticipantId ?? proPart?.matchParticipantId ?? 0;
+  const conId = reviewCon?.matchParticipantId ?? conPart?.matchParticipantId ?? 0;
 
   // Calculate weighted total
   const proTotal = criteriaList.reduce((acc, c) => {
@@ -210,15 +229,19 @@ const JudgeEvaluationModal: React.FC<Props> = ({
         )}
 
         {/* AI Suggestion Banner (if available) */}
-        {reviewData?.aiJudgement && (
+        {(reviewData?.aiJudgement ||
+          reviewData?.aiSuggestedWinnerSide ||
+          reviewData?.aiScorePro != null ||
+          reviewData?.aiScoreCon != null) && (
           <div className="px-5 py-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-200/60 dark:border-purple-900/40 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
             <Sparkles size={16} className="text-purple-600 shrink-0 mt-0.5" />
             <div>
               <strong>Gợi ý từ AI Evaluator:</strong>{" "}
-              {reviewData.aiJudgement.summary || "Đã phân tích toàn bộ lượt tranh biện của 2 bên."}
-              {reviewData.aiJudgement.recommendedWinnerSide && (
+              {reviewData?.aiJudgement?.summary ||
+                `Điểm AI: PRO ${reviewData?.aiScorePro ?? "--"} vs CON ${reviewData?.aiScoreCon ?? "--"}.`}
+              {(reviewData?.aiJudgement?.recommendedWinnerSide || reviewData?.aiSuggestedWinnerSide) && (
                 <span className="ml-2 font-bold px-2 py-0.5 rounded-md bg-purple-200 dark:bg-purple-900/60 text-purple-900 dark:text-purple-100">
-                  Khuyến nghị: {reviewData.aiJudgement.recommendedWinnerSide}
+                  Khuyến nghị: {reviewData?.aiJudgement?.recommendedWinnerSide || reviewData?.aiSuggestedWinnerSide}
                 </span>
               )}
             </div>

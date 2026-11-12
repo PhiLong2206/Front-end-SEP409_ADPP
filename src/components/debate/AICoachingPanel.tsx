@@ -45,15 +45,15 @@ interface AICoachingPanelProps {
 }
 
 const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
-  usageCount = 1,
-  costPerUse = 2000,
+  usageCount = 0,
+  costPerUse = 0,
   advice,
   onUsed,
   onRequestCoaching,
   isLoading = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [localUsageCount] = useState(usageCount);
+  const [localUsageCount, setLocalUsageCount] = useState(usageCount);
 
   return (
     <div className="bg-white debate-panel-secondary rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -73,10 +73,12 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-[13px] font-bold text-amber-700 dark:text-amber-300">
-            <Coins size={12} />
-            <span>{costPerUse.toLocaleString()}đ/lần</span>
-          </div>
+          {costPerUse > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-[13px] font-bold text-amber-700 dark:text-amber-300">
+              <Coins size={12} />
+              <span>{costPerUse.toLocaleString()}đ/lần</span>
+            </div>
+          )}
           {isExpanded ? <ChevronUp size={18} className="text-slate-400 dark:text-[#94A3B8]" /> : <ChevronDown size={18} className="text-slate-400 dark:text-[#94A3B8]" />}
         </div>
       </button>
@@ -85,12 +87,15 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
       {isExpanded && (
         <div className="border-t border-slate-100 dark:border-slate-800/60 p-5 space-y-4">
           {/* Usage counter */}
-          <div className="flex items-center justify-between text-[14px]">
-            <span className="text-slate-500 dark:text-[#94A3B8]">Đã sử dụng hôm nay</span>
-            <span className="font-bold text-slate-700 dark:text-[#CBD5E1]">
-              {localUsageCount} lần · {(localUsageCount * costPerUse).toLocaleString("vi-VN")}đ
-            </span>
-          </div>
+          {localUsageCount > 0 && (
+            <div className="flex items-center justify-between text-[14px]">
+              <span className="text-slate-500 dark:text-[#94A3B8]">Đã sử dụng trong phiên này</span>
+              <span className="font-bold text-slate-700 dark:text-[#CBD5E1]">
+                {localUsageCount} lần
+                {costPerUse > 0 ? ` · ${(localUsageCount * costPerUse).toLocaleString("vi-VN")}đ` : ""}
+              </span>
+            </div>
+          )}
 
           {!advice || advice.length === 0 ? (
             <div className="space-y-3">
@@ -104,6 +109,7 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    setLocalUsageCount((c) => c + 1);
                     onRequestCoaching();
                     onUsed?.();
                   }}
@@ -118,7 +124,9 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                   ) : (
                     <>
                       <Bot size={16} />
-                      <span>Yêu cầu phân tích AI (tính phí {costPerUse.toLocaleString()}đ)</span>
+                      <span>
+                        Yêu cầu phân tích AI{costPerUse > 0 ? ` (tính phí ${costPerUse.toLocaleString()}đ)` : ""}
+                      </span>
                     </>
                   )}
                 </button>
@@ -146,6 +154,7 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    setLocalUsageCount((c) => c + 1);
                     onRequestCoaching();
                     onUsed?.();
                   }}
@@ -153,7 +162,7 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                   className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] bg-slate-50 dark:bg-[#091713] text-[15px] font-semibold flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-[#123326] transition-colors disabled:opacity-60"
                 >
                   <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-                  <span>Phân tích lại ({costPerUse.toLocaleString()}đ)</span>
+                  <span>Phân tích lại{costPerUse > 0 ? ` (${costPerUse.toLocaleString()}đ)` : ""}</span>
                 </button>
               )}
             </div>

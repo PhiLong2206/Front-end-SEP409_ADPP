@@ -1,7 +1,6 @@
 import axiosClient from "./axiosClient";
 import {
   Topic,
-  TopicMaterial,
   CreateTopicDto,
   UpdateTopicDto,
   TopicFilterParams,
@@ -24,9 +23,6 @@ const topicApi = {
   getById: (id: string | number): Promise<ApiResponse<Topic>> =>
     axiosClient.get(`/topics/${id}`),
 
-  getCategories: (): Promise<ApiResponse<string[]>> =>
-    axiosClient.get("/topics/categories"),
-
   create: (data: CreateTopicDto): Promise<ApiResponse<Topic>> =>
     axiosClient.post("/topics", data),
 
@@ -35,19 +31,6 @@ const topicApi = {
 
   delete: (id: string | number): Promise<ApiResponse<void>> =>
     axiosClient.delete(`/topics/${id}`),
-
-  // Materials
-  getMaterials: (topicId: string | number): Promise<ApiResponse<TopicMaterial[]>> =>
-    axiosClient.get(`/topics/${topicId}/materials`),
-
-  addMaterial: (
-    topicId: string | number,
-    data: { title: string; content: string; sourceUrl?: string }
-  ): Promise<ApiResponse<TopicMaterial>> =>
-    axiosClient.post(`/topics/${topicId}/materials`, data),
-
-  deleteMaterial: (topicId: string | number, materialId: string | number): Promise<ApiResponse<void>> =>
-    axiosClient.delete(`/topics/${topicId}/materials/${materialId}`),
 };
 
 export default topicApi;

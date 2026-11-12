@@ -95,3 +95,18 @@ export interface PaymentStatusResponse {
   status: string;
   isCompleted: boolean;
 }
+
+export interface RewardStatusResponse {
+  canClaimDailyLogin: boolean;
+  dailyLoginAmount: number;
+  canClaimFirstLogin: boolean;
+  firstLoginAmount: number;
+}
+
+export interface RewardClaimResponse {
+  rewardClaimId: number;
+  ruleCode: string;
+  creditAmount: number;
+  newBalance: number;
+  claimedAt: string;
+}

@@ -9,7 +9,7 @@ export interface DebateEvent {
   description: string;
   type: "competition" | "event";
   status: "upcoming" | "ongoing" | "ended";
-  format: "AI_JUDGE" | "EDUCATOR_JUDGE" | "ORGANIZER_JUDGE" | "PEER";
+  format: "AI_JUDGE" | "EDUCATOR_JUDGE" | "ORGANIZER_JUDGE" | "PEER" | "INDIVIDUAL" | "TEAM";
   startDate: string;
   registerDeadline: string;
   currentParticipants: number;
@@ -36,6 +36,8 @@ const formatConfig = {
   EDUCATOR_JUDGE: { label: "GV Chấm điểm", icon: BookOpen, color: "text-blue-600" },
   ORGANIZER_JUDGE: { label: "GV Chấm điểm", icon: BookOpen, color: "text-blue-600" },
   PEER: { label: "Đánh giá chéo", icon: Users, color: "text-amber-600" },
+  INDIVIDUAL: { label: "1v1 Cá nhân", icon: Swords, color: "text-emerald-600" },
+  TEAM: { label: "Đồng đội 2v2", icon: Users, color: "text-indigo-600" },
 };
 
 function getDaysLeft(dateStr: string) {
@@ -199,9 +201,13 @@ const Events: React.FC = () => {
         const res = await competitionApi.getCompetitions();
         if (res.success && res.data) {
           const mapped: DebateEvent[] = res.data.map((c) => {
+            const rawStatus = String(c.status || "").toUpperCase();
             let status: "upcoming" | "ongoing" | "ended" = "upcoming";
-            if (c.status === "IN_PROGRESS") status = "ongoing";
-            else if (c.status === "COMPLETED" || c.status === "CANCELLED") status = "ended";
+            if (rawStatus === "IN_PROGRESS" || rawStatus === "ONGOING") {
+              status = "ongoing";
+            } else if (rawStatus === "COMPLETED" || rawStatus === "CANCELLED") {
+              status = "ended";
+            }
 
             return {
               id: c.competitionId.toString(),
@@ -209,11 +215,11 @@ const Events: React.FC = () => {
               description: c.description || "Cuộc thi tranh biện",
               type: "competition",
               status,
-              format: "AI_JUDGE",
+              format: c.competitionType || "AI_JUDGE",
               startDate: c.startDate || c.createdAt || "",
               registerDeadline: c.registrationDeadline || c.registrationEnd || "",
-              currentParticipants: c.registeredCount || 0,
-              maxParticipants: c.maxParticipants || 10,
+              currentParticipants: c.registeredCount ?? 0,
+              maxParticipants: c.maxParticipants || 16,
               isRegistered: false,
               tags: [c.competitionType, String(c.status)],
             };
@@ -239,7 +245,7 @@ const Events: React.FC = () => {
   });
 
   const handleRegister = (id: string) => {
-    navigate(`/debater/competitions/${id}`);
+    navigate(`/debater/competitions?highlight=${id}`);
   };
 
   const myRegistered = events.filter((e) => e.isRegistered);

@@ -17,6 +17,7 @@ const DebaterDashboard: React.FC = () => {
   const { user } = useAuth();
   const [competitions, setCompetitions] = useState<CompetitionListItem[]>([]);
   const [debateCount, setDebateCount] = useState<number>(0);
+  const [streakDays, setStreakDays] = useState<number>(0);
   const [loadingComps, setLoadingComps] = useState(false);
 
   useEffect(() => {
@@ -39,6 +40,32 @@ const DebaterDashboard: React.FC = () => {
         const historyRes = await debateApi.getUserHistory();
         if (historyRes.success && Array.isArray(historyRes.data)) {
           setDebateCount(isDebateLeaveEnabled() ? countCompletedDebates(historyRes.data) : historyRes.data.length);
+
+          // Compute consecutive practice days streak from history dates
+          const uniqueDays = Array.from(
+            new Set(
+              historyRes.data
+                .filter((item) => item.createdAt)
+                .map((item) => new Date(item.createdAt).toISOString().slice(0, 10))
+            )
+          ).sort((a, b) => (a > b ? -1 : 1));
+
+          if (uniqueDays.length > 0) {
+            let streak = 1;
+            for (let i = 1; i < uniqueDays.length; i++) {
+              const prevDate = new Date(uniqueDays[i - 1]);
+              const currDate = new Date(uniqueDays[i]);
+              const diffDays = Math.round((prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays === 1) {
+                streak += 1;
+              } else {
+                break;
+              }
+            }
+            setStreakDays(streak);
+          } else {
+            setStreakDays(0);
+          }
         }
       } catch {
         // Fallback silently
@@ -115,7 +142,7 @@ const DebaterDashboard: React.FC = () => {
         <div className="bg-white dark:bg-[#12231C] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex items-center justify-between hover:border-amber-500/40 hover:shadow-sm transition-all group">
           <div>
             <div className="text-3xl sm:text-4xl font-black text-[#0F172A] dark:text-[#F8FAFC] tracking-tight group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
-              0
+              {streakDays}
             </div>
             <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 inline-block">
               Ngày luyện tập liên tiếp

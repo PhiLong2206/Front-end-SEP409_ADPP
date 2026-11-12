@@ -163,6 +163,7 @@ export interface ArgumentEvaluationPayload {
   stage?: DebateRoundType;
   argument_text: string;
   opponent_argument_text?: string | null;
+  delivery_analytics?: DeliveryAnalyticsPayload | DeliveryAnalytics | null;
 }
 
 export type TurnSpeaker = "learner" | "opponent";
@@ -175,13 +176,12 @@ export interface ArgumentTurn {
 export interface RubricCriterionScore {
   /**
    * Stable criterion key: logic | evidence | relevance | structure | persuasiveness | rebuttal.
-   * TODO(BE): not returned yet — the FE falls back to an alias table on `name`.
    */
   key?: string;
   name: string;
   /** Scale 0-5 (see CRITERION_MAX_SCORE in utils/debateScoring). */
   score: number;
-  /** Optional maximum of `score`; the FE assumes 5 when absent. TODO(BE). */
+  /** Optional maximum of `score`; the FE assumes 5 when absent. */
   max_score?: number;
   reasoning: string;
 }
@@ -197,6 +197,7 @@ export interface ArgumentEvaluationResult {
   strengths: string[];
   weaknesses: string[];
   suggestions: string[];
+  delivery_analytics?: DeliveryAnalyticsPayload | DeliveryAnalytics | null;
   raw_model_output?: string | null;
 }
 
@@ -296,5 +297,161 @@ export interface SessionEvaluationResult {
   overall_suggestions?: string[];
   raw_model_output?: string | null;
 }
+
+// ── AI Coaching DTOs (ai-evaluator-service /coaching) ──
+
+export interface ArgumentCoachingRequest {
+  motion: string;
+  side: BackendDebateSide;
+  stage?: DebateRoundType;
+  argument_text: string;
+  opponent_argument_text?: string | null;
+  evaluation: ArgumentEvaluationResult;
+}
+
+export interface RoundCoachingRequest {
+  motion: string;
+  side: BackendDebateSide;
+  stage: DebateRoundType;
+  turns: ArgumentTurn[];
+  round_evaluation: RoundEvaluationResult;
+}
+
+export interface CoachingResult {
+  summary: string;
+  focus_area: string;
+  drills: string[];
+  rewritten_example?: string | null;
+  next_turn_advice?: string[];
+  raw_model_output?: string | null;
+}
+
+// ── AI Multimodal Debate Service DTOs (ai-multimodal-service on port 8003) ──
+
+export interface MultimodalHealthResponse {
+  status: string;
+  service: string;
+  models: {
+    deepface_ready: boolean;
+    detector_backend: string;
+    whisper_ready: boolean;
+    deepface_source: string;
+  };
+}
+
+export interface DeliveryAnalytics {
+  dominantEmotion?: string;
+  eyeContactRate?: number;
+  composureScore?: number;
+  confidenceScore?: number;
+  wpm?: number;
+  paceEvaluation?: string;
+  paceScore?: number;
+  fillerCount?: number;
+  fluencyScore?: number;
+  overallDemeanorScore?: number;
+  emotionBreakdown?: Record<string, number>;
+  // Snake_case fields returned directly by Python ai-multimodal-service
+  dominant_emotion?: string;
+  eye_contact_rate?: number;
+  composure_score?: number;
+  confidence_score?: number;
+  pace_evaluation?: string;
+  pace_score?: number;
+  filler_count?: number;
+  fluency_score?: number;
+  overall_demeanor_score?: number;
+  emotion_breakdown?: Record<string, number>;
+}
+
+export type DeliveryAnalyticsPayload = DeliveryAnalytics;
+
+export interface EmotionSample {
+  time: number;
+  dominant: string;
+  scores: Record<string, number>;
+  face_detected: boolean;
+}
+
+export interface FaceRegion {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface FrameAnalysisRequest {
+  image_base64: string;
+  timestamp?: number;
+  detector_backend?: string;
+}
+
+export interface FrameAnalysisResult {
+  face_detected: boolean;
+  dominant_emotion: string;
+  dominant_score: number;
+  emotion_scores: Record<string, number>;
+  face_confidence: number;
+  region: FaceRegion | null;
+  composure_instant: number;
+  timestamp?: number | null;
+}
+
+export interface VoiceMetrics {
+  transcript_text: string;
+  duration_seconds: number;
+  word_count: number;
+  wpm: number;
+  pace_evaluation: string;
+  pace_score: number;
+  filler_count: number;
+  filler_words_found: Record<string, number>;
+  fluency_score: number;
+}
+
+export interface FacialMetrics {
+  total_frames_analyzed: number;
+  face_detected_frames: number;
+  eye_contact_rate: number;
+  dominant_emotion: string;
+  composure_score: number;
+  emotion_counts: Record<string, number>;
+  emotion_pct: Record<string, number>;
+}
+
+export interface MultimodalTurnRequest {
+  audio_base64?: string | null;
+  frames_base64?: string[];
+  emotion_timeline?: EmotionSample[];
+  total_frames_captured?: number;
+  duration_seconds?: number;
+  transcript_override?: string | null;
+  include_report_chart?: boolean;
+}
+
+export interface MultimodalTurnResult {
+  overall_demeanor_score: number;
+  voice: VoiceMetrics;
+  facial: FacialMetrics;
+  delivery_analytics: DeliveryAnalytics;
+  report_chart_base64?: string | null;
+}
+
+export interface IntegratedDebateEvaluationRequest {
+  motion: string;
+  side: "pro" | "con";
+  stage: "opening" | "rebuttal" | "closing";
+  opponent_argument_text?: string | null;
+  turn_data: MultimodalTurnRequest;
+  existing_multimodal_result?: MultimodalTurnResult | null;
+}
+
+export interface IntegratedDebateEvaluationResult {
+  multimodal: MultimodalTurnResult;
+  argument_text_used: string;
+  content_evaluation?: ArgumentEvaluationResult | null;
+  evaluation_error?: string | null;
+}
+
 
 
