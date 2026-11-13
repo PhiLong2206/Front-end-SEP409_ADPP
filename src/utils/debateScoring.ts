@@ -141,6 +141,44 @@ export interface DebateResultData {
   stageBreakdown?: NormalizedStageScore[];
   /** Evidence check per graded round (RAG). Absent when no round was checked. */
   evidenceRounds?: EvidenceRoundView[];
+  /** Win / lose / draw against other learners (P2P 1v1, 2v2). Absent for an AI practice. */
+  matchOutcome?: MatchOutcome;
+}
+
+/** Result of a debate between learners, from the official result (AI judgement, not a judge's decision). */
+export interface MatchOutcome {
+  result: "win" | "lose" | "draw";
+  /** 0..100, the overall score of each side as shown on the result page. null = not graded. */
+  myScore: number | null;
+  opponentScore: number | null;
+  /** The other side's debaters (one in 1v1, two in 2v2). */
+  opponentNames: string[];
+}
+
+/**
+ * Win / lose / draw of `side`: the Backend's suggestedWinnerSide (PRO / CON / TIE, from the two overall scores),
+ * else the two scores themselves. null when neither is known.
+ */
+export function buildMatchOutcome(
+  evaluation: DebateEvaluationResponse,
+  side: "pro" | "con",
+  opponentNames: string[]
+): MatchOutcome | null {
+  const toShown = (score: number | null | undefined) =>
+    isFiniteNumber(score) ? toPercent(clampToScale(score, OVERALL_MAX_SCORE, "overall side score"), OVERALL_MAX_SCORE) : null;
+  const myRaw = side === "pro" ? evaluation.overallScorePro : evaluation.overallScoreCon;
+  const opponentRaw = side === "pro" ? evaluation.overallScoreCon : evaluation.overallScorePro;
+  const winner = (evaluation.suggestedWinnerSide ?? "").trim().toUpperCase();
+  const mine = side.toUpperCase();
+
+  let result: MatchOutcome["result"] | null = null;
+  if (winner === "TIE") result = "draw";
+  else if (winner === "PRO" || winner === "CON") result = winner === mine ? "win" : "lose";
+  else if (isFiniteNumber(myRaw) && isFiniteNumber(opponentRaw)) {
+    result = myRaw > opponentRaw ? "win" : myRaw < opponentRaw ? "lose" : "draw";
+  }
+  if (result === null) return null;
+  return { result, myScore: toShown(myRaw), opponentScore: toShown(opponentRaw), opponentNames };
 }
 
 /** One learner turn's evidence check, without the evaluator's technical `error`. */
@@ -383,6 +421,19 @@ export function buildDebateResult(input: BuildDebateResultInput): DebateResultDa
  * Returns null when the user's side has no evaluation although it scored (the caller shows an error).
  */
 export function buildDebateResultFromEvaluation(
+  evaluation: DebateEvaluationResponse,
+  side: "pro" | "con",
+  topicTitle: string,
+  /** Given for a debate between learners: the result then also says who won. */
+  match?: { opponentNames: string[] }
+): DebateResultData | null {
+  const result = buildSideResult(evaluation, side, topicTitle);
+  if (!result || !match) return result;
+  const outcome = buildMatchOutcome(evaluation, side, match.opponentNames);
+  return outcome ? { ...result, matchOutcome: outcome } : result;
+}
+
+function buildSideResult(
   evaluation: DebateEvaluationResponse,
   side: "pro" | "con",
   topicTitle: string
