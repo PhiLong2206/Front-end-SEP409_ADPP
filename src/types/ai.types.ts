@@ -202,7 +202,7 @@ export interface ArgumentEvaluationResult {
 }
 
 /** Fact-base topics of the evaluator's evidence check (RAG). Comes from the session's `evidenceTopic`. */
-export type EvidenceTopic = "education" | "environment" | "technology" | "society";
+export type EvidenceTopic = "education" | "technology" | "society";
 
 export type EvidenceLabel = "SUPPORTED" | "CONTRADICTED" | "NOT_FOUND" | "CONFLICTING";
 export type EvidenceStatus = "checked" | "no_claims" | "unavailable" | "no_fact_base";
