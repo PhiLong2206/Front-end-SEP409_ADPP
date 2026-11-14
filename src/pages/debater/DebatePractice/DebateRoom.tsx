@@ -19,6 +19,7 @@ import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
 import { aiApi, debateApi } from "../../../api";
+import { debateHubService } from "../../../services/debateHub";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
@@ -325,7 +326,14 @@ const DebateRoom: React.FC = () => {
   const [pendingSwapRequests, setPendingSwapRequests] = useState<SideSwapRequestResponse[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [roomFeedback, setRoomFeedback] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [roomFeedback, setRoomFeedback] = useState<{
+    text: string;
+    type: "success" | "error" | "warning" | "info";
+  } | null>(null);
+  const [remoteSpeakingUser, setRemoteSpeakingUser] = useState<{
+    userId: number;
+    fullName: string;
+  } | null>(null);
 
   const numSessionId = parseInt(sessionId, 10);
   const isBackendSession = !isNaN(numSessionId) && numSessionId > 0;
@@ -730,8 +738,9 @@ const DebateRoom: React.FC = () => {
 
       handledTimeoutKeyRef.current = turnKey;
 
-      // AI practice, time is up: auto-submit either what the learner wrote, or a default timeout notice if empty
-      if (!isP2pOr2v2) {
+      // Time is up: auto-submit either what the speaker wrote, or a default timeout notice if empty (for AI, P2P, 2v2, Challenge, Competition)
+      const isMyTurnToSpeak = (!isP2pOr2v2 || isMyP2pTurn) && userRoleInRoom === "Debater";
+      if (isMyTurnToSpeak) {
         setIsRecording(false);
         const hasWritten = Boolean(argumentTextRef.current.trim());
         const fallbackText = hasWritten ? undefined : "(Thí sinh không đưa ra phát biểu - Hết thời gian)";
@@ -739,7 +748,7 @@ const DebateRoom: React.FC = () => {
         setRoomFeedback({
           text: hasWritten
             ? "Hết giờ, đã tự động nộp phần bạn đã viết."
-            : "Hết thời gian phát biểu! Hệ thống tự động chuyển lượt sang Đối thủ AI.",
+            : "Hết thời gian phát biểu! Hệ thống tự động chuyển lượt.",
           type: hasWritten ? "success" : "warning",
         });
         return;
@@ -774,12 +783,14 @@ const DebateRoom: React.FC = () => {
       hasDebaterSpokenInCurrentRound,
       isAiGenerating,
       isBackendSession,
+      isMyP2pTurn,
       isP2pOr2v2,
       isSubmitting,
       isWaitingForOpponentInAiMode,
       loadBackendSession,
       loadBackendTranscript,
       numSessionId,
+      userRoleInRoom,
     ]
   );
 
@@ -1031,6 +1042,91 @@ const DebateRoom: React.FC = () => {
     isTerminalBackendStatus,
     EffectiveDebateCompleted,
   ]);
+
+  // Auto-dismiss transient roomFeedback after 6 seconds
+  useEffect(() => {
+    if (!roomFeedback) return;
+    const timer = setTimeout(() => {
+      setRoomFeedback(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [roomFeedback]);
+
+  // Real-time synchronization via SignalR for debate rooms
+  useEffect(() => {
+    if (!isBackendSession) return;
+
+    debateHubService.connect(numSessionId, {
+      onUserJoined: (data) => {
+        if (!isSameUserId(data.userId, currentUserId)) {
+          setRoomFeedback({
+            text: `${data.fullName} vừa tham gia phòng tranh biện.`,
+            type: "info",
+          });
+        }
+        loadBackendSession(numSessionId);
+      },
+      onUserLeft: (data) => {
+        if (!isSameUserId(data.userId, currentUserId)) {
+          setRoomFeedback({
+            text: `${data.fullName} đã rời phòng tranh biện.`,
+            type: "warning",
+          });
+        }
+        loadBackendSession(numSessionId);
+      },
+      onSpeakingStatusChanged: (data) => {
+        if (!isSameUserId(data.userId, currentUserId)) {
+          if (data.isSpeaking) {
+            setRemoteSpeakingUser({ userId: data.userId, fullName: data.fullName });
+          } else {
+            setRemoteSpeakingUser((prev) => (prev?.userId === data.userId ? null : prev));
+          }
+        }
+      },
+      onArgumentSubmitted: (data) => {
+        setRemoteSpeakingUser(null);
+        loadBackendTranscript(numSessionId);
+        loadBackendSession(numSessionId);
+        if (!isSameUserId(data.argument.userId, currentUserId)) {
+          setRoomFeedback({
+            text: `${data.argument.speakerName || "Đối thủ"} vừa gửi bài tranh biện.`,
+            type: "info",
+          });
+        }
+      },
+      onSessionStarted: () => {
+        loadBackendSession(numSessionId);
+        setRoomFeedback({
+          text: "Trận tranh biện đã chính thức bắt đầu!",
+          type: "success",
+        });
+      },
+      onSessionStatusChanged: (data) => {
+        loadBackendSession(numSessionId);
+        if (data.status === "Completed") {
+          setIsDebateCompleted(true);
+        }
+      },
+    });
+
+    return () => {
+      debateHubService.disconnect();
+    };
+  }, [
+    isBackendSession,
+    numSessionId,
+    currentUserId,
+    loadBackendSession,
+    loadBackendTranscript,
+  ]);
+
+  // Broadcast current user's live speaking status to other debaters in real-time
+  useEffect(() => {
+    if (isBackendSession) {
+      debateHubService.sendSpeakingStatus(isRecording);
+    }
+  }, [isRecording, isBackendSession]);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -2210,6 +2306,10 @@ const DebateRoom: React.FC = () => {
           className={`px-4 py-2 border-b text-xs flex items-center justify-between gap-2 shrink-0 ${
             roomFeedback?.type === "success"
               ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200/70 dark:border-emerald-800/50"
+              : roomFeedback?.type === "warning"
+              ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200/70 dark:border-amber-800/50"
+              : roomFeedback?.type === "info"
+              ? "bg-sky-50/80 dark:bg-sky-950/30 border-sky-200/70 dark:border-sky-800/50"
               : "bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/70 dark:border-rose-800/50"
           }`}
         >
@@ -2219,6 +2319,10 @@ const DebateRoom: React.FC = () => {
               className={
                 roomFeedback?.type === "success"
                   ? "text-[#008A64] shrink-0"
+                  : roomFeedback?.type === "warning"
+                  ? "text-amber-600 dark:text-amber-400 shrink-0"
+                  : roomFeedback?.type === "info"
+                  ? "text-sky-600 dark:text-sky-400 shrink-0"
                   : "text-rose-600 dark:text-rose-400 shrink-0"
               }
             />
@@ -2560,6 +2664,20 @@ const DebateRoom: React.FC = () => {
         <div className="flex-1 flex min-h-0 relative overflow-hidden">
           {/* Primary Centered Chat Column */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
+            {remoteSpeakingUser && (
+              <div className="mx-4 mt-2 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300 animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping shrink-0" />
+                  <span>
+                    <strong className="font-bold">{remoteSpeakingUser.fullName}</strong> đang phát biểu trực tiếp...
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 tracking-wide uppercase">
+                  Live
+                </span>
+              </div>
+            )}
+
             <DebateChat
               messages={messages}
               mode={roomMode}
@@ -2597,7 +2715,7 @@ const DebateRoom: React.FC = () => {
               latestScore={evaluationResult?.overall_score ?? null}
               onArgumentChange={setArgumentText}
               onSend={handleSendArgument}
-              onPassTurn={!isP2pOr2v2 ? handlePassTurn : undefined}
+              onPassTurn={handlePassTurn}
               onToggleRecording={handleToggleRecording}
               onRunSampleMultimodal={handleRunSampleMultimodal}
               onToggleAssistantTab={handleToggleAssistantTab}

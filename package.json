@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@microsoft/signalr": "^11.0.0",
     "axios": "^1.20.0",
     "lucide-react": "^1.46.0",
     "puppeteer-core": "^25.12.0",
