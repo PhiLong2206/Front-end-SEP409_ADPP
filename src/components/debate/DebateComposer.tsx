@@ -25,6 +25,7 @@ export interface DebateComposerProps {
   onToggleRecording: () => void;
   onRunSampleMultimodal?: () => void;
   onToggleAssistantTab: (tab: "coach" | "caseplan" | "evaluator") => void;
+  onPassTurn?: () => void;
 }
 
 const DebateComposer: React.FC<DebateComposerProps> = ({
@@ -49,6 +50,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   onToggleRecording,
   onRunSampleMultimodal,
   onToggleAssistantTab,
+  onPassTurn,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -299,6 +301,20 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                 </>
               )}
             </button>
+
+            {/* Optional Pass Turn Button */}
+            {onPassTurn && (
+              <button
+                type="button"
+                onClick={onPassTurn}
+                disabled={isLocked}
+                aria-label="Bỏ lượt"
+                title="Bỏ qua lượt này và chuyển sang Đối thủ AI"
+                className="px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-850 transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer shrink-0"
+              >
+                Bỏ lượt
+              </button>
+            )}
 
             {/* Visually Emphasized Send Button */}
             <button

@@ -258,7 +258,7 @@ const DebateRoom: React.FC = () => {
   const messagesRef = useRef<DebateRoomMessage[]>([]);
   // Latest input text and submit function, read by the timeout handler (which runs from a timer)
   const argumentTextRef = useRef("");
-  const sendArgumentRef = useRef<(opts?: { auto?: boolean }) => Promise<void>>(async () => {});
+  const sendArgumentRef = useRef<(opts?: { auto?: boolean; fallbackText?: string }) => Promise<void>>(async () => {});
   const opponentReadyRef = useRef<{ sessionId: string; promise: Promise<void> } | null>(null);
   const casePlanRequestedRef = useRef<string | null>(null);
   const unmountedRef = useRef(false);
@@ -730,14 +730,18 @@ const DebateRoom: React.FC = () => {
 
       handledTimeoutKeyRef.current = turnKey;
 
-      // AI practice, time is up but the learner wrote something: submit it through the normal flow
-      // (evaluate, AI turn, record the AI turn). `submittedRoundsRef` / `isSubmittingRef` make a click on
-      // "Gửi" at the same moment a no-op, so it is never sent twice.
-      if (!isP2pOr2v2 && argumentTextRef.current.trim()) {
+      // AI practice, time is up: auto-submit either what the learner wrote, or a default timeout notice if empty
+      if (!isP2pOr2v2) {
         setIsRecording(false);
-        void sendArgumentRef.current({ auto: true });
-        // handleSendArgument clears the feedback strip synchronously: show the notice afterwards
-        setRoomFeedback({ text: "Hết giờ, đã tự động nộp phần bạn đã viết.", type: "success" });
+        const hasWritten = Boolean(argumentTextRef.current.trim());
+        const fallbackText = hasWritten ? undefined : "(Thí sinh không đưa ra phát biểu - Hết thời gian)";
+        void sendArgumentRef.current({ auto: true, fallbackText });
+        setRoomFeedback({
+          text: hasWritten
+            ? "Hết giờ, đã tự động nộp phần bạn đã viết."
+            : "Hết thời gian phát biểu! Hệ thống tự động chuyển lượt sang Đối thủ AI.",
+          type: hasWritten ? "success" : "warning",
+        });
         return;
       }
 
@@ -762,18 +766,6 @@ const DebateRoom: React.FC = () => {
           loadBackendTranscript(numSessionId);
         }
         return;
-      }
-
-      // AI practice, nothing was written: the input stays locked and nothing is sent to the Backend.
-      // TODO(BE): skipping a turn needs a skip-turn endpoint. Until it exists a Backend session cannot move
-      // on without the learner's turn, so it stays blocked here; only local (non-Backend) sessions, which
-      // have no Backend state to keep in sync, can still move on to the next round by hand.
-      setRoomFeedback({
-        text: "Hết giờ, bạn chưa phát biểu. Lượt bỏ qua chưa được hỗ trợ.",
-        type: "error",
-      });
-      if (!isBackendSession && currentRound >= 3) {
-        setIsDebateCompleted(true);
       }
     },
     [
@@ -1771,12 +1763,13 @@ const DebateRoom: React.FC = () => {
   );
 
   // `auto`: called by the timeout handler at 00:00 — the time checks are skipped, every other guard still applies
-  const handleSendArgument = async (opts: { auto?: boolean } = {}) => {
+  const handleSendArgument = async (opts: { auto?: boolean; fallbackText?: string } = {}) => {
     const isAutoSubmit = opts.auto === true;
+    const currentText = argumentText.trim() || opts.fallbackText?.trim() || "";
     if (
       isSubmittingRef.current ||
       isAiGeneratingRef.current ||
-      !argumentText.trim() ||
+      !currentText ||
       (isAutoSubmit && Boolean(pendingTurnEvaluation)) ||
       (!isAutoSubmit && (!canSpeak || EffectiveExpired || secondsRemaining <= 0))
     ) {
@@ -1810,7 +1803,6 @@ const DebateRoom: React.FC = () => {
     removeStoredValue(deadlineStorageKey);
 
     const roundAtSubmission = currentRound;
-    const currentText = argumentText.trim();
     const stage: DebateRoundType =
       roundAtSubmission === 1 ? "opening" : roundAtSubmission === 2 ? "rebuttal" : "closing";
 
@@ -1937,6 +1929,12 @@ const DebateRoom: React.FC = () => {
       },
     });
   };
+
+  const handlePassTurn = useCallback(() => {
+    if (!canSpeak || isSubmitting || isAiGenerating || EffectiveExpired || secondsRemaining <= 0 || EffectiveDebateCompleted) return;
+    void handleSendArgument({ auto: true, fallbackText: "(Thí sinh chủ động bỏ lượt)" });
+    setRoomFeedback({ text: "Bạn đã bỏ lượt. Đang chuyển lượt sang Đối thủ AI...", type: "warning" });
+  }, [canSpeak, isSubmitting, isAiGenerating, EffectiveExpired, secondsRemaining, EffectiveDebateCompleted]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -2599,6 +2597,7 @@ const DebateRoom: React.FC = () => {
               latestScore={evaluationResult?.overall_score ?? null}
               onArgumentChange={setArgumentText}
               onSend={handleSendArgument}
+              onPassTurn={!isP2pOr2v2 ? handlePassTurn : undefined}
               onToggleRecording={handleToggleRecording}
               onRunSampleMultimodal={handleRunSampleMultimodal}
               onToggleAssistantTab={handleToggleAssistantTab}
