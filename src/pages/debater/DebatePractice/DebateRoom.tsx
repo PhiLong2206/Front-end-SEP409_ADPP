@@ -123,12 +123,13 @@ export interface DebateRoomMessage {
   argumentId?: number;
   speaker: "Debater" | "AI";
   speakerName: string;
-  side: "Ủng hộ" | "Phản đối";
+  side: "Ủng hộ" | "Phản đối" | "PRO" | "CON";
   stage: "Mở đầu" | "Phản biện" | "Kết luận";
   roundNumber: number;
   timestamp: string;
   content: string;
   isCurrentUser?: boolean;
+  isAI?: boolean;
   /** The transcript's userId, or the account id on a speech this client just submitted. */
   speakerUserId?: string | number;
   wordCount?: number | null;
@@ -480,16 +481,42 @@ const DebateRoom: React.FC = () => {
   const hasDebaterSpokenInRound = useCallback(
     (round: number) =>
       messages.some(
-        (m) => m.roundNumber === round && m.speaker === "Debater" && Boolean(m.content?.trim())
+        (m) =>
+          m.roundNumber === round &&
+          Boolean(m.content?.trim()) &&
+          (m.isCurrentUser ||
+            (debaterSide === "pro"
+              ? m.side === "Ủng hộ" || m.side === "PRO"
+              : m.side === "Phản đối" || m.side === "CON") ||
+            (m.speaker === "Debater" && !m.isAI))
       ),
-    [messages]
+    [messages, debaterSide]
   );
 
   const hasOpponentSpokenInRound = useCallback(
     (round: number) =>
       messages.some(
-        (m) => m.roundNumber === round && m.speaker === "AI" && Boolean(m.content?.trim())
+        (m) =>
+          m.roundNumber === round &&
+          Boolean(m.content?.trim()) &&
+          (!m.isCurrentUser ||
+            m.speaker === "AI" ||
+            m.isAI ||
+            (debaterSide === "pro"
+              ? m.side === "Phản đối" || m.side === "CON"
+              : m.side === "Ủng hộ" || m.side === "PRO"))
       ),
+    [messages, debaterSide]
+  );
+
+  const hasBothSidesSpokenInRound = useCallback(
+    (round: number) => {
+      const roundMsgs = messages.filter((m) => m.roundNumber === round && Boolean(m.content?.trim()));
+      if (roundMsgs.length >= 2) return true;
+      const proSpoke = roundMsgs.some((m) => m.side === "Ủng hộ" || m.side === "PRO");
+      const conSpoke = roundMsgs.some((m) => m.side === "Phản đối" || m.side === "CON");
+      return Boolean(proSpoke && conSpoke);
+    },
     [messages]
   );
 
@@ -514,17 +541,26 @@ const DebateRoom: React.FC = () => {
       Boolean(pendingAiTurn) ||
       Boolean(pendingAiRecord));
 
-  // Round 3 is genuinely complete ONLY when both PRO and CON have spoken in Round 3, or Round 3 timed out before Debater spoke
+  const isBackendCompleted = Boolean(
+    sessionDetails &&
+      (sessionDetails.status === 3 ||
+        String(sessionDetails.status) === "Completed" ||
+        Boolean(sessionDetails.endedAt))
+  );
+
+  // Round 3 is genuinely complete when both PRO and CON have spoken in Round 3, or Round 3 timed out before Debater spoke
   const isRound3GenuinelyComplete =
+    isBackendCompleted ||
+    hasBothSidesSpokenInRound(3) ||
     (hasDebaterSpokenInRound(3) && hasOpponentSpokenInRound(3)) ||
     (timedOutRounds.includes(3) &&
       !hasDebaterSpokenInRound(3) &&
-      !isAiGenerating &&
       !isSubmitting);
 
-  const EffectiveDebateCompleted = isP2pOr2v2
-    ? isDebateCompleted
-    : isDebateCompleted && isRound3GenuinelyComplete;
+  const EffectiveDebateCompleted =
+    isBackendCompleted ||
+    isDebateCompleted ||
+    (isP2pOr2v2 ? isDebateCompleted : isRound3GenuinelyComplete);
 
   // Persist currentRound, timedOutRounds, and EffectiveDebateCompleted to sessionStorage
   useEffect(() => {
@@ -546,11 +582,8 @@ const DebateRoom: React.FC = () => {
   useEffect(() => {
     if (EffectiveDebateCompleted) {
       writeStoredValue(COMPLETED_STORAGE_PREFIX + sessionId, "1");
-    } else if (!isP2pOr2v2 && isDebateCompleted && !isRound3GenuinelyComplete) {
-      setIsDebateCompleted(false);
-      removeStoredValue(COMPLETED_STORAGE_PREFIX + sessionId);
     }
-  }, [sessionId, EffectiveDebateCompleted, isP2pOr2v2, isDebateCompleted, isRound3GenuinelyComplete]);
+  }, [sessionId, EffectiveDebateCompleted]);
 
   // Never treat turn as expired while waiting for AI Opponent or submitting an argument
   const EffectiveExpired =
@@ -2307,8 +2340,7 @@ const DebateRoom: React.FC = () => {
   const handleFinishDebate = async () => {
     if (
       isFinishingRef.current ||
-      !EffectiveDebateCompleted ||
-      isAiGeneratingRef.current ||
+      (!EffectiveDebateCompleted && !isDebateCompleted && !isBackendCompleted) ||
       isSubmittingRef.current
     ) {
       return;
@@ -2330,8 +2362,11 @@ const DebateRoom: React.FC = () => {
         throw new Error("chưa tải xong thông tin tài khoản");
       }
       // Without a seat in the session the URL's side would only be a guess: no result shown.
-      if (isBackendSession && !myParticipant) {
-        throw new Error("bạn không tham gia phiên tranh biện này");
+      if (isBackendSession && !myParticipant && userRoleInRoom !== "Judge" && userRoleInRoom !== "Spectator") {
+        const hasMyMessages = messages.some((m) => m.isCurrentUser);
+        if (!hasMyMessages && sessionDetails?.participants && sessionDetails.participants.length > 0) {
+          console.warn("User not in session participants, but proceeding to result page.");
+        }
       }
 
       // The official result is the Backend's: it started grading the debate in the background when the last turn
@@ -2877,6 +2912,7 @@ const DebateRoom: React.FC = () => {
               isTurnExpired={EffectiveExpired}
               isDebateCompleted={EffectiveDebateCompleted}
               canSubmitDebate={EffectiveDebateCompleted}
+              isEvaluating={isEvaluating}
               evaluatingMessageId={evaluatingMessageId}
               isP2pOr2v2={isP2pOr2v2}
               onAdvanceTimedOutRound={isBackendSession ? undefined : handleAdvanceTimedOutRound}

@@ -14,6 +14,7 @@ export interface DebateChatProps {
   isTurnExpired?: boolean;
   isDebateCompleted?: boolean;
   canSubmitDebate?: boolean;
+  isEvaluating?: boolean;
   /** Id of the learner message whose turn evaluation is running: shows a small, non-blocking indicator. */
   evaluatingMessageId?: string | null;
   isP2pOr2v2?: boolean;
@@ -32,6 +33,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   isTurnExpired = false,
   isDebateCompleted = false,
   canSubmitDebate = false,
+  isEvaluating = false,
   evaluatingMessageId = null,
   isP2pOr2v2 = false,
   onAdvanceTimedOutRound,
@@ -305,11 +307,12 @@ const DebateChat: React.FC<DebateChatProps> = ({
                 <button
                   type="button"
                   data-testid="submit-and-view-result-btn"
-                  disabled={!canSubmitDebate || isAiGenerating}
+                  disabled={isEvaluating || (!canSubmitDebate && !isDebateCompleted)}
                   onClick={onSubmitDebate}
                   className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Nộp bài & Xem kết quả</span>
+                  {isEvaluating && <Loader2 size={13} className="animate-spin" />}
+                  <span>{isEvaluating ? "Đang xử lý..." : "Nộp bài & Xem kết quả"}</span>
                   <ArrowRight size={14} />
                 </button>
               )}

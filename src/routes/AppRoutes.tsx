@@ -104,7 +104,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/organizer/*"
         element={
-          <RoleProtectedRoute allowedRoles={[ROLES.ORGANIZER]}>
+          <RoleProtectedRoute allowedRoles={[ROLES.ORGANIZER, ROLES.ADMIN]}>
             <DashboardLayout />
           </RoleProtectedRoute>
         }

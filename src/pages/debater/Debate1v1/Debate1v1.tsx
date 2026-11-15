@@ -361,11 +361,10 @@ const Debate1v1: React.FC = () => {
       {/* Notification banner */}
       {feedbackMsg && (
         <div
-          className={`p-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-between gap-2.5 border ${
-            feedbackMsg.type === "success"
+          className={`p-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-between gap-2.5 border ${feedbackMsg.type === "success"
               ? "bg-[#ECFDF5] border-[#008A64]/30 text-emerald-800"
               : "bg-rose-50 border-rose-200 text-rose-800"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2">
             {feedbackMsg.type === "success" ? (
@@ -417,11 +416,10 @@ const Debate1v1: React.FC = () => {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeTab === tab.id
+            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === tab.id
                 ? "border-[#008A64] text-[#008A64]"
                 : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -726,8 +724,8 @@ const Debate1v1: React.FC = () => {
                         {item.title?.toLowerCase().includes("2v2") || item.title?.toLowerCase().includes("2 vs 2")
                           ? "Đồng đội 2v2"
                           : item.debateType === 3
-                          ? "Thách đấu 1v1"
-                          : "P2P Trực tiếp"}
+                            ? "Thách đấu 1v1"
+                            : "P2P Trực tiếp"}
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <Badge variant={item.userSide === 1 ? "primary" : "secondary"}>

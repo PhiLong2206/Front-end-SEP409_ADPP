@@ -153,6 +153,17 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
 
           {/* Nav Items */}
           <div className="py-1">
+            {(String(role) === "Administrator" || user?.roles?.some((r) => r.toLowerCase() === "admin")) && (
+              <Link
+                to="/admin/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+              >
+                <ShieldCheck size={16} className="text-[#008A64]" />
+                <span>Cổng Quản trị (Admin)</span>
+              </Link>
+            )}
+
             <Link
               to="/debater/payments"
               onClick={() => setIsOpen(false)}

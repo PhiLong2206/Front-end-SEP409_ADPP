@@ -17,6 +17,7 @@ import {
   PrepareDebateRequest,
   PrepareDebateResponse,
   TournamentBracketResponse,
+  TournamentMatch,
 } from "../types";
 
 const competitionApi = {

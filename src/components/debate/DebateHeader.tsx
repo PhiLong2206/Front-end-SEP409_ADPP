@@ -226,12 +226,11 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
               onClick={onSubmitDebate}
               disabled={
                 isEvaluating ||
-                isAiGenerating ||
                 isSubmitting ||
-                (!canSubmitDebate && userRoleInRoom !== "Judge")
+                (!isDebateCompleted && !canSubmitDebate && userRoleInRoom !== "Judge")
               }
               className={`px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-[#008A64]/40 disabled:opacity-50 disabled:cursor-not-allowed ${
-                isDebateCompleted && canSubmitDebate
+                (isDebateCompleted || canSubmitDebate)
                   ? "bg-[#008A64] hover:bg-[#007457] text-white shadow-xs"
                   : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 text-[#008A64] dark:text-[#34D399] border border-[#008A64]/25"
               }`}

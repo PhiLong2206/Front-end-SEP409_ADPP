@@ -481,11 +481,11 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   {competition.status === "OpenRegistration" && (
                     <>
                       <Button
-                        variant="secondary"
+                        variant="warning"
                         size="sm"
                         onClick={handleCloseRegistration}
                         disabled={actionLoading}
-                        className="text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                        className="text-xs"
                       >
                         <DoorClosed size={14} className="mr-1" />
                         Đóng đăng ký
@@ -506,11 +506,11 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   {competition.status === "RegistrationClosed" && (
                     <>
                       <Button
-                        variant="primary"
+                        variant="info"
                         size="sm"
                         onClick={handleStartCompetition}
                         disabled={actionLoading}
-                        className="text-xs bg-blue-600 hover:bg-blue-700"
+                        className="text-xs"
                       >
                         <Play size={14} className="mr-1" />
                         Bắt đầu cuộc thi
@@ -540,11 +540,11 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   {competition.status === "Ongoing" && (
                     <>
                       <Button
-                        variant="primary"
+                        variant="purple"
                         size="sm"
                         onClick={handleCompleteCompetition}
                         disabled={actionLoading}
-                        className="text-xs bg-purple-600 hover:bg-purple-700"
+                        className="text-xs"
                       >
                         <CheckCheck size={14} className="mr-1" />
                         Hoàn thành cuộc thi

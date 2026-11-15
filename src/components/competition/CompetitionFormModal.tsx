@@ -201,10 +201,12 @@ const CompetitionFormModal: React.FC<Props> = ({
         }
       }
     } catch (err: unknown) {
-      const e = err as { message?: string; errors?: Record<string, string[]> };
-      if (e.errors) {
+      const e = err as { message?: string; errors?: Record<string, string[]> | string };
+      if (e.errors && typeof e.errors === "object" && !Array.isArray(e.errors)) {
         const firstErr = Object.values(e.errors).flat()[0];
-        setServerError(firstErr || e.message || "Đã xảy ra lỗi khi lưu cuộc thi.");
+        setServerError((typeof firstErr === "string" ? firstErr : null) || e.message || "Đã xảy ra lỗi khi lưu cuộc thi.");
+      } else if (typeof e.errors === "string" && e.errors.trim()) {
+        setServerError(e.message || e.errors || "Đã xảy ra lỗi khi lưu cuộc thi.");
       } else {
         setServerError(e.message || "Đã xảy ra lỗi khi lưu cuộc thi.");
       }

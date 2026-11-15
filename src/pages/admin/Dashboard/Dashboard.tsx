@@ -166,13 +166,12 @@ const AdminDashboard: React.FC = () => {
         <div className="flex items-center gap-3 self-start md:self-auto">
           {/* Admin API verification indicator */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-              adminAuthStatus === "verified"
-                ? "bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
-                : adminAuthStatus === "checking"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${adminAuthStatus === "verified"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+              : adminAuthStatus === "checking"
                 ? "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200"
                 : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200"
-            }`}
+              }`}
             title="Trạng thái xác thực quyền Quản trị viên"
           >
             {adminAuthStatus === "verified" ? (
@@ -186,8 +185,8 @@ const AdminDashboard: React.FC = () => {
               {adminAuthStatus === "verified"
                 ? "Quyền Quản trị: Hợp lệ"
                 : adminAuthStatus === "checking"
-                ? "Đang xác thực..."
-                : "Chưa kích hoạt"}
+                  ? "Đang xác thực..."
+                  : "Chưa kích hoạt"}
             </span>
           </div>
 
@@ -605,8 +604,8 @@ const AdminDashboard: React.FC = () => {
                     topic.difficulty === "Easy"
                       ? "Dễ"
                       : topic.difficulty === "Hard"
-                      ? "Khó"
-                      : "Trung bình";
+                        ? "Khó"
+                        : "Trung bình";
                   return (
                     <tr key={String(topicId)} className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors">
                       <td className="px-4 py-3 font-mono text-slate-400">#{topicId}</td>

@@ -153,12 +153,12 @@ const Debate1v1Result: React.FC = () => {
                 const key = n.includes("logic")
                   ? "logic"
                   : n.includes("evidence") || n.includes("bằng chứng") || n.includes("dẫn chứng")
-                  ? "evidence"
-                  : n.includes("relevan") || n.includes("liên quan") || n.includes("trọng tâm")
-                  ? "relevance"
-                  : n.includes("struct") || n.includes("cấu trúc") || n.includes("bố cục")
-                  ? "structure"
-                  : "persuasiveness";
+                    ? "evidence"
+                    : n.includes("relevan") || n.includes("liên quan") || n.includes("trọng tâm")
+                      ? "relevance"
+                      : n.includes("struct") || n.includes("cấu trúc") || n.includes("bố cục")
+                        ? "structure"
+                        : "persuasiveness";
                 if (!sums[key]) sums[key] = { total: 0, count: 0 };
                 sums[key].total += Number(c.score || 0);
                 sums[key].count += 1;
@@ -269,13 +269,12 @@ const Debate1v1Result: React.FC = () => {
     <div className="space-y-5 max-w-5xl mx-auto pb-10">
       {/* Result Hero Banner */}
       <div
-        className={`rounded-3xl p-6 sm:p-8 border shadow-lg text-white relative overflow-hidden ${
-          isWin
-            ? "bg-gradient-to-r from-[#008A64] to-emerald-400 border-[#008A64]/50"
-            : isDraw
+        className={`rounded-3xl p-6 sm:p-8 border shadow-lg text-white relative overflow-hidden ${isWin
+          ? "bg-gradient-to-r from-[#008A64] to-emerald-400 border-[#008A64]/50"
+          : isDraw
             ? "bg-gradient-to-r from-slate-600 to-slate-500 border-slate-400/50"
             : "bg-gradient-to-r from-rose-600 to-rose-400 border-rose-400/50"
-        }`}
+          }`}
       >
         {/* Decorative circle */}
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10" />

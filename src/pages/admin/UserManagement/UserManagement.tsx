@@ -130,18 +130,48 @@ const UserManagement: React.FC = () => {
   };
 
   // Open Assign Roles Modal
-  const handleOpenRoleModal = (u: AdminUserItem) => {
+  const handleOpenRoleModal = async (u: AdminUserItem) => {
     setRoleModalUser(u);
+    let rolesList = availableRoles;
+    if (rolesList.length === 0) {
+      try {
+        const res = await adminApi.getRoles();
+        if (res && res.success && res.data) {
+          rolesList = res.data;
+          setAvailableRoles(res.data);
+        }
+      } catch {
+        // ignore
+      }
+    }
     // Map current roles by name to role IDs
-    const currentRoleIds = availableRoles
+    const currentRoleIds = rolesList
       .filter((r) => u.roles.some((roleName) => roleName.toLowerCase() === r.roleName.toLowerCase()))
       .map((r) => r.roleId);
     setSelectedRoleIds(currentRoleIds);
   };
 
+  const isCurrentAdminSelf = Boolean(
+    roleModalUser &&
+      currentAdmin &&
+      (String(roleModalUser.userId) === String(currentAdmin.userId) ||
+        String(roleModalUser.userId) === String(currentAdmin.id))
+  );
+
   // Submit Assign Roles: PUT /api/admin/users/{id}/roles
   const handleAssignRolesSubmit = async () => {
     if (!roleModalUser) return;
+    if (selectedRoleIds.length === 0) {
+      setErrorMsg("Người dùng phải có ít nhất một vai trò trong hệ thống.");
+      return;
+    }
+    if (isCurrentAdminSelf) {
+      const adminRole = availableRoles.find((r) => r.roleName.toLowerCase() === "admin");
+      if (adminRole && !selectedRoleIds.includes(adminRole.roleId)) {
+        setErrorMsg("Bạn không thể tự gỡ bỏ quyền Quản trị viên của chính mình.");
+        return;
+      }
+    }
     setActionLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
@@ -164,6 +194,11 @@ const UserManagement: React.FC = () => {
 
   // Toggle Role Checkbox
   const toggleRoleSelection = (roleId: number) => {
+    const role = availableRoles.find((r) => r.roleId === roleId);
+    if (isCurrentAdminSelf && role?.roleName.toLowerCase() === "admin") {
+      setErrorMsg("Bạn không thể tự gỡ bỏ quyền Quản trị viên của chính mình.");
+      return;
+    }
     setSelectedRoleIds((prev) =>
       prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
     );
@@ -685,10 +720,15 @@ const UserManagement: React.FC = () => {
                     ? "Giám sát nội dung, kiểm duyệt các chủ đề và báo cáo vi phạm."
                     : role.description;
 
+                const isAdminRole = roleNameLower === "admin";
+                const isSelfAdmin = isCurrentAdminSelf && isAdminRole;
+
                 return (
                   <label
                     key={role.roleId}
-                    className={`flex items-start gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${
+                    className={`flex items-start gap-3 p-3 rounded-2xl border transition-all ${
+                      isSelfAdmin ? "cursor-not-allowed opacity-90" : "cursor-pointer"
+                    } ${
                       isChecked
                         ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-[#008A64] text-slate-900 dark:text-slate-100"
                         : "bg-white dark:bg-[#0B1713] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
@@ -697,13 +737,19 @@ const UserManagement: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={isChecked}
+                      disabled={isSelfAdmin}
                       onChange={() => toggleRoleSelection(role.roleId)}
-                      className="mt-0.5 accent-[#008A64] w-4 h-4 rounded cursor-pointer"
+                      className="mt-0.5 accent-[#008A64] w-4 h-4 rounded cursor-pointer disabled:cursor-not-allowed"
                     />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold">{roleLabel}</span>
                         <span className="text-[10px] text-slate-400 font-mono">Mã vai trò: #{role.roleId}</span>
+                        {isSelfAdmin && (
+                          <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
+                            (Bạn không thể tự bỏ quyền Quản trị viên của chính mình)
+                          </span>
+                        )}
                       </div>
                       {roleDesc && (
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
@@ -717,7 +763,7 @@ const UserManagement: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/40 leading-relaxed">
-              * Lưu ý: Không thể gỡ bỏ quyền Quản trị viên nếu tài khoản này là Quản trị viên duy nhất trong hệ thống.
+              * Lưu ý: Quản trị viên không thể tự gỡ bỏ quyền Quản trị viên của chính mình. Hệ thống luôn yêu cầu ít nhất một Quản trị viên đang hoạt động và mỗi tài khoản phải có ít nhất một vai trò.
             </p>
 
             <div className="pt-2 flex items-center justify-end gap-2">
