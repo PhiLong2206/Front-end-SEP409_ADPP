@@ -8,6 +8,10 @@ export interface DebateComposerProps {
   isSubmitting?: boolean;
   isRecording?: boolean;
   isAnalyzingMultimodal?: boolean;
+  liveInterimTranscript?: string;
+  liveSttStatus?: "idle" | "connecting" | "connected" | "closed" | "error";
+  micLevel?: number;
+  micLabel?: string;
   liveFrameAnalysis?: FrameAnalysisResult | null;
   videoPreviewRef?: React.RefObject<HTMLVideoElement | null>;
   overlayCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
@@ -34,6 +38,10 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   isSubmitting = false,
   isRecording = false,
   isAnalyzingMultimodal = false,
+  liveInterimTranscript = "",
+  liveSttStatus = "idle",
+  micLevel = 0,
+  micLabel = "",
   liveFrameAnalysis = null,
   videoPreviewRef,
   overlayCanvasRef,
@@ -135,6 +143,35 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                       ? "Hãy nhìn thẳng vào camera và trình bày lập luận rõ ràng..."
                       : "Đang thu âm giọng nói từ microphone. Nhấn nút Mic lần nữa để hoàn tất."}
                   </p>
+                )}
+                {isRecording && (liveInterimTranscript || liveSttStatus === "connecting" || liveSttStatus === "connected") && (
+                  <div className="text-[11px] text-slate-200 bg-slate-800/80 border border-slate-700/70 rounded-lg px-2.5 py-1 max-w-xl space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-emerald-400 font-semibold">
+                        {liveSttStatus === "connecting" ? "Đang kết nối STT..." : "Live STT:"}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400" title={micLabel || "Microphone"}>
+                        <span>Mic</span>
+                        <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-400 transition-all duration-75"
+                            style={{ width: `${Math.min(100, Math.max(0, micLevel))}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <p>
+                      {liveInterimTranscript ? (
+                        <span className="italic text-slate-300">{liveInterimTranscript}</span>
+                      ) : (
+                        <span className="text-slate-400">
+                          {micLevel > 2
+                            ? "Đang nhận tín hiệu giọng nói..."
+                            : `Đang lắng nghe (${micLabel || "Mic mặc định"})...`}
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

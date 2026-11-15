@@ -51,11 +51,13 @@ export default defineConfig({
         target: "http://localhost:8003",
         changeOrigin: true,
         secure: false,
+        ws: true,
       },
       "/api/multimodal": {
         target: "http://localhost:8003",
         changeOrigin: true,
         secure: false,
+        ws: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/ai-health": {

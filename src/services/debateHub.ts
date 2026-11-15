@@ -24,6 +24,17 @@ export interface SpeakingStatusEvent {
   isSpeaking: boolean;
 }
 
+export interface LiveTranscriptEvent {
+  sessionId: number;
+  userId: number | null;
+  fullName: string;
+  text: string;
+  isFinal: boolean;
+  speechFinal: boolean;
+  sequence: number;
+  timestamp?: string;
+}
+
 export interface ArgumentSubmittedEvent {
   sessionId: number;
   argument: {
@@ -62,6 +73,7 @@ export interface DebateHubCallbacks {
   onUserJoined?: (data: UserJoinedEvent) => void;
   onUserLeft?: (data: UserLeftEvent) => void;
   onSpeakingStatusChanged?: (data: SpeakingStatusEvent) => void;
+  onLiveTranscriptUpdated?: (data: LiveTranscriptEvent) => void;
   onArgumentSubmitted?: (data: ArgumentSubmittedEvent) => void;
   onSessionStarted?: (data: unknown) => void;
   onSessionStatusChanged?: (data: SessionStatusEvent) => void;
@@ -121,6 +133,28 @@ export class DebateHubService {
     }
   }
 
+  public async sendLiveTranscript(
+    text: string,
+    isFinal: boolean,
+    speechFinal = false,
+    sequence = 0
+  ): Promise<void> {
+    if (this.connection && this.connection.state === signalR.HubConnectionState.Connected && this.currentSessionId) {
+      try {
+        await this.connection.invoke(
+          "SendLiveTranscript",
+          this.currentSessionId,
+          text,
+          isFinal,
+          speechFinal,
+          sequence
+        );
+      } catch (err) {
+        console.warn("Failed to send live transcript via SignalR", err);
+      }
+    }
+  }
+
   public async disconnect(): Promise<void> {
     if (this.connection) {
       try {
@@ -158,6 +192,10 @@ export class DebateHubService {
 
     this.connection.on("UserSpeakingStatusChanged", (data: SpeakingStatusEvent) => {
       this.callbacks.onSpeakingStatusChanged?.(data);
+    });
+
+    this.connection.on("LiveTranscriptUpdated", (data: LiveTranscriptEvent) => {
+      this.callbacks.onLiveTranscriptUpdated?.(data);
     });
 
     this.connection.on("ArgumentSubmitted", (data: ArgumentSubmittedEvent) => {

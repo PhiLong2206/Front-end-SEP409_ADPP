@@ -20,6 +20,12 @@ import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
 import { aiApi, debateApi } from "../../../api";
 import { debateHubService } from "../../../services/debateHub";
+import {
+  pickSupportedAudioMimeType,
+  RAW_VOICE_AUDIO_CONSTRAINTS,
+  RealtimeSttClient,
+  RealtimeSttStatus,
+} from "../../../services/realtimeStt";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
@@ -282,6 +288,16 @@ const DebateRoom: React.FC = () => {
   const [isAnalyzingMultimodal, setIsAnalyzingMultimodal] = useState<boolean>(false);
   const [liveFrameAnalysis, setLiveFrameAnalysis] = useState<FrameAnalysisResult | null>(null);
   const [hasActiveCamera, setHasActiveCamera] = useState<boolean>(false);
+  const [liveInterimTranscript, setLiveInterimTranscript] = useState<string>("");
+  const [liveSttStatus, setLiveSttStatus] = useState<RealtimeSttStatus>("idle");
+  const [micLevel, setMicLevel] = useState<number>(0);
+  const [micLabel, setMicLabel] = useState<string>("");
+  const [remoteLiveTranscript, setRemoteLiveTranscript] = useState<{
+    userId: number | null;
+    fullName: string;
+    confirmedText: string;
+    interimText: string;
+  } | null>(null);
 
   // Multimodal Webcam + Microphone Refs
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
@@ -293,6 +309,11 @@ const DebateRoom: React.FC = () => {
   const emotionTimelineRef = useRef<EmotionSample[]>([]);
   const totalFramesCapturedRef = useRef<number>(0);
   const recordingStartTimeRef = useRef<number>(0);
+  const realtimeSttRef = useRef<RealtimeSttClient | null>(null);
+  const liveSeqRef = useRef<number>(0);
+  const lastInterimBroadcastRef = useRef<number>(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micMeterIntervalRef = useRef<number | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [sidebarTab, setSidebarTab] = useState<string>("evaluator");
@@ -1081,11 +1102,38 @@ const DebateRoom: React.FC = () => {
             setRemoteSpeakingUser({ userId: data.userId, fullName: data.fullName });
           } else {
             setRemoteSpeakingUser((prev) => (prev?.userId === data.userId ? null : prev));
+            setRemoteLiveTranscript((prev) => (prev?.userId === data.userId ? null : prev));
           }
+        }
+      },
+      onLiveTranscriptUpdated: (data) => {
+        if (!isSameUserId(data.userId, currentUserId)) {
+          setRemoteLiveTranscript((prev) => {
+            const sameUser = prev && prev.userId === data.userId;
+            const baseConfirmed = sameUser ? prev.confirmedText : "";
+            if (data.isFinal) {
+              const nextConfirmed = data.text.trim()
+                ? `${baseConfirmed} ${data.text.trim()}`.trim()
+                : baseConfirmed;
+              return {
+                userId: data.userId,
+                fullName: data.fullName,
+                confirmedText: nextConfirmed,
+                interimText: "",
+              };
+            }
+            return {
+              userId: data.userId,
+              fullName: data.fullName,
+              confirmedText: baseConfirmed,
+              interimText: data.text,
+            };
+          });
         }
       },
       onArgumentSubmitted: (data) => {
         setRemoteSpeakingUser(null);
+        setRemoteLiveTranscript(null);
         loadBackendTranscript(numSessionId);
         loadBackendSession(numSessionId);
         if (!isSameUserId(data.argument.userId, currentUserId)) {
@@ -1127,6 +1175,27 @@ const DebateRoom: React.FC = () => {
       debateHubService.sendSpeakingStatus(isRecording);
     }
   }, [isRecording, isBackendSession]);
+
+  // Clear stale opponent live banner/transcript whenever it becomes our turn to speak
+  useEffect(() => {
+    if (canSpeak) {
+      setRemoteSpeakingUser(null);
+      setRemoteLiveTranscript(null);
+    }
+  }, [canSpeak]);
+
+  // Attach MediaStream to <video> after DebateComposer mounts the recording banner
+  useEffect(() => {
+    if (isRecording && hasActiveCamera && videoPreviewRef.current && mediaStreamRef.current) {
+      const videoEl = videoPreviewRef.current;
+      if (videoEl.srcObject !== mediaStreamRef.current) {
+        videoEl.srcObject = mediaStreamRef.current;
+      }
+      void videoEl.play().catch(() => {
+        // Ignore autoplay restriction if muted attribute already handles it
+      });
+    }
+  }, [isRecording, hasActiveCamera]);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -1561,12 +1630,28 @@ const DebateRoom: React.FC = () => {
       window.clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
     }
+    if (micMeterIntervalRef.current) {
+      window.clearInterval(micMeterIntervalRef.current);
+      micMeterIntervalRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((t) => t.stop());
       mediaStreamRef.current = null;
     }
+    if (realtimeSttRef.current) {
+      realtimeSttRef.current.disconnectImmediate();
+      realtimeSttRef.current = null;
+    }
     setHasActiveCamera(false);
     setLiveFrameAnalysis(null);
+    setLiveInterimTranscript("");
+    setLiveSttStatus("idle");
+    setMicLevel(0);
+    setMicLabel("");
   }, []);
 
   useEffect(() => {
@@ -1654,6 +1739,7 @@ const DebateRoom: React.FC = () => {
         });
         recorder.stop();
         const audioBlob = await audioBlobPromise;
+        await realtimeSttRef.current?.stopAndFinalize();
         stopMediaCaptureResources();
 
         setIsAnalyzingMultimodal(true);
@@ -1675,12 +1761,8 @@ const DebateRoom: React.FC = () => {
           });
 
           setMultimodalResult(turnRes);
-          if (turnRes.voice?.transcript_text?.trim()) {
-            setArgumentText((prev) =>
-              prev.trim()
-                ? `${prev.trim()} ${turnRes.voice.transcript_text.trim()}`
-                : turnRes.voice.transcript_text.trim()
-            );
+          if (turnRes.voice?.transcript_text?.trim() && !argumentTextRef.current.trim()) {
+            setArgumentText(turnRes.voice.transcript_text.trim());
           }
           setIsSidebarOpen(true);
           setSidebarTab("evaluator");
@@ -1709,13 +1791,22 @@ const DebateRoom: React.FC = () => {
       let hasVideo = false;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 320, height: 240 },
-          audio: true,
+          video: { width: { ideal: 320 }, height: { ideal: 240 } },
+          audio: RAW_VOICE_AUDIO_CONSTRAINTS,
         });
         hasVideo = stream.getVideoTracks().length > 0;
       } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        hasVideo = false;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: RAW_VOICE_AUDIO_CONSTRAINTS,
+          });
+          hasVideo = stream.getVideoTracks().length > 0;
+        } catch (camErr) {
+          console.warn("Camera unavailable, falling back to microphone-only:", camErr);
+          stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_VOICE_AUDIO_CONSTRAINTS });
+          hasVideo = false;
+        }
       }
 
       mediaStreamRef.current = stream;
@@ -1724,18 +1815,92 @@ const DebateRoom: React.FC = () => {
       totalFramesCapturedRef.current = 0;
       audioChunksRef.current = [];
       recordingStartTimeRef.current = Date.now();
+      liveSeqRef.current = 0;
+      lastInterimBroadcastRef.current = 0;
+      setLiveInterimTranscript("");
       setIsRecording(true);
 
       if (hasVideo && videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
       }
 
+      const sttClient = new RealtimeSttClient({
+        onStatusChange: (status) => {
+          setLiveSttStatus(status);
+        },
+        onTranscript: ({ transcript, isFinal, speechFinal }) => {
+          const cleanText = transcript.trim();
+          if (isFinal) {
+            setLiveInterimTranscript("");
+            if (cleanText) {
+              setArgumentText((prev) => (prev.trim() ? `${prev.trim()} ${cleanText}` : cleanText));
+              if (isBackendSession) {
+                liveSeqRef.current += 1;
+                void debateHubService.sendLiveTranscript(cleanText, true, speechFinal, liveSeqRef.current);
+              }
+            }
+          } else {
+            setLiveInterimTranscript(transcript);
+            if (isBackendSession && cleanText) {
+              const now = Date.now();
+              if (now - lastInterimBroadcastRef.current >= 250) {
+                lastInterimBroadcastRef.current = now;
+                liveSeqRef.current += 1;
+                void debateHubService.sendLiveTranscript(transcript, false, false, liveSeqRef.current);
+              }
+            }
+          }
+        },
+        onError: (code, message) => {
+          console.warn(`Realtime STT fallback (${code}): ${message}`);
+        },
+      });
+      sttClient.connect();
+      realtimeSttRef.current = sttClient;
+
       const audioOnlyStream = new MediaStream(stream.getAudioTracks());
-      const recorder = new MediaRecorder(audioOnlyStream);
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      const activeAudioTrack = stream.getAudioTracks()[0];
+      setMicLabel(activeAudioTrack?.label || "Microphone");
+
+      try {
+        const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextCtor && activeAudioTrack) {
+          const audioCtx = new AudioContextCtor();
+          audioCtxRef.current = audioCtx;
+          const src = audioCtx.createMediaStreamSource(audioOnlyStream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          src.connect(analyser);
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          micMeterIntervalRef.current = window.setInterval(() => {
+            analyser.getByteTimeDomainData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i += 1) {
+              const v = (dataArray[i] - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / dataArray.length);
+            setMicLevel(Math.min(100, Math.round(rms * 350)));
+          }, 100);
+        }
+      } catch {
+        // Ignore AudioContext meter errors
+      }
+
+      const mimeType = pickSupportedAudioMimeType();
+      const recorder = new MediaRecorder(audioOnlyStream, mimeType ? { mimeType } : undefined);
+      recorder.ondataavailable = async (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+          try {
+            const buf = await e.data.arrayBuffer();
+            realtimeSttRef.current?.sendAudioChunk(buf);
+          } catch {
+            // Ignore streaming chunk read errors; Whisper batch fallback remains intact
+          }
+        }
       };
-      recorder.start();
+      recorder.start(100);
       mediaRecorderRef.current = recorder;
 
       if (hasVideo) {
@@ -1891,6 +2056,12 @@ const DebateRoom: React.FC = () => {
     }
     setIsSubmitting(true);
     setIsRecording(false);
+    if (realtimeSttRef.current) {
+      realtimeSttRef.current.disconnectImmediate();
+      realtimeSttRef.current = null;
+    }
+    setLiveInterimTranscript("");
+    setLiveSttStatus("idle");
     setRoomFeedback(null);
 
     // Clear the active turn deadline so the timer cannot fire a timeout while awaiting response
@@ -2664,17 +2835,34 @@ const DebateRoom: React.FC = () => {
         <div className="flex-1 flex min-h-0 relative overflow-hidden">
           {/* Primary Centered Chat Column */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
-            {remoteSpeakingUser && (
-              <div className="mx-4 mt-2 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300 animate-pulse">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping shrink-0" />
-                  <span>
-                    <strong className="font-bold">{remoteSpeakingUser.fullName}</strong> đang phát biểu trực tiếp...
+            {(remoteSpeakingUser || remoteLiveTranscript) && (
+              <div className="mx-4 mt-2 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-1 text-xs text-purple-700 dark:text-purple-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping shrink-0" />
+                    <span>
+                      <strong className="font-bold">
+                        {remoteSpeakingUser?.fullName || remoteLiveTranscript?.fullName}
+                      </strong>{" "}
+                      đang phát biểu trực tiếp...
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 tracking-wide uppercase">
+                    Live
                   </span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 tracking-wide uppercase">
-                  Live
-                </span>
+                {remoteLiveTranscript &&
+                  (remoteLiveTranscript.confirmedText || remoteLiveTranscript.interimText) && (
+                    <p className="text-xs text-purple-900 dark:text-purple-100 bg-white/70 dark:bg-purple-900/30 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                      <span>{remoteLiveTranscript.confirmedText}</span>
+                      {remoteLiveTranscript.interimText && (
+                        <span className="italic opacity-75">
+                          {remoteLiveTranscript.confirmedText ? " " : ""}
+                          {remoteLiveTranscript.interimText}
+                        </span>
+                      )}
+                    </p>
+                  )}
               </div>
             )}
 
@@ -2701,6 +2889,10 @@ const DebateRoom: React.FC = () => {
               isSubmitting={isSubmitting}
               isRecording={isRecording}
               isAnalyzingMultimodal={isAnalyzingMultimodal}
+              liveInterimTranscript={liveInterimTranscript}
+              liveSttStatus={liveSttStatus}
+              micLevel={micLevel}
+              micLabel={micLabel}
               liveFrameAnalysis={liveFrameAnalysis}
               videoPreviewRef={videoPreviewRef}
               overlayCanvasRef={overlayCanvasRef}
