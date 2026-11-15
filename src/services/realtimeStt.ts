@@ -62,6 +62,7 @@ export class RealtimeSttClient {
   private ws: WebSocket | null = null;
   private isStopping = false;
   private latestInterim = "";
+  private isClosed = false;
   private pendingChunks: ArrayBuffer[] = [];
   private closeResolve: (() => void) | null = null;
   private callbacks: RealtimeSttCallbacks;
@@ -78,6 +79,7 @@ export class RealtimeSttClient {
   }): void {
     this.disconnectImmediate();
     this.isStopping = false;
+    this.isClosed = false;
     this.latestInterim = "";
     this.pendingChunks = [];
 
@@ -116,15 +118,8 @@ export class RealtimeSttClient {
           } else if (msg.status === "connected") {
             this.callbacks.onStatusChange?.("connected");
           } else if (msg.status === "closed") {
-            if (this.latestInterim.trim()) {
-              this.callbacks.onTranscript?.({
-                transcript: this.latestInterim.trim(),
-                isFinal: true,
-                speechFinal: true,
-                fromFinalize: true,
-              });
-              this.latestInterim = "";
-            }
+            this.flushInterim();
+            this.isClosed = true;
             this.callbacks.onStatusChange?.("closed");
             this.resolveCloseWaiter();
           }
@@ -153,11 +148,17 @@ export class RealtimeSttClient {
     };
 
     ws.onerror = () => {
+      // A socket we already replaced or closed on purpose must not mark the new recording as failed
+      if (this.ws !== ws) return;
       this.callbacks.onStatusChange?.("error");
       this.resolveCloseWaiter();
     };
 
     ws.onclose = () => {
+      // Closed without the server's "closed" status (network drop, server crash): the text may be partial
+      if (!this.isClosed && this.ws === ws) {
+        this.callbacks.onStatusChange?.("error");
+      }
       this.resolveCloseWaiter();
     };
   }
@@ -197,21 +198,34 @@ export class RealtimeSttClient {
       });
     }
 
+    // Timed out before the server's "closed": keep the last interim words rather than drop them
+    this.flushInterim();
+    this.isClosed = true;
     this.disconnectImmediate();
   }
 
   public disconnectImmediate(): void {
     this.pendingChunks = [];
     this.resolveCloseWaiter();
-    if (this.ws) {
+    const ws = this.ws;
+    // Cleared before close(): a close we asked for is not reported as an error by onclose
+    this.ws = null;
+    if (ws) {
       try {
-        if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-          this.ws.close();
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
         }
       } catch {
         // Ignore close errors
       }
-      this.ws = null;
+    }
+  }
+
+  private flushInterim(): void {
+    const text = this.latestInterim.trim();
+    this.latestInterim = "";
+    if (text) {
+      this.callbacks.onTranscript?.({ transcript: text, isFinal: true, speechFinal: true, fromFinalize: true });
     }
   }
 
@@ -224,3 +238,17 @@ export class RealtimeSttClient {
   }
 }
 
+/**
+ * What /multimodal/analyze-turn needs at the end of a recording.
+ * When the live STT already gave the spoken text, the audio is not sent: the service then skips the
+ * Whisper pass (about 0.4x the speech length on CPU) and computes pace / fillers from that text.
+ * Without live text (no Deepgram key, network error), the audio goes to Whisper as before.
+ */
+export async function resolveTurnSpeechInput(
+  liveSpokenText: string,
+  readAudioBase64: () => Promise<string>
+): Promise<{ audioBase64: string | null; spokenText: string | null }> {
+  const spokenText = liveSpokenText.trim();
+  if (spokenText) return { audioBase64: null, spokenText };
+  return { audioBase64: await readAudioBase64(), spokenText: null };
+}
