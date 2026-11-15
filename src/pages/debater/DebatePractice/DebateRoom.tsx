@@ -11,6 +11,8 @@ import {
   X,
   Loader2,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import DebateHeader from "../../../components/debate/DebateHeader";
 import DebateChat from "../../../components/debate/DebateChat";
@@ -19,6 +21,8 @@ import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
 import { aiApi, debateApi } from "../../../api";
+import { isAiTurnStreamEnabled } from "../../../api/aiApi";
+import { getSpeechSynthesis, loadVietnameseVoice, SentenceSpeaker } from "../../../services/speechOut";
 import { debateHubService } from "../../../services/debateHub";
 import {
   pickSupportedAudioMimeType,
@@ -63,6 +67,7 @@ import {
   MultimodalTurnResult,
   CoachingResult,
 } from "../../../types";
+import type { CreateTurnRequest, TurnResponse } from "../../../types";
 import { getErrorMessage } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
 import { getDebateErrorMessage } from "../../../utils/debateErrors";
@@ -112,6 +117,7 @@ interface TurnEvaluationContext {
 }
 
 const TURN_EVALUATION_ERROR = "Chưa chấm được lượt phát biểu này. Vui lòng thử lại.";
+const READ_ALOUD_STORAGE_KEY = "adpp.aiReadAloud";
 const FINISH_EVALUATION_ERROR = "Chưa chấm được kết quả tranh biện. Vui lòng thử lại.";
 const OPPONENT_SPEECH_MISMATCH_ERROR =
   "Đối thủ AI đã tạo lượt này từ một bài nói khác nên phiên này không thể tiếp tục. Thử lại sẽ không khắc phục được, vui lòng quay lại và tạo phiên tranh biện mới.";
@@ -257,6 +263,102 @@ const DebateRoom: React.FC = () => {
   // Synchronous locks to prevent duplicate sends, concurrent AI turns & premature timeout triggers
   const isSubmittingRef = useRef(false);
   const isAiGeneratingRef = useRef(false);
+
+  // AI turn streaming + reading aloud (browser Vietnamese voice; no voice -> no read-aloud toggle)
+  const [liveAiSpeech, setLiveAiSpeech] = useState<string | null>(null);
+  const [viVoice, setViVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [readAloud, setReadAloud] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(READ_ALOUD_STORAGE_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const readAloudRef = useRef(readAloud);
+  const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const speakerRef = useRef<SentenceSpeaker | null>(null);
+  // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
+  const liveAiSpeechRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void loadVietnameseVoice().then((v) => {
+      if (alive) {
+        viVoiceRef.current = v;
+        setViVoice(v);
+      }
+    });
+    return () => {
+      alive = false;
+      speakerRef.current = null;
+      getSpeechSynthesis()?.cancel();
+    };
+  }, []);
+
+  const toggleReadAloud = useCallback(() => {
+    const next = !readAloudRef.current;
+    readAloudRef.current = next;
+    setReadAloud(next);
+    try {
+      window.localStorage.setItem(READ_ALOUD_STORAGE_KEY, next ? "on" : "off");
+    } catch {
+      // per-browser convenience only
+    }
+    if (!next) {
+      speakerRef.current?.cancel();
+      speakerRef.current = null;
+      return;
+    }
+    // Turned on while the AI is speaking: read this turn too, from what is already written
+    const synth = getSpeechSynthesis();
+    if (liveAiSpeechRef.current !== null && synth && viVoiceRef.current) {
+      const speaker = new SentenceSpeaker(synth, viVoiceRef.current);
+      speaker.push(liveAiSpeechRef.current);
+      speakerRef.current = speaker;
+    }
+  }, []);
+
+  /**
+   * Asks the AI opponent for a turn. Streaming (default): the speech shows up as it is written and, with a
+   * Vietnamese voice and read-aloud on, is spoken sentence by sentence. A new attempt replaces the text so far.
+   */
+  const requestOpponentTurn = useCallback(
+    async (opponentId: string, request: CreateTurnRequest): Promise<TurnResponse> => {
+      if (!isAiTurnStreamEnabled()) {
+        return aiApi.generateOpponentTurn(opponentId, request);
+      }
+      const synth = getSpeechSynthesis();
+      speakerRef.current?.cancel();
+      // speakerRef (not a local): the read-aloud toggle may drop or create the speaker during the turn
+      speakerRef.current =
+        readAloudRef.current && synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
+      const showLive = (text: string | null) => {
+        liveAiSpeechRef.current = text;
+        setLiveAiSpeech(text);
+      };
+      showLive("");
+      try {
+        const res = await aiApi.streamOpponentTurn(opponentId, request, {
+          onAttempt: () => {
+            showLive("");
+            speakerRef.current?.cancel();
+          },
+          onDelta: (text) => {
+            showLive((liveAiSpeechRef.current ?? "") + text);
+            speakerRef.current?.push(text);
+          },
+        });
+        speakerRef.current?.finish(res?.speech_text ?? "");
+        return res;
+      } catch (err) {
+        speakerRef.current?.cancel();
+        throw err;
+      } finally {
+        showLive(null);
+      }
+    },
+    []
+  );
   const handledTimeoutKeyRef = useRef<string | null>(null);
   const submittedRoundsRef = useRef<Set<number>>(new Set());
   const inFlightTurnIndexRef = useRef<number | null>(null);
@@ -1336,7 +1438,7 @@ const DebateRoom: React.FC = () => {
           try {
             const firstTurnRes = await retryWhilePlanning(
               () =>
-                aiApi.generateOpponentTurn(opponentSessionId, {
+                requestOpponentTurn(opponentSessionId, {
                   turn_index: toOpponentTurnIndex(0),
                   new_learner_speeches: [],
                 }),
@@ -1571,7 +1673,7 @@ const DebateRoom: React.FC = () => {
             // A 409 "still planning" is temporary: wait and call again instead of failing
             const turnRes = await retryWhilePlanning(
               () =>
-                aiApi.generateOpponentTurn(opponentSessionId, {
+                requestOpponentTurn(opponentSessionId, {
                   turn_index: toOpponentTurnIndex(ctx.aiTurnIndex),
                   new_learner_speeches: ctx.learnerSpeech ? [ctx.learnerSpeech] : [],
                 }),
@@ -1654,7 +1756,15 @@ const DebateRoom: React.FC = () => {
         await runAiTurn(nextTurn);
       }
     },
-    [advanceToNextRoundOrComplete, aiSide, appendOpponentMessage, isBackendSession, numSessionId, opponentSessionId]
+    [
+      advanceToNextRoundOrComplete,
+      aiSide,
+      appendOpponentMessage,
+      isBackendSession,
+      numSessionId,
+      opponentSessionId,
+      requestOpponentTurn,
+    ]
   );
 
   // Stop media streams & frame intervals cleanly
@@ -1819,6 +1929,9 @@ const DebateRoom: React.FC = () => {
     }
 
     // Start recording (Webcam + Microphone, fallback to Microphone-only if camera unavailable)
+    // The AI must not keep talking into the learner's microphone
+    speakerRef.current?.cancel();
+    speakerRef.current = null;
     try {
       let stream: MediaStream;
       let hasVideo = false;
@@ -2901,12 +3014,29 @@ const DebateRoom: React.FC = () => {
               </div>
             )}
 
+            {!isP2pOr2v2 && viVoice && isAiTurnStreamEnabled() && (
+              <div className="mx-4 mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={toggleReadAloud}
+                  aria-pressed={readAloud}
+                  data-testid="ai-read-aloud-toggle"
+                  title={`Đọc to bài nói của Đối thủ AI bằng giọng ${viVoice.name}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                >
+                  {readAloud ? <Volume2 size={14} aria-hidden="true" /> : <VolumeX size={14} aria-hidden="true" />}
+                  {readAloud ? "AI đọc to: bật" : "AI đọc to: tắt"}
+                </button>
+              </div>
+            )}
+
             <DebateChat
               messages={messages}
               mode={roomMode}
               debaterSide={debaterSide}
               currentRound={currentRound}
               isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
+              liveAiSpeech={liveAiSpeech}
               aiSide={aiSide}
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}

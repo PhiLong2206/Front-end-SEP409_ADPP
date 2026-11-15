@@ -1,3 +1,4 @@
+import { streamOpponentTurn, type OpponentTurnStreamHandlers } from "../services/opponentTurnStream";
 import axios from "axios";
 import {
   CreateOpponentSessionRequest,
@@ -24,6 +25,9 @@ import {
   IntegratedDebateEvaluationRequest,
   IntegratedDebateEvaluationResult,
 } from "../types";
+
+/** AI turns stream by default (VITE_AI_TURN_STREAM=false: wait for the whole speech, POST .../turns). */
+export const isAiTurnStreamEnabled = (): boolean => import.meta.env.VITE_AI_TURN_STREAM !== "false";
 
 // Dedicated client for AI Opponent Generation Service (port 8002)
 const AI_OPPONENT_BASE_URL =
@@ -146,6 +150,13 @@ const aiApi = {
     data: CreateTurnRequest
   ): Promise<TurnResponse> =>
     aiOpponentClient.post(`/sessions/${externalSessionId}/turns`, data),
+
+  // 4b. POST /opponent/sessions/{external_session_id}/turns/stream - same turn, the speech streams in (SSE)
+  streamOpponentTurn: (
+    externalSessionId: string,
+    data: CreateTurnRequest,
+    handlers?: OpponentTurnStreamHandlers
+  ): Promise<TurnResponse> => streamOpponentTurn(AI_OPPONENT_BASE_URL, externalSessionId, data, handlers),
 
   // ── AI Evaluator Service (port 8000: /evaluate/*) ────────────
   checkEvaluatorHealth: async (): Promise<AIHealthResponse> => {

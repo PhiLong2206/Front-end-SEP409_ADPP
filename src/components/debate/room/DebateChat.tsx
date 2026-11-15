@@ -9,6 +9,8 @@ export interface DebateChatProps {
   debaterSide: "pro" | "con";
   currentRound: number;
   isAiGenerating?: boolean;
+  /** Speech of the AI turn being generated, as it streams in (null / empty: only the typing dots). */
+  liveAiSpeech?: string | null;
   aiSide?: "pro" | "con";
   timedOutRounds?: number[];
   isTurnExpired?: boolean;
@@ -28,6 +30,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   debaterSide,
   currentRound,
   isAiGenerating = false,
+  liveAiSpeech = null,
   aiSide = "con",
   timedOutRounds = [],
   isTurnExpired = false,
@@ -121,6 +124,13 @@ const DebateChat: React.FC<DebateChatProps> = ({
       scrollToBottom("smooth");
     }
   }, [isAiGenerating, isDebateCompleted, scrollToBottom]);
+
+  // The streamed speech grows the bubble: keep following it the same way
+  useEffect(() => {
+    if (liveAiSpeech && isNearBottomRef.current) {
+      scrollToBottom("auto");
+    }
+  }, [liveAiSpeech, scrollToBottom]);
 
   const round1Messages = messages.filter((m) => m.roundNumber === 1);
   const round2Messages = messages.filter((m) => m.roundNumber === 2);
@@ -270,15 +280,28 @@ const DebateChat: React.FC<DebateChatProps> = ({
             <div className="w-8 h-8 rounded-full bg-[#008A64] text-white flex items-center justify-center shrink-0 mt-0.5">
               <Bot size={16} />
             </div>
-            <div className="px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-slate-800 shadow-2xs inline-flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                Đối thủ AI ({aiSide === "pro" ? "PRO" : "CON"})
-              </span>
-              <span className="flex items-center gap-1 ml-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce" />
-              </span>
+            <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1.5">
+              <div className="inline-flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Đối thủ AI ({aiSide === "pro" ? "PRO" : "CON"})
+                  {liveAiSpeech ? " đang nói" : ""}
+                </span>
+                <span className="flex items-center gap-1 ml-1" aria-hidden="true">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce" />
+                </span>
+              </div>
+              {liveAiSpeech && (
+                // aria-live off: the text grows every few ms; the final message is announced once it lands
+                <p
+                  data-testid="ai-live-speech"
+                  aria-live="off"
+                  className="text-sm leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap"
+                >
+                  {liveAiSpeech}
+                </p>
+              )}
             </div>
           </div>
         )}
