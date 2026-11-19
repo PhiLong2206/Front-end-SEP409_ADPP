@@ -21,8 +21,16 @@ import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
 import { aiApi, debateApi } from "../../../api";
-import { isAiTurnStreamEnabled } from "../../../api/aiApi";
-import { getSpeechSynthesis, loadVietnameseVoice, SentenceSpeaker } from "../../../services/speechOut";
+import { AI_MULTIMODAL_BASE_URL, isAiTurnStreamEnabled } from "../../../api/aiApi";
+import {
+  AudioSentenceSpeaker,
+  getSpeechSynthesis,
+  isServerVoiceConfigured,
+  loadVietnameseVoice,
+  makeServerAudioFetcher,
+  SentenceQueue,
+  SentenceSpeaker,
+} from "../../../services/speechOut";
 import { debateHubService } from "../../../services/debateHub";
 import {
   pickSupportedAudioMimeType,
@@ -264,9 +272,11 @@ const DebateRoom: React.FC = () => {
   const isSubmittingRef = useRef(false);
   const isAiGeneratingRef = useRef(false);
 
-  // AI turn streaming + reading aloud (browser Vietnamese voice; no voice -> no read-aloud toggle)
+  // AI turn streaming + reading aloud: Azure voice through the multimodal service, else the browser Vietnamese voice;
+  // neither -> no read-aloud toggle
   const [liveAiSpeech, setLiveAiSpeech] = useState<string | null>(null);
   const [viVoice, setViVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [hasServerVoice, setHasServerVoice] = useState(false);
   const [readAloud, setReadAloud] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(READ_ALOUD_STORAGE_KEY) !== "off";
@@ -276,23 +286,46 @@ const DebateRoom: React.FC = () => {
   });
   const readAloudRef = useRef(readAloud);
   const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-  const speakerRef = useRef<SentenceSpeaker | null>(null);
+  const hasServerVoiceRef = useRef(false);
+  // Settles once both voices are known (browser voice list, multimodal /tts/config): a turn that starts earlier
+  // creates its reader then, and catches up with the text already streamed
+  const voicesReadyRef = useRef<Promise<void>>(Promise.resolve());
+  const currentAiTurnRef = useRef<object | null>(null);
+  const speakerRef = useRef<SentenceQueue | null>(null);
   // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
   const liveAiSpeechRef = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    void loadVietnameseVoice().then((v) => {
+    const browserVoice = loadVietnameseVoice().then((v) => {
       if (alive) {
         viVoiceRef.current = v;
         setViVoice(v);
       }
     });
+    const serverVoice = isServerVoiceConfigured(AI_MULTIMODAL_BASE_URL).then((ok) => {
+      if (alive) {
+        hasServerVoiceRef.current = ok;
+        setHasServerVoice(ok);
+      }
+    });
+    voicesReadyRef.current = Promise.all([browserVoice, serverVoice]).then(() => undefined);
     return () => {
       alive = false;
+      speakerRef.current?.cancel();
       speakerRef.current = null;
       getSpeechSynthesis()?.cancel();
     };
+  }, []);
+
+  /** A new reader for one AI turn: server voice with the browser voice as fallback, or the browser voice alone. */
+  const makeSpeaker = useCallback((): SentenceQueue | null => {
+    const synth = getSpeechSynthesis();
+    const browser = synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
+    if (hasServerVoiceRef.current) {
+      return new AudioSentenceSpeaker(makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL), browser);
+    }
+    return browser;
   }, []);
 
   const toggleReadAloud = useCallback(() => {
@@ -310,13 +343,12 @@ const DebateRoom: React.FC = () => {
       return;
     }
     // Turned on while the AI is speaking: read this turn too, from what is already written
-    const synth = getSpeechSynthesis();
-    if (liveAiSpeechRef.current !== null && synth && viVoiceRef.current) {
-      const speaker = new SentenceSpeaker(synth, viVoiceRef.current);
+    const speaker = liveAiSpeechRef.current !== null ? makeSpeaker() : null;
+    if (speaker && liveAiSpeechRef.current !== null) {
       speaker.push(liveAiSpeechRef.current);
       speakerRef.current = speaker;
     }
-  }, []);
+  }, [makeSpeaker]);
 
   /**
    * Asks the AI opponent for a turn. Streaming (default): the speech shows up as it is written and, with a
@@ -327,11 +359,21 @@ const DebateRoom: React.FC = () => {
       if (!isAiTurnStreamEnabled()) {
         return aiApi.generateOpponentTurn(opponentId, request);
       }
-      const synth = getSpeechSynthesis();
-      speakerRef.current?.cancel();
-      // speakerRef (not a local): the read-aloud toggle may drop or create the speaker during the turn
-      speakerRef.current =
-        readAloudRef.current && synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
+      // Read through a function: the reader changes while the turn streams (voices known, toggle)
+      const reader = (): SentenceQueue | null => speakerRef.current;
+      reader()?.cancel();
+      speakerRef.current = null;
+      const turn = {};
+      currentAiTurnRef.current = turn;
+      // speakerRef (not a local): created once the voices are known, and the read-aloud toggle may drop or create it
+      void voicesReadyRef.current.then(() => {
+        if (currentAiTurnRef.current !== turn || liveAiSpeechRef.current === null) return;
+        if (!readAloudRef.current || speakerRef.current) return;
+        const speaker = makeSpeaker();
+        if (!speaker) return;
+        if (liveAiSpeechRef.current) speaker.push(liveAiSpeechRef.current);
+        speakerRef.current = speaker;
+      });
       const showLive = (text: string | null) => {
         liveAiSpeechRef.current = text;
         setLiveAiSpeech(text);
@@ -341,23 +383,23 @@ const DebateRoom: React.FC = () => {
         const res = await aiApi.streamOpponentTurn(opponentId, request, {
           onAttempt: () => {
             showLive("");
-            speakerRef.current?.cancel();
+            reader()?.cancel();
           },
           onDelta: (text) => {
             showLive((liveAiSpeechRef.current ?? "") + text);
-            speakerRef.current?.push(text);
+            reader()?.push(text);
           },
         });
-        speakerRef.current?.finish(res?.speech_text ?? "");
+        reader()?.finish(res?.speech_text ?? "");
         return res;
       } catch (err) {
-        speakerRef.current?.cancel();
+        reader()?.cancel();
         throw err;
       } finally {
         showLive(null);
       }
     },
-    []
+    [makeSpeaker]
   );
   const handledTimeoutKeyRef = useRef<string | null>(null);
   const submittedRoundsRef = useRef<Set<number>>(new Set());
@@ -3014,14 +3056,14 @@ const DebateRoom: React.FC = () => {
               </div>
             )}
 
-            {!isP2pOr2v2 && viVoice && isAiTurnStreamEnabled() && (
+            {!isP2pOr2v2 && (hasServerVoice || viVoice) && isAiTurnStreamEnabled() && (
               <div className="mx-4 mt-2 flex justify-end">
                 <button
                   type="button"
                   onClick={toggleReadAloud}
                   aria-pressed={readAloud}
                   data-testid="ai-read-aloud-toggle"
-                  title={`Đọc to bài nói của Đối thủ AI bằng giọng ${viVoice.name}`}
+                  title={`Đọc to bài nói của Đối thủ AI bằng giọng ${hasServerVoice ? "Azure (tiếng Việt)" : viVoice?.name ?? ""}`}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
                 >
                   {readAloud ? <Volume2 size={14} aria-hidden="true" /> : <VolumeX size={14} aria-hidden="true" />}

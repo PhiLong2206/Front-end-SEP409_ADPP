@@ -109,6 +109,28 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     expect(spoken).toEqual(["Kính thưa ban giám khảo.", "Mình ủng hộ kiến nghị."]);
   });
 
+  it("a turn that starts once the voices are known is read aloud too (the learner's reply, then the AI)", async () => {
+    await renderRoom();
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Mở màn. ");
+      finishTurn("Mở màn.");
+    });
+    spoken.length = 0;
+
+    fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: "Mình phản đối." } });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+    });
+    expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0)); // the reader of this turn is created (voices already known)
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Phản bác của AI. ");
+    });
+    expect(spoken).toEqual(["Phản bác của AI."]);
+  });
+
   it("a new attempt replaces the text and stops the voice", async () => {
     await renderRoom();
     await act(async () => {
@@ -156,5 +178,78 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
       finishTurn("Câu đã viết. Câu đang viết.");
     });
     expect(spoken).toEqual(["Câu đã viết.", "Câu đang viết."]);
+  });
+});
+
+describe("DebateRoom: with the Azure voice configured on the multimodal service", () => {
+  let handlers: OpponentTurnStreamHandlers;
+  let finishTurn: (text: string) => void;
+  const played: string[] = [];
+
+  beforeEach(() => {
+    vi.stubEnv("VITE_AI_TURN_STREAM", "true");
+    sessionStorage.clear();
+    localStorage.clear();
+    played.length = 0;
+    spoken.length = 0;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    (window as unknown as { speechSynthesis: typeof synth }).speechSynthesis = synth;
+    (globalThis as unknown as { SpeechSynthesisUtterance: typeof FakeUtterance }).SpeechSynthesisUtterance = FakeUtterance;
+    vi.spyOn(URL, "createObjectURL").mockImplementation(() => "blob:x");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/tts/config")) return new Response(JSON.stringify({ configured: true }), { status: 200 });
+      if (url.endsWith("/tts")) {
+        played.push(JSON.parse(String(init?.body)).text);
+        return new Response("mp3", { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }));
+    vi.stubGlobal("Audio", class {
+      onended: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      play = async () => {};
+      pause = () => {};
+    });
+    mockCreateOpponentSession.mockResolvedValue({ opponent_session_id: "opp-1", status: "ready" });
+    mockStreamOpponentTurn.mockImplementation(
+      (_id: string, body: { turn_index: number }, h: OpponentTurnStreamHandlers) =>
+        new Promise((resolve) => {
+          handlers = h;
+          finishTurn = (text) =>
+            resolve({ turn_index: body.turn_index, round_type: "opening", mode: "opening_first", speech_text: text });
+        })
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.stubEnv("VITE_AI_TURN_STREAM", "false");
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("asks the service for each finished sentence instead of the browser voice", async () => {
+    await renderRoom();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0)); // config request resolves
+    });
+    expect(screen.getByTestId("ai-read-aloud-toggle")).toHaveAttribute("title", expect.stringContaining("Azure"));
+
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Kính thưa ban giám khảo. Mình ");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(played).toEqual(["Kính thưa ban giám khảo."]);
+    expect(spoken).toEqual([]); // the browser voice is only the fallback
+
+    await act(async () => {
+      handlers.onDelta?.("ủng hộ.");
+      finishTurn("Kính thưa ban giám khảo. Mình ủng hộ.");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(screen.getByText("Kính thưa ban giám khảo. Mình ủng hộ.")).toBeInTheDocument();
   });
 });

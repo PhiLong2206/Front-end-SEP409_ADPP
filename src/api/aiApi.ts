@@ -97,7 +97,7 @@ aiCoachingClient.interceptors.response.use(
 );
 
 // Dedicated client for AI Multimodal Debate Service (port 8003: /multimodal/*)
-const AI_MULTIMODAL_BASE_URL =
+export const AI_MULTIMODAL_BASE_URL =
   import.meta.env.VITE_AI_MULTIMODAL_URL ||
   "/multimodal";
 
