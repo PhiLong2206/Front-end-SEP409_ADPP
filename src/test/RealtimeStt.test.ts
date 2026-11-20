@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   RAW_VOICE_AUDIO_CONSTRAINTS,
   RealtimeSttClient,
@@ -104,3 +104,60 @@ describe("RealtimeSttClient (Preset Chuan Deepgram Web)", () => {
   });
 });
 
+
+describe("RealtimeSttClient: no lost words, failures reported", () => {
+  const OriginalWebSocket = globalThis.WebSocket;
+
+  beforeEach(() => {
+    MockWebSocket.instances = [];
+    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+  });
+
+  afterEach(() => {
+    globalThis.WebSocket = OriginalWebSocket;
+    vi.useRealTimers();
+  });
+
+  const setup = () => {
+    const statuses: RealtimeSttStatus[] = [];
+    const finals: string[] = [];
+    const client = new RealtimeSttClient({
+      onStatusChange: (s) => statuses.push(s),
+      onTranscript: (p) => {
+        if (p.isFinal) finals.push(p.transcript);
+      },
+    });
+    client.connect();
+    const ws = MockWebSocket.instances[0];
+    ws.onmessage?.({ data: JSON.stringify({ type: "dg_status", status: "connected" }) });
+    return { client, ws, statuses, finals };
+  };
+
+  it("stop timing out before the server's 'closed' keeps the last interim words as final", async () => {
+    vi.useFakeTimers();
+    const { client, ws, statuses, finals } = setup();
+    ws.onmessage?.({ data: JSON.stringify({ type: "transcript", transcript: "vì vậy chúng tôi", is_final: false }) });
+
+    const stop = client.stopAndFinalize(500);
+    await vi.advanceTimersByTimeAsync(600);
+    await stop;
+
+    expect(finals).toEqual(["vì vậy chúng tôi"]);
+    expect(statuses).not.toContain("error"); // our own close is not a failure
+  });
+
+  it("the socket dropping without 'closed' is reported as an error", () => {
+    const { ws, statuses } = setup();
+    ws.readyState = 3;
+    ws.onclose?.();
+
+    expect(statuses).toContain("error");
+  });
+
+  it("disconnecting on purpose is not reported as an error", () => {
+    const { client, statuses } = setup();
+    client.disconnectImmediate();
+
+    expect(statuses).not.toContain("error");
+  });
+});

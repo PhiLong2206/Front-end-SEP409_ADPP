@@ -40,6 +40,7 @@ import {
   RAW_VOICE_AUDIO_CONSTRAINTS,
   RealtimeSttClient,
   RealtimeSttStatus,
+  resolveTurnSpeechInput,
 } from "../../../services/realtimeStt";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
@@ -541,6 +542,12 @@ const DebateRoom: React.FC = () => {
   const recordingStartTimeRef = useRef<number>(0);
   const realtimeSttRef = useRef<RealtimeSttClient | null>(null);
   const liveSeqRef = useRef<number>(0);
+  // Final text of the live STT for the current recording (what was spoken, without typed text)
+  const liveSpokenTextRef = useRef<string>("");
+  // The live STT failed during this recording: its text may be partial, so Whisper transcribes the audio instead
+  const liveSttFailedRef = useRef<boolean>(false);
+  // Audio chunks are read and sent one after another: keeps WebM order, and stop waits for the last chunk
+  const sttSendChainRef = useRef<Promise<void>>(Promise.resolve());
   const lastInterimBroadcastRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const micMeterIntervalRef = useRef<number | null>(null);
@@ -2009,24 +2016,29 @@ const DebateRoom: React.FC = () => {
         });
         recorder.stop();
         const audioBlob = await audioBlobPromise;
+        await sttSendChainRef.current;
         await realtimeSttRef.current?.stopAndFinalize();
         stopMediaCaptureResources();
 
         setIsAnalyzingMultimodal(true);
         try {
-          const audioBase64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(String(reader.result || ""));
-            reader.onerror = reject;
-            reader.readAsDataURL(audioBlob);
-          });
+          const { audioBase64, spokenText } = await resolveTurnSpeechInput(
+            liveSttFailedRef.current ? "" : liveSpokenTextRef.current,
+            () =>
+              new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(String(reader.result || ""));
+                reader.onerror = reject;
+                reader.readAsDataURL(audioBlob);
+              })
+          );
 
           const turnRes = await aiApi.analyzeTurn({
             audio_base64: audioBase64,
             emotion_timeline: emotionTimelineRef.current,
             total_frames_captured: totalFramesCapturedRef.current,
             duration_seconds: durationSec,
-            transcript_override: argumentTextRef.current.trim() || null,
+            transcript_override: spokenText ?? (argumentTextRef.current.trim() || null),
             include_report_chart: true,
           });
 
@@ -2089,6 +2101,8 @@ const DebateRoom: React.FC = () => {
       audioChunksRef.current = [];
       recordingStartTimeRef.current = Date.now();
       liveSeqRef.current = 0;
+      liveSpokenTextRef.current = "";
+      liveSttFailedRef.current = false;
       lastInterimBroadcastRef.current = 0;
       setLiveInterimTranscript("");
       setIsRecording(true);
@@ -2099,6 +2113,7 @@ const DebateRoom: React.FC = () => {
 
       const sttClient = new RealtimeSttClient({
         onStatusChange: (status) => {
+          if (status === "error") liveSttFailedRef.current = true;
           setLiveSttStatus(status);
         },
         onTranscript: ({ transcript, isFinal, speechFinal }) => {
@@ -2106,6 +2121,7 @@ const DebateRoom: React.FC = () => {
           if (isFinal) {
             setLiveInterimTranscript("");
             if (cleanText) {
+              liveSpokenTextRef.current = `${liveSpokenTextRef.current} ${cleanText}`.trim();
               setArgumentText((prev) => (prev.trim() ? `${prev.trim()} ${cleanText}` : cleanText));
               if (isBackendSession) {
                 liveSeqRef.current += 1;
@@ -2162,15 +2178,19 @@ const DebateRoom: React.FC = () => {
 
       const mimeType = pickSupportedAudioMimeType();
       const recorder = new MediaRecorder(audioOnlyStream, mimeType ? { mimeType } : undefined);
-      recorder.ondataavailable = async (e) => {
+      sttSendChainRef.current = Promise.resolve();
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
-          try {
-            const buf = await e.data.arrayBuffer();
-            realtimeSttRef.current?.sendAudioChunk(buf);
-          } catch {
-            // Ignore streaming chunk read errors; Whisper batch fallback remains intact
-          }
+          const chunk = e.data;
+          sttSendChainRef.current = sttSendChainRef.current.then(async () => {
+            try {
+              const buf = await chunk.arrayBuffer();
+              realtimeSttRef.current?.sendAudioChunk(buf);
+            } catch {
+              // Ignore streaming chunk read errors; Whisper batch fallback remains intact
+            }
+          });
         }
       };
       recorder.start(100);
