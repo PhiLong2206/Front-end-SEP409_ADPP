@@ -185,8 +185,12 @@ describe("DebateRoom: with the Azure voice configured on the multimodal service"
   let handlers: OpponentTurnStreamHandlers;
   let finishTurn: (text: string) => void;
   const played: string[] = [];
+  const playedVoices: Array<string | null> = [];
+  let ttsConfig: object = { configured: true };
 
   beforeEach(() => {
+    playedVoices.length = 0;
+    ttsConfig = { configured: true };
     vi.stubEnv("VITE_AI_TURN_STREAM", "true");
     sessionStorage.clear();
     localStorage.clear();
@@ -198,9 +202,11 @@ describe("DebateRoom: with the Azure voice configured on the multimodal service"
     vi.spyOn(URL, "createObjectURL").mockImplementation(() => "blob:x");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith("/tts/config")) return new Response(JSON.stringify({ configured: true }), { status: 200 });
+      if (url.endsWith("/tts/config")) return new Response(JSON.stringify(ttsConfig), { status: 200 });
       if (url.endsWith("/tts")) {
-        played.push(JSON.parse(String(init?.body)).text);
+        const body = JSON.parse(String(init?.body));
+        played.push(body.text);
+        playedVoices.push(body.voice ?? null);
         return new Response("mp3", { status: 200 });
       }
       return new Response("{}", { status: 404 });
@@ -251,5 +257,92 @@ describe("DebateRoom: with the Azure voice configured on the multimodal service"
       await new Promise((r) => setTimeout(r, 0));
     });
     expect(screen.getByText("Kính thưa ban giám khảo. Mình ủng hộ.")).toBeInTheDocument();
+  });
+
+  it("the learner picks the AI's voice: used from the next sentence, remembered for the next visit", async () => {
+    ttsConfig = {
+      configured: true,
+      voice: "vi-VN-NamMinhNeural",
+      voices: [
+        { id: "vi-VN-NamMinhNeural", label: "Nam Minh", gender: "male", tier: "neural" },
+        { id: "vi-VN-HoaiMyNeural", label: "Hoài My", gender: "female", tier: "neural" },
+      ],
+    };
+    await renderRoom();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const select = screen.getByTestId("ai-voice-select") as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Nam Minh (nam)", "Hoài My (nữ)"]);
+    expect(select.value).toBe("vi-VN-NamMinhNeural");
+
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Câu một. ");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    fireEvent.change(select, { target: { value: "vi-VN-HoaiMyNeural" } });
+    expect(localStorage.getItem("adpp.aiVoice")).toBe("vi-VN-HoaiMyNeural");
+    await act(async () => {
+      handlers.onDelta?.("Câu hai. ");
+      finishTurn("Câu một. Câu hai.");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(played).toEqual(["Câu một.", "Câu hai."]);
+    expect(playedVoices).toEqual(["vi-VN-NamMinhNeural", "vi-VN-HoaiMyNeural"]);
+  });
+
+  it("a remembered voice is selected again when the room opens", async () => {
+    localStorage.setItem("adpp.aiVoice", "vi-VN-HoaiMyNeural");
+    ttsConfig = {
+      configured: true,
+      voice: "vi-VN-NamMinhNeural",
+      voices: [
+        { id: "vi-VN-NamMinhNeural", label: "Nam Minh", gender: "male", tier: "neural" },
+        { id: "vi-VN-HoaiMyNeural", label: "Hoài My", gender: "female", tier: "neural" },
+      ],
+    };
+    await renderRoom();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect((screen.getByTestId("ai-voice-select") as HTMLSelectElement).value).toBe("vi-VN-HoaiMyNeural");
+  });
+
+  it("Nghe thử stops the AI's voice, frees the previous sample, and leaves nothing playing after leaving", async () => {
+    ttsConfig = {
+      configured: true,
+      voice: "vi-VN-NamMinhNeural",
+      voices: [{ id: "vi-VN-NamMinhNeural", label: "Nam Minh", gender: "male", tier: "neural" }],
+    };
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/debater/debate/stream-1?role=CON"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const revoked = URL.revokeObjectURL as unknown as ReturnType<typeof vi.fn>;
+    let n = 0;
+    (URL.createObjectURL as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => `blob:p${++n}`);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("ai-voice-preview"));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(synth.cancel).toHaveBeenCalled(); // the browser voice of the AI is stopped
+    expect(played).toContain("Xin chào, mình là đối thủ của bạn trong trận tranh biện này.");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("ai-voice-preview"));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(revoked).toHaveBeenCalledWith("blob:p1"); // the first sample is freed when replaced
+
+    unmount();
+    expect(revoked).toHaveBeenCalledWith("blob:p2"); // and the last one when leaving the room
   });
 });

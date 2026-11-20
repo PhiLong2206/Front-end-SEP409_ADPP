@@ -226,13 +226,21 @@ export class AudioSentenceSpeaker extends SentenceQueue {
   }
 }
 
-/** POST {base}/tts — one sentence of MP3 from Azure AI Speech (multimodal service). */
-export function makeServerAudioFetcher(baseUrl: string, fetchImpl: typeof fetch = fetch): FetchSentenceAudio {
+/**
+ * POST {base}/tts — one sentence of MP3 from Azure AI Speech (multimodal service). `getVoice` is read for every
+ * sentence, so a voice picked mid-turn applies from the next sentence on.
+ */
+export function makeServerAudioFetcher(
+  baseUrl: string,
+  fetchImpl: typeof fetch = fetch,
+  getVoice: () => string | null = () => null
+): FetchSentenceAudio {
   return async (sentence, signal) => {
+    const voice = getVoice();
     const res = await fetchImpl(`${baseUrl}/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: sentence }),
+      body: JSON.stringify(voice ? { text: sentence, voice } : { text: sentence }),
       signal,
     });
     if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
@@ -240,23 +248,70 @@ export function makeServerAudioFetcher(baseUrl: string, fetchImpl: typeof fetch 
   };
 }
 
-/** GET {base}/tts/config: true when the service has an Azure Speech key. Any error means "no server voice". */
-export async function isServerVoiceConfigured(
+/** One voice the multimodal service can read with (GET /tts/config). */
+export interface ServerVoiceOption {
+  id: string;
+  label: string;
+  gender: "male" | "female" | string;
+  tier: "neural" | "flash" | "hd" | string;
+}
+
+export interface ServerVoices {
+  defaultVoice: string;
+  voices: ServerVoiceOption[];
+}
+
+/** "Hoài My (nữ)", "Grant HD (nam, chậm hơn)" */
+export function voiceOptionLabel(v: ServerVoiceOption): string {
+  const who = v.gender === "male" ? "nam" : v.gender === "female" ? "nữ" : "";
+  const extra = [who, v.tier === "hd" ? "chậm hơn" : ""].filter(Boolean).join(", ");
+  return extra ? `${v.label} (${extra})` : v.label;
+}
+
+/**
+ * GET {base}/tts/config: the voices of the service, or null when it has no Azure Speech key. Any error means "no
+ * server voice". Older services answer `voices` as a list of ids: shown by id.
+ */
+export async function fetchServerVoices(
   baseUrl: string,
   fetchImpl: typeof fetch = fetch,
   timeoutMs = 3000
-): Promise<boolean> {
+): Promise<ServerVoices | null> {
   // A stalled request must not keep the room waiting to know its voices
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetchImpl(`${baseUrl}/tts/config`, { signal: controller.signal });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { configured?: boolean };
-    return data.configured === true;
+    if (!res.ok) return null;
+    const data = (await res.json()) as { configured?: boolean; voice?: string; voices?: unknown[] };
+    if (data.configured !== true) return null;
+    const voices = (data.voices ?? []).flatMap((v): ServerVoiceOption[] => {
+      if (typeof v === "string") return [{ id: v, label: v, gender: "", tier: "" }];
+      const o = v as Partial<ServerVoiceOption> | null;
+      if (!o || typeof o.id !== "string") return []; // malformed entry: skip it
+      return [{ id: o.id, label: typeof o.label === "string" ? o.label : o.id, gender: o.gender ?? "", tier: o.tier ?? "" }];
+    });
+    const defaultVoice = data.voice ?? voices[0]?.id ?? "";
+    // A key but no list (older service): one entry, the service's own default ("" = let the service choose)
+    if (voices.length === 0) voices.push({ id: defaultVoice, label: defaultVoice || "Giọng mặc định", gender: "", tier: "" });
+    return { defaultVoice, voices };
   } catch {
-    return false;
+    return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** True when the service has an Azure Speech key. */
+export async function isServerVoiceConfigured(
+  baseUrl: string,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = 3000
+): Promise<boolean> {
+  return (await fetchServerVoices(baseUrl, fetchImpl, timeoutMs)) !== null;
+}
+
+/** The voice to use: the remembered one if the service still offers it, else the service default. */
+export function pickServerVoice(remembered: string | null, offered: ServerVoices): string {
+  return remembered && offered.voices.some((v) => v.id === remembered) ? remembered : offered.defaultVoice;
 }

@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import {
   AudioSentenceSpeaker,
+  fetchServerVoices,
   isServerVoiceConfigured,
   makeServerAudioFetcher,
+  pickServerVoice,
   pickVietnameseVoice,
   SentenceSpeaker,
+  voiceOptionLabel,
 } from "../services/speechOut";
 
 class FakeUtterance {
@@ -210,5 +213,58 @@ describe("server voice helpers", () => {
     expect(fetchImpl).toHaveBeenCalledWith("/multimodal/tts", expect.objectContaining({
       method: "POST", body: JSON.stringify({ text: "Xin chào." }),
     }));
+  });
+});
+
+describe("server voice list", () => {
+  const json = (body: object) => async () => new Response(JSON.stringify(body), { status: 200 });
+  const six = [
+    { id: "vi-VN-NamMinhNeural", label: "Nam Minh", gender: "male", tier: "neural" },
+    { id: "vi-VN-HoaiMyNeural", label: "Hoài My", gender: "female", tier: "neural" },
+    { id: "vi-VN-Grant:MAI-Voice-2.1", label: "Grant HD", gender: "male", tier: "hd" },
+  ];
+
+  it("reads the offered voices, an old id-only list, or none", async () => {
+    expect(await fetchServerVoices("/m", json({ configured: true, voice: "vi-VN-NamMinhNeural", voices: six }) as unknown as typeof fetch))
+      .toEqual({ defaultVoice: "vi-VN-NamMinhNeural", voices: six });
+    expect((await fetchServerVoices("/m", json({ configured: true, voices: ["a", "b"] }) as unknown as typeof fetch))?.voices.map((v) => v.id))
+      .toEqual(["a", "b"]);
+    expect(await fetchServerVoices("/m", json({ configured: true }) as unknown as typeof fetch))
+      .toEqual({ defaultVoice: "", voices: [{ id: "", label: "Giọng mặc định", gender: "", tier: "" }] });
+    expect(await fetchServerVoices("/m", json({ configured: false, voices: six }) as unknown as typeof fetch)).toBeNull();
+    // A malformed entry is skipped, not shown as "undefined"
+    expect((await fetchServerVoices("/m", json({ configured: true, voices: [{ label: "x" }, six[0]] }) as unknown as typeof fetch))?.voices)
+      .toEqual([six[0]]);
+  });
+
+  it("keeps the remembered voice only while the service still offers it", () => {
+    const offered = { defaultVoice: "vi-VN-NamMinhNeural", voices: six };
+    expect(pickServerVoice("vi-VN-HoaiMyNeural", offered)).toBe("vi-VN-HoaiMyNeural");
+    expect(pickServerVoice("vi-VN-Gone", offered)).toBe("vi-VN-NamMinhNeural");
+    expect(pickServerVoice(null, offered)).toBe("vi-VN-NamMinhNeural");
+  });
+
+  it("labels say who speaks and which voice is slower", () => {
+    expect(six.map(voiceOptionLabel)).toEqual(["Nam Minh (nam)", "Hoài My (nữ)", "Grant HD (nam, chậm hơn)"]);
+  });
+
+  it("the fetcher sends the voice picked at the time of each sentence", async () => {
+    const bodies: string[] = [];
+    const fetchImpl = vi.fn(async (_u: string, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return new Response("mp3", { status: 200 });
+    });
+    let voice: string | null = "vi-VN-NamMinhNeural";
+    const fetcher = makeServerAudioFetcher("/m", fetchImpl as unknown as typeof fetch, () => voice);
+    await fetcher("Một.", new AbortController().signal);
+    voice = "vi-VN-HoaiMyNeural";
+    await fetcher("Hai.", new AbortController().signal);
+    voice = null;
+    await fetcher("Ba.", new AbortController().signal);
+    expect(bodies.map((b) => JSON.parse(b))).toEqual([
+      { text: "Một.", voice: "vi-VN-NamMinhNeural" },
+      { text: "Hai.", voice: "vi-VN-HoaiMyNeural" },
+      { text: "Ba." },
+    ]);
   });
 });

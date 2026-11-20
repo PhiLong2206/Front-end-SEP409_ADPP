@@ -24,12 +24,15 @@ import { aiApi, debateApi } from "../../../api";
 import { AI_MULTIMODAL_BASE_URL, isAiTurnStreamEnabled } from "../../../api/aiApi";
 import {
   AudioSentenceSpeaker,
+  fetchServerVoices,
   getSpeechSynthesis,
-  isServerVoiceConfigured,
   loadVietnameseVoice,
   makeServerAudioFetcher,
+  pickServerVoice,
   SentenceQueue,
   SentenceSpeaker,
+  type ServerVoiceOption,
+  voiceOptionLabel,
 } from "../../../services/speechOut";
 import { debateHubService } from "../../../services/debateHub";
 import {
@@ -126,6 +129,16 @@ interface TurnEvaluationContext {
 
 const TURN_EVALUATION_ERROR = "Chưa chấm được lượt phát biểu này. Vui lòng thử lại.";
 const READ_ALOUD_STORAGE_KEY = "adpp.aiReadAloud";
+const AI_VOICE_STORAGE_KEY = "adpp.aiVoice";
+const VOICE_PREVIEW_TEXT = "Xin chào, mình là đối thủ của bạn trong trận tranh biện này.";
+
+const readStoredVoice = (): string | null => {
+  try {
+    return window.localStorage.getItem(AI_VOICE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
 const FINISH_EVALUATION_ERROR = "Chưa chấm được kết quả tranh biện. Vui lòng thử lại.";
 const OPPONENT_SPEECH_MISMATCH_ERROR =
   "Đối thủ AI đã tạo lượt này từ một bài nói khác nên phiên này không thể tiếp tục. Thử lại sẽ không khắc phục được, vui lòng quay lại và tạo phiên tranh biện mới.";
@@ -276,7 +289,14 @@ const DebateRoom: React.FC = () => {
   // neither -> no read-aloud toggle
   const [liveAiSpeech, setLiveAiSpeech] = useState<string | null>(null);
   const [viVoice, setViVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const [hasServerVoice, setHasServerVoice] = useState(false);
+  const [serverVoices, setServerVoices] = useState<ServerVoiceOption[]>([]);
+  const hasServerVoice = serverVoices.length > 0;
+  const [aiVoice, setAiVoice] = useState<string | null>(null);
+  const aiVoiceRef = useRef<string | null>(null);
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
   const [readAloud, setReadAloud] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(READ_ALOUD_STORAGE_KEY) !== "off";
@@ -303,11 +323,13 @@ const DebateRoom: React.FC = () => {
         setViVoice(v);
       }
     });
-    const serverVoice = isServerVoiceConfigured(AI_MULTIMODAL_BASE_URL).then((ok) => {
-      if (alive) {
-        hasServerVoiceRef.current = ok;
-        setHasServerVoice(ok);
-      }
+    const serverVoice = fetchServerVoices(AI_MULTIMODAL_BASE_URL).then((offered) => {
+      if (!alive || !offered) return;
+      const voice = pickServerVoice(readStoredVoice(), offered);
+      hasServerVoiceRef.current = true;
+      aiVoiceRef.current = voice;
+      setAiVoice(voice);
+      setServerVoices(offered.voices);
     });
     voicesReadyRef.current = Promise.all([browserVoice, serverVoice]).then(() => undefined);
     return () => {
@@ -315,7 +337,67 @@ const DebateRoom: React.FC = () => {
       speakerRef.current?.cancel();
       speakerRef.current = null;
       getSpeechSynthesis()?.cancel();
+      stopVoicePreview(); // only touches refs
     };
+  }, []);
+
+  /** The picked voice applies from the next sentence (the reader asks for the voice sentence by sentence). */
+  const chooseAiVoice = useCallback((voice: string) => {
+    aiVoiceRef.current = voice;
+    setAiVoice(voice);
+    try {
+      window.localStorage.setItem(AI_VOICE_STORAGE_KEY, voice);
+    } catch {
+      // per-browser convenience only
+    }
+  }, []);
+
+  /** Stops a voice preview: its request, its sound, its blob URL (pause() fires no onended). */
+  function stopVoicePreview() {
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+  }
+
+  /**
+   * Plays one short sentence with the picked voice (a click: the browser allows the sound). The AI's reading stops:
+   * two voices at once cannot be compared.
+   */
+  const previewAiVoice = useCallback(async () => {
+    const voice = aiVoiceRef.current;
+    if (voice === null) return;
+    stopVoicePreview();
+    speakerRef.current?.cancel();
+    speakerRef.current = null;
+    getSpeechSynthesis()?.cancel();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const timer = window.setTimeout(() => controller.abort(), 10000);
+    setIsPreviewingVoice(true);
+    try {
+      const fetchAudio = makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => voice);
+      const blob = await fetchAudio(VOICE_PREVIEW_TEXT, controller.signal);
+      if (previewAbortRef.current !== controller) return; // replaced or left meanwhile
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => {
+        if (previewUrlRef.current === url) stopVoicePreview();
+      };
+      await audio.play();
+    } catch (err) {
+      if (previewAbortRef.current === controller) stopVoicePreview();
+      console.warn("Không nghe thử được giọng:", err);
+    } finally {
+      window.clearTimeout(timer);
+      if (previewAbortRef.current === controller || previewAbortRef.current === null) setIsPreviewingVoice(false);
+    }
   }, []);
 
   /** A new reader for one AI turn: server voice with the browser voice as fallback, or the browser voice alone. */
@@ -323,7 +405,10 @@ const DebateRoom: React.FC = () => {
     const synth = getSpeechSynthesis();
     const browser = synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
     if (hasServerVoiceRef.current) {
-      return new AudioSentenceSpeaker(makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL), browser);
+      return new AudioSentenceSpeaker(
+        makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => aiVoiceRef.current),
+        browser
+      );
     }
     return browser;
   }, []);
@@ -3057,13 +3142,43 @@ const DebateRoom: React.FC = () => {
             )}
 
             {!isP2pOr2v2 && (hasServerVoice || viVoice) && isAiTurnStreamEnabled() && (
-              <div className="mx-4 mt-2 flex justify-end">
+              <div className="mx-4 mt-2 flex flex-wrap items-center justify-end gap-2">
+                {hasServerVoice && (
+                  <>
+                    <label htmlFor="ai-voice-select" className="text-xs text-slate-600 dark:text-slate-300">
+                      Giọng AI
+                    </label>
+                    <select
+                      id="ai-voice-select"
+                      data-testid="ai-voice-select"
+                      value={aiVoice ?? ""}
+                      onChange={(e) => chooseAiVoice(e.target.value)}
+                      className="text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                    >
+                      {serverVoices.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {voiceOptionLabel(v)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void previewAiVoice()}
+                      disabled={isPreviewingVoice}
+                      aria-busy={isPreviewingVoice}
+                      data-testid="ai-voice-preview"
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                    >
+                      {isPreviewingVoice ? "Đang tải..." : "Nghe thử"}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={toggleReadAloud}
                   aria-pressed={readAloud}
                   data-testid="ai-read-aloud-toggle"
-                  title={`Đọc to bài nói của Đối thủ AI bằng giọng ${hasServerVoice ? "Azure (tiếng Việt)" : viVoice?.name ?? ""}`}
+                  title={`Đọc to bài nói của Đối thủ AI bằng giọng ${hasServerVoice ? "Azure (tiếng Việt) đã chọn" : viVoice?.name ?? ""}`}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
                 >
                   {readAloud ? <Volume2 size={14} aria-hidden="true" /> : <VolumeX size={14} aria-hidden="true" />}
