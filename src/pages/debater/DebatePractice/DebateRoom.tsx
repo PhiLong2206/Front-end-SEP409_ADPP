@@ -301,6 +301,8 @@ const DebateRoom: React.FC = () => {
   const speakerRef = useRef<SentenceQueue | null>(null);
   // Every reader still speaking (an AI turn read out while the next AI turn already streams), to stop them all at once
   const activeReadersRef = useRef<Set<SentenceQueue>>(new Set());
+  // The AI is reading a turn aloud: the learner's clock waits, and starts afresh once the reading is over
+  const [isAiReadingAloud, setIsAiReadingAloud] = useState(false);
   // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
   const liveAiSpeechRef = useRef<string | null>(null);
 
@@ -333,14 +335,18 @@ const DebateRoom: React.FC = () => {
     for (const reader of activeReadersRef.current) reader.abort();
     activeReadersRef.current.clear();
     speakerRef.current = null;
+    setIsAiReadingAloud(false);
   }
 
-  /** Remembers a reader until it is done, so stopAllReading can reach it. */
+  /** Remembers a reader until it is done, so stopAllReading can reach it, and so the clock waits for it. */
   function trackReader(reader: SentenceQueue) {
     activeReadersRef.current.add(reader);
-    void reader.whenDone().then(() => activeReadersRef.current.delete(reader));
+    setIsAiReadingAloud(true);
+    void reader.whenDone().then(() => {
+      activeReadersRef.current.delete(reader);
+      if (activeReadersRef.current.size === 0 && !unmountedRef.current) setIsAiReadingAloud(false);
+    });
   }
-
 
   /** A new reader for one AI turn: server voice with the browser voice as fallback, or the browser voice alone. */
   const makeSpeaker = useCallback((): SentenceQueue | null => {
@@ -1159,8 +1165,35 @@ const DebateRoom: React.FC = () => {
     !EffectiveDebateCompleted &&
     !isSubmitting &&
     !isAiGenerating &&
+    !isAiReadingAloud &&
     !isWaitingForOpponentInAiMode &&
     (isP2pOr2v2 || (opponentReady && !hasDebaterSpokenInCurrentRound));
+
+  // While the AI reads aloud, the learner's turn has not really begun: when the reading ends (or is stopped), the turn
+  // gets its full time from that moment instead of the deadline written when the AI turn arrived
+  const wasAiReadingRef = useRef(false);
+  useEffect(() => {
+    const wasReading = wasAiReadingRef.current;
+    wasAiReadingRef.current = isAiReadingAloud;
+    if (!wasReading || isAiReadingAloud || isP2pOr2v2 || EffectiveDebateCompleted) return;
+    if (hasDebaterSpokenInCurrentRound || unmountedRef.current) return;
+    // Only when it really is the learner's turn now (not while sending, nor while the AI writes its next turn)
+    if (isSubmittingRef.current || isAiGenerating || isWaitingForOpponentInAiMode || !opponentReady) return;
+    if (sessionStorage.getItem(EXPIRED_STORAGE_PREFIX + activeTurnKey) === "1") return;
+    const fullSeconds = currentRound === 1 ? ROUND_1_DEFAULT_SECONDS : SUBSEQUENT_ROUND_SECONDS;
+    writeStoredValue(DEADLINE_STORAGE_PREFIX + activeTurnKey, String(Date.now() + fullSeconds * 1000));
+    setSecondsRemaining(fullSeconds);
+  }, [
+    isAiReadingAloud,
+    isP2pOr2v2,
+    EffectiveDebateCompleted,
+    hasDebaterSpokenInCurrentRound,
+    activeTurnKey,
+    currentRound,
+    isAiGenerating,
+    isWaitingForOpponentInAiMode,
+    opponentReady,
+  ]);
 
   useEffect(() => {
     if (EffectiveDebateCompleted) {

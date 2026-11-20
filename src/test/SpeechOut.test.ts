@@ -373,3 +373,35 @@ describe("browser voice that misbehaves", () => {
   });
 });
 
+
+describe("server voice that hangs", () => {
+  it("a sound that never ends counts as played after its estimated length, so the turn is read out", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(URL, "createObjectURL").mockImplementation(() => "blob:s");
+      vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+      const audio = { onended: null, onerror: null, play: vi.fn(async () => {}), pause: vi.fn() };
+      const speaker = new AudioSentenceSpeaker(async () => new Blob(["1"]), null, () => audio as never);
+      speaker.push("Âm thanh bị treo. ");
+      speaker.finish();
+      let done = false;
+      void speaker.whenDone().then(() => (done = true));
+
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(4000); // 17 chars / 8 cps + 5 s ≈ 7.1 s
+      expect(done).toBe(true);
+      expect(audio.pause).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("a request that never answers fails after the timeout", async () => {
+    const stalled = (_u: string, init?: RequestInit) =>
+      new Promise<Response>((_res, rej) => init?.signal?.addEventListener("abort", () => rej(new Error("aborted"))));
+    const fetcher = makeServerAudioFetcher("/m", stalled as unknown as typeof fetch, () => null, 20);
+    await expect(fetcher("Xin chào.", new AbortController().signal)).rejects.toThrow();
+  });
+});

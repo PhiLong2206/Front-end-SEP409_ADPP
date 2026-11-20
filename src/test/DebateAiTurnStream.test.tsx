@@ -190,6 +190,29 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     expect(spoken).toEqual(["AI phản biện.", "AI kết luận."]);
   });
 
+  it("the learner's clock waits while the AI reads its turn aloud, then starts with the full time", async () => {
+    autoEnd = false;
+    await renderRoom(); // learner CON: the AI (PRO) opens
+    const deadlineKey = "adpp_turn_deadline_stream-1_ai_r1_con";
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("AI mở đầu. ");
+      finishTurn("AI mở đầu.");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(spoken).toEqual(["AI mở đầu."]);
+    expect(sessionStorage.getItem(deadlineKey)).toBeNull(); // still being read: the turn has not started
+
+    const before = Date.now();
+    await act(async () => {
+      endSpeech();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const deadline = Number(sessionStorage.getItem(deadlineKey));
+    expect(deadline).toBeGreaterThanOrEqual(before + 135 * 1000 - 50); // 02:15 from the end of the reading
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 135 * 1000);
+  });
+
   it("a new attempt replaces the text and stops the voice", async () => {
     await renderRoom();
     await act(async () => {
