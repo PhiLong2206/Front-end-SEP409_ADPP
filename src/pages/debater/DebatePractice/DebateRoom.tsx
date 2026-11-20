@@ -313,6 +313,8 @@ const DebateRoom: React.FC = () => {
   const voicesReadyRef = useRef<Promise<void>>(Promise.resolve());
   const currentAiTurnRef = useRef<object | null>(null);
   const speakerRef = useRef<SentenceQueue | null>(null);
+  // Every reader still speaking (an AI turn read out while the next AI turn already streams), to stop them all at once
+  const activeReadersRef = useRef<Set<SentenceQueue>>(new Set());
   // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
   const liveAiSpeechRef = useRef<string | null>(null);
 
@@ -335,8 +337,7 @@ const DebateRoom: React.FC = () => {
     voicesReadyRef.current = Promise.all([browserVoice, serverVoice]).then(() => undefined);
     return () => {
       alive = false;
-      speakerRef.current?.cancel();
-      speakerRef.current = null;
+      stopAllReading(); // only touches refs
       getSpeechSynthesis()?.cancel();
       stopVoicePreview(); // only touches refs
     };
@@ -352,6 +353,19 @@ const DebateRoom: React.FC = () => {
       // per-browser convenience only
     }
   }, []);
+
+  /** Stops every AI reading: the current turn and any earlier turn still being read out. */
+  function stopAllReading() {
+    for (const reader of activeReadersRef.current) reader.abort();
+    activeReadersRef.current.clear();
+    speakerRef.current = null;
+  }
+
+  /** Remembers a reader until it is done, so stopAllReading can reach it. */
+  function trackReader(reader: SentenceQueue) {
+    activeReadersRef.current.add(reader);
+    void reader.whenDone().then(() => activeReadersRef.current.delete(reader));
+  }
 
   /** Stops a voice preview: its request, its sound, its blob URL (pause() fires no onended). */
   function stopVoicePreview() {
@@ -373,8 +387,7 @@ const DebateRoom: React.FC = () => {
     const voice = aiVoiceRef.current;
     if (voice === null) return;
     stopVoicePreview();
-    speakerRef.current?.cancel();
-    speakerRef.current = null;
+    stopAllReading();
     getSpeechSynthesis()?.cancel();
     const controller = new AbortController();
     previewAbortRef.current = controller;
@@ -424,15 +437,19 @@ const DebateRoom: React.FC = () => {
       // per-browser convenience only
     }
     if (!next) {
-      speakerRef.current?.cancel();
-      speakerRef.current = null;
+      stopAllReading();
       return;
     }
-    // Turned on while the AI is speaking: read this turn too, from what is already written
+    // Turned on while the AI is speaking: read this turn too, from what is already written, after any reading left
     const speaker = liveAiSpeechRef.current !== null ? makeSpeaker() : null;
     if (speaker && liveAiSpeechRef.current !== null) {
+      const stillReading = [...activeReadersRef.current];
+      if (stillReading.length > 0) {
+        speaker.startAfter(Promise.all(stillReading.map((r) => r.whenDone())).then(() => undefined));
+      }
       speaker.push(liveAiSpeechRef.current);
       speakerRef.current = speaker;
+      trackReader(speaker);
     }
   }, [makeSpeaker]);
 
@@ -447,7 +464,8 @@ const DebateRoom: React.FC = () => {
       }
       // Read through a function: the reader changes while the turn streams (voices known, toggle)
       const reader = (): SentenceQueue | null => speakerRef.current;
-      reader()?.cancel();
+      // The previous AI turn (rebuttal right before the closing) keeps reading; this turn's voice starts after it
+      const previousDone = speakerRef.current?.whenDone() ?? Promise.resolve();
       speakerRef.current = null;
       const turn = {};
       currentAiTurnRef.current = turn;
@@ -457,8 +475,10 @@ const DebateRoom: React.FC = () => {
         if (!readAloudRef.current || speakerRef.current) return;
         const speaker = makeSpeaker();
         if (!speaker) return;
+        speaker.startAfter(previousDone);
         if (liveAiSpeechRef.current) speaker.push(liveAiSpeechRef.current);
         speakerRef.current = speaker;
+        trackReader(speaker);
       });
       const showLive = (text: string | null) => {
         liveAiSpeechRef.current = text;
@@ -479,7 +499,8 @@ const DebateRoom: React.FC = () => {
         reader()?.finish(res?.speech_text ?? "");
         return res;
       } catch (err) {
-        reader()?.cancel();
+        // A failed turn is never "read out": stop its reader for good so a retry or the next turn does not wait for it
+        reader()?.abort();
         throw err;
       } finally {
         showLive(null);
@@ -2069,8 +2090,7 @@ const DebateRoom: React.FC = () => {
 
     // Start recording (Webcam + Microphone, fallback to Microphone-only if camera unavailable)
     // The AI must not keep talking into the learner's microphone
-    speakerRef.current?.cancel();
-    speakerRef.current = null;
+    stopAllReading();
     try {
       let stream: MediaStream;
       let hasVideo = false;

@@ -36,13 +36,24 @@ class FakeUtterance {
   public voice: SpeechSynthesisVoice | null = null;
   public lang = "";
   public rate = 1;
+  public onend: (() => void) | null = null;
+  public onerror: (() => void) | null = null;
   constructor(public text: string) {}
 }
+
+/** Utterances not yet "said". autoEnd: the fake browser finishes each one on the next tick, like a real one would. */
+const queuedUtterances: FakeUtterance[] = [];
+let autoEnd = true;
+const endSpeech = () => queuedUtterances.splice(0).forEach((u) => u.onend?.());
 
 const spoken: string[] = [];
 const synth = {
   getVoices: () => [{ lang: "vi-VN", name: "HoaiMy", localService: false } as SpeechSynthesisVoice],
-  speak: vi.fn((u: FakeUtterance) => spoken.push(u.text)),
+  speak: vi.fn((u: FakeUtterance) => {
+    spoken.push(u.text);
+    queuedUtterances.push(u);
+    if (autoEnd) setTimeout(endSpeech, 0);
+  }),
   cancel: vi.fn(),
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),
@@ -68,6 +79,8 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     sessionStorage.clear();
     localStorage.clear();
     spoken.length = 0;
+    queuedUtterances.length = 0;
+    autoEnd = true;
     vi.spyOn(console, "error").mockImplementation(() => {});
     (window as unknown as { speechSynthesis: typeof synth }).speechSynthesis = synth;
     (globalThis as unknown as { SpeechSynthesisUtterance: typeof FakeUtterance }).SpeechSynthesisUtterance = FakeUtterance;
@@ -129,6 +142,52 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
       handlers.onDelta?.("Phản bác của AI. ");
     });
     expect(spoken).toEqual(["Phản bác của AI."]);
+  });
+
+  it("AI CON speaks rebuttal then closing back to back: the closing waits for the rebuttal to be read out", async () => {
+    render(
+      <MemoryRouter initialEntries={["/debater/debate/stream-2?role=PRO"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await act(async () => {});
+    const submit = async (text: string) => {
+      fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: text } });
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    };
+    const speakTurn = async (text: string) => {
+      await act(async () => {
+        handlers.onAttempt?.(1, null);
+        handlers.onDelta?.(`${text} `);
+        finishTurn(text);
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    };
+
+    await submit("PRO mở đầu.");
+    await speakTurn("AI mở đầu.");
+    autoEnd = false; // from here the test decides when the browser has finished speaking
+    spoken.length = 0;
+    await submit("PRO phản biện.");
+    expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(2);
+
+    await speakTurn("AI phản biện.");
+    expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(3); // the closing starts right away (turns 4 and 5)
+    synth.cancel.mockClear();
+    await speakTurn("AI kết luận.");
+
+    expect(spoken).toEqual(["AI phản biện."]); // the closing is shown but not spoken over the rebuttal
+    expect(synth.cancel).not.toHaveBeenCalled();
+    await act(async () => {
+      endSpeech();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(spoken).toEqual(["AI phản biện.", "AI kết luận."]);
   });
 
   it("a new attempt replaces the text and stops the voice", async () => {

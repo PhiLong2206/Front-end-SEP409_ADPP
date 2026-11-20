@@ -14,6 +14,8 @@ class FakeUtterance {
   public voice: SpeechSynthesisVoice | null = null;
   public lang = "";
   public rate = 1;
+  public onend: (() => void) | null = null;
+  public onerror: (() => void) | null = null;
   constructor(public text: string) {}
 }
 
@@ -22,11 +24,17 @@ const voice = (lang: string, localService = false, name = lang) =>
 
 const fakeSynth = () => {
   const spoken: string[] = [];
+  const queued: FakeUtterance[] = [];
   const synth = {
-    speak: vi.fn((u: FakeUtterance) => spoken.push(u.text)),
+    speak: vi.fn((u: FakeUtterance) => {
+      spoken.push(u.text);
+      queued.push(u);
+    }),
     cancel: vi.fn(),
   } as unknown as SpeechSynthesis;
-  return { synth, spoken };
+  /** The browser finished saying everything queued so far */
+  const endAll = () => queued.splice(0).forEach((u) => u.onend?.());
+  return { synth, spoken, endAll };
 };
 
 beforeAll(() => {
@@ -161,7 +169,7 @@ describe("AudioSentenceSpeaker (server voice)", () => {
   });
 
   it("a sentence that cannot be fetched sends it and the rest to the browser voice, in order", async () => {
-    const fallback = { push: vi.fn(), cancel: vi.fn() };
+    const fallback = { push: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
     const { speaker, requests } = setup(fallback);
     speaker.push("Một. Hai. ");
     requests[0].d.reject(new Error("TTS HTTP 429"));
@@ -174,7 +182,7 @@ describe("AudioSentenceSpeaker (server voice)", () => {
   });
 
   it("autoplay refused: the browser voice takes over", async () => {
-    const fallback = { push: vi.fn(), cancel: vi.fn() };
+    const fallback = { push: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
     const { speaker, requests } = setup(fallback);
     FakeAudio.refuse = true;
     try {
@@ -268,3 +276,100 @@ describe("server voice list", () => {
     ]);
   });
 });
+
+describe("two AI turns in a row (rebuttal, then closing)", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it("the second turn waits for the first one to be read out, and never cuts it", async () => {
+    const { synth, spoken, endAll } = fakeSynth();
+    const rebuttal = new SentenceSpeaker(synth, voice("vi-VN"));
+    rebuttal.push("Phản biện một. Phản biện hai. ");
+    rebuttal.finish();
+
+    const closing = new SentenceSpeaker(synth, voice("vi-VN"));
+    closing.startAfter(rebuttal.whenDone());
+    closing.push("Kết luận một. ");
+    closing.cancel(); // a new attempt of the closing: must not cut the rebuttal still being read
+    closing.push("Kết luận mới. ");
+    closing.finish();
+    await flush();
+
+    expect(spoken).toEqual(["Phản biện một.", "Phản biện hai."]);
+    expect(synth.cancel).not.toHaveBeenCalled();
+
+    endAll(); // the rebuttal is read out
+    await flush();
+    expect(spoken).toEqual(["Phản biện một.", "Phản biện hai.", "Kết luận mới."]);
+
+    let closed = false;
+    void closing.whenDone().then(() => (closed = true));
+    await flush();
+    expect(closed).toBe(false);
+    endAll();
+    await flush();
+    expect(closed).toBe(true);
+  });
+
+  it("abort settles the turn at once, so the next one does not wait for it", async () => {
+    const { synth, spoken } = fakeSynth();
+    const first = new SentenceSpeaker(synth, voice("vi-VN"));
+    first.push("Đang nói dở. ");
+    const second = new SentenceSpeaker(synth, voice("vi-VN"));
+    second.startAfter(first.whenDone());
+    second.push("Lượt sau. ");
+
+    first.abort();
+    await flush();
+    expect(synth.cancel).toHaveBeenCalled();
+    expect(spoken).toEqual(["Đang nói dở.", "Lượt sau."]);
+  });
+});
+
+describe("browser voice that misbehaves", () => {
+  it("an utterance that never ends counts as said after its estimated length, so the next turn is not stuck", async () => {
+    vi.useFakeTimers();
+    try {
+      const { synth, spoken } = fakeSynth(); // never fires onend
+      const first = new SentenceSpeaker(synth, voice("vi-VN"));
+      first.push("Câu bị treo. ");
+      first.finish();
+      const second = new SentenceSpeaker(synth, voice("vi-VN"));
+      second.startAfter(first.whenDone());
+      second.push("Lượt sau. ");
+
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(spoken).toEqual(["Câu bị treo."]);
+      await vi.advanceTimersByTimeAsync(3000); // 12 chars / (8 × 1.05) cps + 5 s ≈ 6.4 s
+      expect(spoken).toEqual(["Câu bị treo.", "Lượt sau."]);
+
+      // The first sentence may still be playing: stopping the first turn must still silence the browser
+      (synth.cancel as unknown as ReturnType<typeof vi.fn>).mockClear();
+      first.abort();
+      expect(synth.cancel).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("onend and onerror for the same utterance count it once", async () => {
+    const utterances: FakeUtterance[] = [];
+    const synth = {
+      speak: vi.fn((u: FakeUtterance) => utterances.push(u)),
+      cancel: vi.fn(),
+    } as unknown as SpeechSynthesis;
+    const s = new SentenceSpeaker(synth, voice("vi-VN"));
+    s.push("Một. Hai. ");
+    s.finish();
+    let done = false;
+    void s.whenDone().then(() => (done = true));
+
+    utterances[0].onend?.();
+    utterances[0].onerror?.(); // fired as well: must not count "Hai." as said
+    await new Promise((r) => setTimeout(r, 0));
+    expect(done).toBe(false);
+    utterances[1].onend?.();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(done).toBe(true);
+  });
+});
+
