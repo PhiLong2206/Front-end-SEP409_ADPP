@@ -116,7 +116,7 @@ interface AiTurnContext {
   /** Fallback only (no Backend session): AI turns that follow back-to-back. Otherwise the Backend decides. */
   remainingAiTurns: number[];
   /** Learner speech sent with the FIRST AI turn of the chain only (`turn_index` is the opponent service's, 1-based). */
-  learnerSpeech?: { turn_index: number; round_type: DebateRoundType; text: string };
+  learnerSpeech?: { turn_index: number; round_type: DebateRoundType; text: string; skipped?: boolean };
 }
 
 /** Everything needed to (re)run the evaluation of one submitted turn. */
@@ -2264,6 +2264,8 @@ const DebateRoom: React.FC = () => {
   const handleSendArgument = async (opts: { auto?: boolean; fallbackText?: string } = {}) => {
     const isAutoSubmit = opts.auto === true;
     const currentText = argumentText.trim() || opts.fallbackText?.trim() || "";
+    // Nothing written: the fallback notice stands in for the speech, and the AI is told it was a skipped turn
+    const skippedTurn = !argumentText.trim() && Boolean(opts.fallbackText?.trim());
     if (
       isSubmittingRef.current ||
       isAiGeneratingRef.current ||
@@ -2430,6 +2432,7 @@ const DebateRoom: React.FC = () => {
         turn_index: toOpponentTurnIndex(debaterTurnIndex),
         round_type: stage,
         text: currentText,
+        ...(skippedTurn ? { skipped: true } : {}),
       },
     });
   };
