@@ -9,6 +9,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { isSameUserId } from "../../../utils/debateSpeaker";
 import {
   DebateResultData,
+  MatchOutcome,
   PERCENT_MAX,
   buildDebateResultFromEvaluation,
   getErrorMessage,
@@ -33,10 +34,79 @@ async function loadOfficialResult(sessionId: number, userId: number | string | n
   const side = me?.side === 1 || String(me?.side) === "PRO" ? "pro" : me?.side === 2 || String(me?.side) === "CON" ? "con" : null;
   if (!side) throw new Error("bạn không tham gia phiên tranh biện này");
 
-  const result = buildDebateResultFromEvaluation(evaluationRes.data, side, session.topic || session.title);
+  // A debate between learners (no AI seat) also shows who won
+  const isMatch = session.participants.every((p) => !p.isAI);
+  const opponentNames = session.participants
+    .filter((p) => !p.isAI && sideOf(p.side) !== null && sideOf(p.side) !== side)
+    .map((p) => p.speakerName)
+    .filter(Boolean);
+  const result = buildDebateResultFromEvaluation(
+    evaluationRes.data,
+    side,
+    session.topic || session.title,
+    isMatch ? { opponentNames } : undefined
+  );
   if (!result) throw new Error("AI Evaluator không trả về điểm tổng kết");
   return result;
 }
+
+function sideOf(value: unknown): "pro" | "con" | null {
+  return value === 1 || String(value) === "PRO" ? "pro" : value === 2 || String(value) === "CON" ? "con" : null;
+}
+
+const OUTCOME_TEXT: Record<MatchOutcome["result"], { title: string; style: string }> = {
+  win: {
+    title: "Bạn thắng",
+    style: "bg-[#ECFDF5] text-[#047857] border-[#008A64]/30 dark:bg-[rgba(16,185,129,0.12)] dark:text-[#34D399] dark:border-[#34D399]/30",
+  },
+  lose: {
+    title: "Bạn thua",
+    style: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800/50",
+  },
+  draw: {
+    title: "Hòa",
+    style: "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800/50",
+  },
+};
+
+const ScoreValue: React.FC<{ testId: string; score: number | null }> = ({ testId, score }) =>
+  score === null ? (
+    <span data-testid={testId} className="text-2xl font-black">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">chưa có điểm</span>
+    </span>
+  ) : (
+    <span data-testid={testId} className="text-2xl font-black">{score}</span>
+  );
+
+/** Win / lose / draw of a debate between learners: both sides' overall scores, judged by the AI. */
+const MatchOutcomeBanner: React.FC<{ outcome: MatchOutcome }> = ({ outcome }) => {
+  const text = OUTCOME_TEXT[outcome.result];
+  const opponents = outcome.opponentNames.length > 0 ? outcome.opponentNames.join(", ") : "Đối thủ";
+  return (
+    <section
+      data-testid="match-outcome"
+      aria-labelledby="match-outcome-title"
+      className={`rounded-3xl border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${text.style}`}
+    >
+      <div className="space-y-1">
+        <h2 id="match-outcome-title" data-testid="match-outcome-title" className="text-xl font-black tracking-tight">{text.title}</h2>
+        <p className="text-xs font-medium">Kết quả theo điểm tổng do AI chấm cho hai phe.</p>
+      </div>
+      <div className="flex items-center gap-4 text-sm font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>
+        <div className="text-center">
+          <span className="block text-[11px] font-medium">Bạn</span>
+          <ScoreValue testId="match-outcome-my-score" score={outcome.myScore} />
+        </div>
+        <span aria-hidden="true">vs</span>
+        <div className="text-center">
+          <span className="block text-[11px] font-medium max-w-[12rem] truncate" title={opponents}>{opponents}</span>
+          <ScoreValue testId="match-outcome-opponent-score" score={outcome.opponentScore} />
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const DebateResult: React.FC = () => {
   const navigate = useNavigate();
@@ -145,6 +215,8 @@ const DebateResult: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      {result.matchOutcome && <MatchOutcomeBanner outcome={result.matchOutcome} />}
+
       {/* 3 Main Columns */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
         {/* LEFT COLUMN: Kết quả tranh biện & Circular Score (~30%) */}
