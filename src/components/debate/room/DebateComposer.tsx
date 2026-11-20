@@ -117,7 +117,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                   {isAnalyzingMultimodal ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
-                      <span>Đang phân tích giọng nói (Faster-Whisper) & biểu cảm (DeepFace)...</span>
+                      <span>Đang phân tích giọng nói & biểu cảm, xong sẽ tự gửi lượt nói...</span>
                     </>
                   ) : (
                     <>
@@ -194,7 +194,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                   onClick={onToggleRecording}
                   className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Dừng & Phân tích
+                  Dừng & Gửi
                 </button>
               )}
             </div>
@@ -318,7 +318,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               aria-label={isRecording ? "Dừng ghi âm" : "Ghi âm giọng nói & phân tích biểu cảm"}
               title={
                 isRecording
-                  ? "Dừng ghi âm & phân tích giọng nói/biểu cảm"
+                  ? "Dừng ghi âm & gửi lượt nói (phân tích giọng nói/biểu cảm rồi gửi)"
                   : "Ghi âm giọng nói (Faster-Whisper) & phân tích biểu cảm (DeepFace)"
               }
               className={`p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 flex items-center gap-1 ${
@@ -356,7 +356,8 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
             {/* Visually Emphasized Send Button */}
             <button
               type="submit"
-              disabled={isLocked || !argumentText.trim()}
+              // While the recording is analysed it is sent by itself: a manual send now would carry the wrong analysis
+              disabled={isLocked || isAnalyzingMultimodal || !argumentText.trim()}
               aria-label="Gửi lập luận"
               title="Gửi lập luận (Enter)"
               className="w-9 h-9 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white inline-flex items-center justify-center transition-all shadow-xs disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"

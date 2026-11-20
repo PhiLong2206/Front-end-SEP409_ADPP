@@ -101,6 +101,18 @@ interface AiTurnContext {
 }
 
 /** Everything needed to (re)run the evaluation of one submitted turn. */
+/**
+ * handleSendArgument options. A recording that just stopped sends its speech, analysis and length directly: the
+ * matching state (argumentText, multimodalResult, recordedDurationSeconds) is set in the same tick and not read yet.
+ */
+interface SendArgumentOptions {
+  auto?: boolean;
+  fallbackText?: string;
+  text?: string;
+  multimodal?: MultimodalTurnResult | null;
+  durationSeconds?: number;
+}
+
 interface TurnEvaluationContext {
   /** The learner message being evaluated (shows the small "grading this turn" indicator). */
   messageId?: string;
@@ -267,7 +279,7 @@ const DebateRoom: React.FC = () => {
   const messagesRef = useRef<DebateRoomMessage[]>([]);
   // Latest input text and submit function, read by the timeout handler (which runs from a timer)
   const argumentTextRef = useRef("");
-  const sendArgumentRef = useRef<(opts?: { auto?: boolean; fallbackText?: string }) => Promise<void>>(async () => {});
+  const sendArgumentRef = useRef<(opts?: SendArgumentOptions) => Promise<void>>(async () => {});
   const opponentReadyRef = useRef<{ sessionId: string; promise: Promise<void> } | null>(null);
   const casePlanRequestedRef = useRef<string | null>(null);
   const unmountedRef = useRef(false);
@@ -288,6 +300,8 @@ const DebateRoom: React.FC = () => {
   const [multimodalResult, setMultimodalResult] = useState<MultimodalTurnResult | null>(null);
   const [recordedDurationSeconds, setRecordedDurationSeconds] = useState<number | null>(null);
   const [isAnalyzingMultimodal, setIsAnalyzingMultimodal] = useState<boolean>(false);
+  // The analysis already attached to a sent turn: it stays shown in the sidebar but never rides along a later turn
+  const consumedMultimodalRef = useRef<MultimodalTurnResult | null>(null);
   const [liveFrameAnalysis, setLiveFrameAnalysis] = useState<FrameAnalysisResult | null>(null);
   const [hasActiveCamera, setHasActiveCamera] = useState<boolean>(false);
   const [liveInterimTranscript, setLiveInterimTranscript] = useState<string>("");
@@ -985,6 +999,9 @@ const DebateRoom: React.FC = () => {
     !EffectiveDebateCompleted &&
     !isSubmitting &&
     !isAiGenerating &&
+    // The learner has stopped speaking: the time the analysis takes is not theirs (a timeout here would send an
+    // empty turn and lose the recording)
+    !isAnalyzingMultimodal &&
     !isWaitingForOpponentInAiMode &&
     (isP2pOr2v2 || (opponentReady && !hasDebaterSpokenInCurrentRound));
 
@@ -1759,7 +1776,8 @@ const DebateRoom: React.FC = () => {
 
   const handleToggleRecording = useCallback(async () => {
     if (isRecording) {
-      // Stop recording and run /multimodal/analyze-turn
+      // "Dừng & Gửi": stop, run /multimodal/analyze-turn (speech to text when there is no live text + delivery), then
+      // send the turn at once so the AI answers without a second click
       setIsRecording(false);
       if (frameIntervalRef.current) {
         window.clearInterval(frameIntervalRef.current);
@@ -1784,6 +1802,7 @@ const DebateRoom: React.FC = () => {
         stopMediaCaptureResources();
 
         setIsAnalyzingMultimodal(true);
+        let analysis: MultimodalTurnResult | null = null;
         try {
           const { audioBase64, spokenText } = await resolveTurnSpeechInput(
             liveSttFailedRef.current ? "" : liveSpokenTextRef.current,
@@ -1805,16 +1824,10 @@ const DebateRoom: React.FC = () => {
             include_report_chart: true,
           });
 
+          analysis = turnRes;
           setMultimodalResult(turnRes);
-          if (turnRes.voice?.transcript_text?.trim() && !argumentTextRef.current.trim()) {
-            setArgumentText(turnRes.voice.transcript_text.trim());
-          }
           setIsSidebarOpen(true);
           setSidebarTab("evaluator");
-          setRoomFeedback({
-            text: `Đã phân tích giọng nói & biểu cảm (Điểm phong thái: ${turnRes.overall_demeanor_score}/100, tốc độ: ${turnRes.voice.wpm} WPM).`,
-            type: "success",
-          });
         } catch (err) {
           console.error("Error analyzing multimodal turn:", err);
           setRoomFeedback({
@@ -1824,8 +1837,32 @@ const DebateRoom: React.FC = () => {
         } finally {
           setIsAnalyzingMultimodal(false);
         }
+
+        // The written text (typed + live text) wins; without it, the transcript of the recording is the speech
+        const speech = argumentTextRef.current.trim() || analysis?.voice?.transcript_text?.trim() || "";
+        if (!speech) {
+          if (analysis) {
+            setRoomFeedback({ text: "Không nghe được nội dung nào trong đoạn ghi âm. Hãy nói lại hoặc gõ lập luận.", type: "warning" });
+          }
+          return;
+        }
+        setArgumentText(speech);
+        if (analysis) {
+          setRoomFeedback({
+            text: `Đã gửi lượt nói (Điểm phong thái: ${analysis.overall_demeanor_score}/100, tốc độ: ${analysis.voice.wpm} WPM).`,
+            type: "success",
+          });
+        }
+        await sendArgumentRef.current({ text: speech, multimodal: analysis, durationSeconds: durationSec });
       } else {
+        // Nothing was recorded (the recorder never started): send what is written, or say why nothing was sent
         stopMediaCaptureResources();
+        const written = argumentTextRef.current.trim();
+        if (written) {
+          await sendArgumentRef.current({ text: written, multimodal: null, durationSeconds: durationSec });
+        } else {
+          setRoomFeedback({ text: "Không có bản ghi âm nào để gửi. Hãy ghi âm lại hoặc gõ lập luận.", type: "warning" });
+        }
       }
       return;
     }
@@ -2077,9 +2114,9 @@ const DebateRoom: React.FC = () => {
   );
 
   // `auto`: called by the timeout handler at 00:00 — the time checks are skipped, every other guard still applies
-  const handleSendArgument = async (opts: { auto?: boolean; fallbackText?: string } = {}) => {
+  const handleSendArgument = async (opts: SendArgumentOptions = {}) => {
     const isAutoSubmit = opts.auto === true;
-    const currentText = argumentText.trim() || opts.fallbackText?.trim() || "";
+    const currentText = opts.text?.trim() || argumentText.trim() || opts.fallbackText?.trim() || "";
     if (
       isSubmittingRef.current ||
       isAiGeneratingRef.current ||
@@ -2129,8 +2166,14 @@ const DebateRoom: React.FC = () => {
     const defaultTurnSec =
       roundAtSubmission === 1 ? ROUND_1_DEFAULT_SECONDS : SUBSEQUENT_ROUND_SECONDS;
     const elapsedTurnSec = Math.max(1, defaultTurnSec - Math.max(0, secondsRemaining));
-    const turnDurationSec = recordedDurationSeconds ?? elapsedTurnSec;
-    const currentMultimodal = multimodalResult;
+    const recordedSec = opts.durationSeconds ?? recordedDurationSeconds;
+    const turnDurationSec = recordedSec ?? elapsedTurnSec;
+    const currentMultimodal =
+      opts.multimodal !== undefined
+        ? opts.multimodal
+        : multimodalResult !== consumedMultimodalRef.current
+        ? multimodalResult
+        : null;
     const normalizedAnalytics = normalizeDeliveryAnalytics(currentMultimodal?.delivery_analytics);
     const computedWordCount = currentText ? currentText.split(/\s+/).length : 0;
 
@@ -2154,7 +2197,7 @@ const DebateRoom: React.FC = () => {
       try {
         const res = await debateApi.submitArgument(numSessionId, {
           content: currentText,
-          ...(recordedDurationSeconds !== null ? { durationSeconds: recordedDurationSeconds } : {}),
+          ...(recordedSec !== null && recordedSec !== undefined ? { durationSeconds: recordedSec } : {}),
           ...(normalizedAnalytics ? { deliveryAnalytics: normalizedAnalytics } : {}),
         });
         if (!res?.success) {
@@ -2200,6 +2243,7 @@ const DebateRoom: React.FC = () => {
     setMessages((prev) => [...prev, newDebaterMsg]);
     setArgumentText("");
     setRecordedDurationSeconds(null);
+    if (currentMultimodal) consumedMultimodalRef.current = currentMultimodal;
 
     if (isP2pOr2v2) {
       try {
