@@ -285,11 +285,11 @@ const DebateRoom: React.FC = () => {
   const [viVoice, setViVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [serverVoices, setServerVoices] = useState<ServerVoiceOption[]>([]);
   const hasServerVoice = serverVoices.length > 0;
-  const currentVoice = serverVoices.find((v) => v.id === aiVoice);
-  const currentVoiceLabel = currentVoice ? voiceOptionLabel(currentVoice) : aiVoice || "mặc định";
   // Picked before the room on the topic page (AiVoicePicker); shown here, not changed
   const [aiVoice, setAiVoice] = useState<string | null>(null);
   const aiVoiceRef = useRef<string | null>(null);
+  const currentVoice = serverVoices.find((v) => v.id === aiVoice);
+  const currentVoiceLabel = currentVoice ? voiceOptionLabel(currentVoice) : aiVoice || "mặc định";
   const [readAloud, setReadAloud] = useState<boolean>(() => readStoredReadAloud());
   const readAloudRef = useRef(readAloud);
   const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
