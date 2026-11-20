@@ -14,6 +14,7 @@ import {
 import { debateApi, topicApi } from "../../../api";
 import { Topic } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
+import AiVoicePicker from "../../../components/debate/AiVoicePicker";
 
 type PracticeMode = "available" | "custom";
 type DebateRole = "PRO" | "CON";
@@ -603,6 +604,9 @@ const DebatePractice: React.FC = () => {
             })}
           </div>
         </div>
+
+        {/* 5. AI voice (read-aloud of the opponent's speech) */}
+        <AiVoicePicker />
 
         {/* API Error Alert */}
         {apiError && (

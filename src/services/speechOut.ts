@@ -490,3 +490,41 @@ export async function isServerVoiceConfigured(
 export function pickServerVoice(remembered: string | null, offered: ServerVoices): string {
   return remembered && offered.voices.some((v) => v.id === remembered) ? remembered : offered.defaultVoice;
 }
+
+/** Browser memory of how the AI reads, shared by the setup pages (AiVoicePicker) and the room. */
+export const READ_ALOUD_STORAGE_KEY = "adpp.aiReadAloud";
+export const AI_VOICE_STORAGE_KEY = "adpp.aiVoice";
+
+export function readStoredVoice(): string | null {
+  try {
+    return window.localStorage.getItem(AI_VOICE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeVoice(voice: string): void {
+  try {
+    window.localStorage.setItem(AI_VOICE_STORAGE_KEY, voice);
+  } catch {
+    // per-browser convenience only
+  }
+}
+
+/** On unless the learner turned it off. */
+export function readStoredReadAloud(): boolean {
+  try {
+    return window.localStorage.getItem(READ_ALOUD_STORAGE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function storeReadAloud(on: boolean): void {
+  try {
+    window.localStorage.setItem(READ_ALOUD_STORAGE_KEY, on ? "on" : "off");
+  } catch {
+    // per-browser convenience only
+  }
+}
+
