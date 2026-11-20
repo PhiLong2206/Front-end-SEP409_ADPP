@@ -199,7 +199,7 @@ export interface EvidenceRoundView {
   ruleApplied: string;
 }
 
-const EVIDENCE_TOPICS: readonly EvidenceTopic[] = ["education", "environment", "technology", "society"];
+const EVIDENCE_TOPICS: readonly EvidenceTopic[] = ["education", "technology", "society"];
 
 /** The session's `evidenceTopic` as the evaluator expects it, or undefined (= the evaluator does not check). */
 export function toEvidenceTopic(value: string | null | undefined): EvidenceTopic | undefined {

@@ -89,10 +89,12 @@ describe("buildEvidenceRounds / toEvidenceTopic", () => {
     expect(result?.evidenceRounds).toBeUndefined();
   });
 
-  it("maps only the 4 fact-base topics", () => {
+  it("maps only the 3 fact-base topics", () => {
     expect(toEvidenceTopic("education")).toBe("education");
     expect(toEvidenceTopic(" Technology ")).toBe("technology");
     expect(toEvidenceTopic("politics")).toBeUndefined();
+    expect(toEvidenceTopic("society")).toBe("society");
+    expect(toEvidenceTopic("environment")).toBeUndefined(); // no longer a fact-base topic
     expect(toEvidenceTopic(null)).toBeUndefined();
   });
 });
