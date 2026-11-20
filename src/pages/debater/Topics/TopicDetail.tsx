@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, BookOpen, FileText, Play, RefreshCw } from "luci
 import topicApi from "../../../api/topicApi";
 import { debateApi } from "../../../api";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
+import AiVoicePicker from "../../../components/debate/AiVoicePicker";
 
 const TopicDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -286,6 +287,9 @@ const TopicDetail: React.FC = () => {
                       <span>{diff}</span>
                     </label>
                   ))}
+                </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <AiVoicePicker variant="compact" />
                 </div>
               </div>
 

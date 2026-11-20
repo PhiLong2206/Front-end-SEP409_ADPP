@@ -29,8 +29,11 @@ import {
   loadVietnameseVoice,
   makeServerAudioFetcher,
   pickServerVoice,
+  readStoredReadAloud,
+  readStoredVoice,
   SentenceQueue,
   SentenceSpeaker,
+  storeReadAloud,
   type ServerVoiceOption,
   voiceOptionLabel,
 } from "../../../services/speechOut";
@@ -129,17 +132,7 @@ interface TurnEvaluationContext {
 }
 
 const TURN_EVALUATION_ERROR = "Chưa chấm được lượt phát biểu này. Vui lòng thử lại.";
-const READ_ALOUD_STORAGE_KEY = "adpp.aiReadAloud";
-const AI_VOICE_STORAGE_KEY = "adpp.aiVoice";
-const VOICE_PREVIEW_TEXT = "Xin chào, mình là đối thủ của bạn trong trận tranh biện này.";
 
-const readStoredVoice = (): string | null => {
-  try {
-    return window.localStorage.getItem(AI_VOICE_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-};
 const FINISH_EVALUATION_ERROR = "Chưa chấm được kết quả tranh biện. Vui lòng thử lại.";
 const OPPONENT_SPEECH_MISMATCH_ERROR =
   "Đối thủ AI đã tạo lượt này từ một bài nói khác nên phiên này không thể tiếp tục. Thử lại sẽ không khắc phục được, vui lòng quay lại và tạo phiên tranh biện mới.";
@@ -292,19 +285,12 @@ const DebateRoom: React.FC = () => {
   const [viVoice, setViVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [serverVoices, setServerVoices] = useState<ServerVoiceOption[]>([]);
   const hasServerVoice = serverVoices.length > 0;
+  const currentVoice = serverVoices.find((v) => v.id === aiVoice);
+  const currentVoiceLabel = currentVoice ? voiceOptionLabel(currentVoice) : aiVoice || "mặc định";
+  // Picked before the room on the topic page (AiVoicePicker); shown here, not changed
   const [aiVoice, setAiVoice] = useState<string | null>(null);
   const aiVoiceRef = useRef<string | null>(null);
-  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
-  const previewUrlRef = useRef<string | null>(null);
-  const previewAbortRef = useRef<AbortController | null>(null);
-  const [readAloud, setReadAloud] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem(READ_ALOUD_STORAGE_KEY) !== "off";
-    } catch {
-      return true;
-    }
-  });
+  const [readAloud, setReadAloud] = useState<boolean>(() => readStoredReadAloud());
   const readAloudRef = useRef(readAloud);
   const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const hasServerVoiceRef = useRef(false);
@@ -339,19 +325,7 @@ const DebateRoom: React.FC = () => {
       alive = false;
       stopAllReading(); // only touches refs
       getSpeechSynthesis()?.cancel();
-      stopVoicePreview(); // only touches refs
     };
-  }, []);
-
-  /** The picked voice applies from the next sentence (the reader asks for the voice sentence by sentence). */
-  const chooseAiVoice = useCallback((voice: string) => {
-    aiVoiceRef.current = voice;
-    setAiVoice(voice);
-    try {
-      window.localStorage.setItem(AI_VOICE_STORAGE_KEY, voice);
-    } catch {
-      // per-browser convenience only
-    }
   }, []);
 
   /** Stops every AI reading: the current turn and any earlier turn still being read out. */
@@ -367,52 +341,6 @@ const DebateRoom: React.FC = () => {
     void reader.whenDone().then(() => activeReadersRef.current.delete(reader));
   }
 
-  /** Stops a voice preview: its request, its sound, its blob URL (pause() fires no onended). */
-  function stopVoicePreview() {
-    previewAbortRef.current?.abort();
-    previewAbortRef.current = null;
-    previewAudioRef.current?.pause();
-    previewAudioRef.current = null;
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
-  }
-
-  /**
-   * Plays one short sentence with the picked voice (a click: the browser allows the sound). The AI's reading stops:
-   * two voices at once cannot be compared.
-   */
-  const previewAiVoice = useCallback(async () => {
-    const voice = aiVoiceRef.current;
-    if (voice === null) return;
-    stopVoicePreview();
-    stopAllReading();
-    getSpeechSynthesis()?.cancel();
-    const controller = new AbortController();
-    previewAbortRef.current = controller;
-    const timer = window.setTimeout(() => controller.abort(), 10000);
-    setIsPreviewingVoice(true);
-    try {
-      const fetchAudio = makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => voice);
-      const blob = await fetchAudio(VOICE_PREVIEW_TEXT, controller.signal);
-      if (previewAbortRef.current !== controller) return; // replaced or left meanwhile
-      const url = URL.createObjectURL(blob);
-      previewUrlRef.current = url;
-      const audio = new Audio(url);
-      previewAudioRef.current = audio;
-      audio.onended = () => {
-        if (previewUrlRef.current === url) stopVoicePreview();
-      };
-      await audio.play();
-    } catch (err) {
-      if (previewAbortRef.current === controller) stopVoicePreview();
-      console.warn("Không nghe thử được giọng:", err);
-    } finally {
-      window.clearTimeout(timer);
-      if (previewAbortRef.current === controller || previewAbortRef.current === null) setIsPreviewingVoice(false);
-    }
-  }, []);
 
   /** A new reader for one AI turn: server voice with the browser voice as fallback, or the browser voice alone. */
   const makeSpeaker = useCallback((): SentenceQueue | null => {
@@ -431,11 +359,7 @@ const DebateRoom: React.FC = () => {
     const next = !readAloudRef.current;
     readAloudRef.current = next;
     setReadAloud(next);
-    try {
-      window.localStorage.setItem(READ_ALOUD_STORAGE_KEY, next ? "on" : "off");
-    } catch {
-      // per-browser convenience only
-    }
+    storeReadAloud(next);
     if (!next) {
       stopAllReading();
       return;
@@ -3183,35 +3107,11 @@ const DebateRoom: React.FC = () => {
 
             {!isP2pOr2v2 && (hasServerVoice || viVoice) && isAiTurnStreamEnabled() && (
               <div className="mx-4 mt-2 flex flex-wrap items-center justify-end gap-2">
-                {hasServerVoice && (
-                  <>
-                    <label htmlFor="ai-voice-select" className="text-xs text-slate-600 dark:text-slate-300">
-                      Giọng AI
-                    </label>
-                    <select
-                      id="ai-voice-select"
-                      data-testid="ai-voice-select"
-                      value={aiVoice ?? ""}
-                      onChange={(e) => chooseAiVoice(e.target.value)}
-                      className="text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
-                    >
-                      {serverVoices.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {voiceOptionLabel(v)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => void previewAiVoice()}
-                      disabled={isPreviewingVoice}
-                      aria-busy={isPreviewingVoice}
-                      data-testid="ai-voice-preview"
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
-                    >
-                      {isPreviewingVoice ? "Đang tải..." : "Nghe thử"}
-                    </button>
-                  </>
+                {hasServerVoice && aiVoice !== null && (
+                  // Picked on the topic page before the room; shown so the learner knows which voice is used
+                  <span data-testid="ai-voice-current" className="text-xs text-slate-500 dark:text-slate-400">
+                    Giọng: {currentVoiceLabel}
+                  </span>
                 )}
                 <button
                   type="button"
