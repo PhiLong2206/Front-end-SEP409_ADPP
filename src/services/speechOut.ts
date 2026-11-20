@@ -37,10 +37,40 @@ export function loadVietnameseVoice(
 // A sentence ends with . ! ? … (possibly repeated) followed by whitespace
 const SENTENCE_END = /^([\s\S]*?[.!?…]+)\s+/;
 
-/** Common part: cuts streamed text into sentences and hands each finished one to `speak`. */
+/**
+ * Common part: cuts streamed text into sentences and hands each finished one to `speak`.
+ * One reader = one AI turn. Two AI turns in a row (rebuttal then closing) must not cut each other: the second
+ * reader is started with `startAfter(first.whenDone())` and holds its sentences until the first one is done.
+ */
 export abstract class SentenceQueue {
   private buffer = "";
   private received = "";
+  private gate: Promise<void> | null = null;
+  private held: string[] = [];
+  /** finish() was called: no more text will come for this turn */
+  protected finalized = false;
+  private settled = false;
+  private resolveDone!: () => void;
+  private readonly done = new Promise<void>((resolve) => {
+    this.resolveDone = resolve;
+  });
+
+  /** Holds every sentence until `previous` resolves (the previous AI turn has been read out). */
+  startAfter(previous: Promise<void>): void {
+    const gate: Promise<void> = previous.then(
+      () => this.openGate(gate),
+      () => this.openGate(gate)
+    );
+    this.gate = gate;
+  }
+
+  /**
+   * Resolves once this turn is read out: finish() was called and every sentence was spoken (or handed to a fallback
+   * that finished too), or the reader was aborted. Never rejects.
+   */
+  whenDone(): Promise<void> {
+    return this.done;
+  }
 
   /** Adds streamed text; speaks every sentence that is now complete. */
   push(piece: string): void {
@@ -65,26 +95,89 @@ export abstract class SentenceQueue {
     }
     this.speakClean(this.buffer);
     this.buffer = "";
+    this.finalized = true;
+    this.onFinalized();
+    this.checkDone();
   }
 
-  /** Stops speaking and forgets the text (a new attempt replaces it, or the learner starts talking). */
+  /**
+   * Forgets the text of this attempt and stops what it was saying (a new attempt of the same turn replaces it).
+   * The reader stays usable and still waits for the previous turn.
+   */
   cancel(): void {
     this.buffer = "";
     this.received = "";
+    this.held = [];
+    this.finalized = false;
     this.stop();
+  }
+
+  /** Stops for good (the learner records, read-aloud off, voice preview, leaving the room, the turn failed). */
+  abort(): void {
+    this.gate = null;
+    this.cancel();
+    this.settle();
   }
 
   private speakClean(text: string): void {
     const clean = text.trim();
-    if (clean) this.speak(clean);
+    if (!clean || this.settled) return;
+    if (this.gate) this.held.push(clean);
+    else this.speak(clean);
   }
+
+  private openGate(gate: Promise<void>): void {
+    if (this.gate !== gate) return; // aborted, or another gate replaced it
+    this.gate = null;
+    const held = this.held;
+    this.held = [];
+    for (const sentence of held) this.speak(sentence);
+    this.checkDone();
+  }
+
+  /** Subclasses call it when their own queue may have drained. */
+  protected checkDone(): void {
+    if (this.finalized && !this.gate && this.held.length === 0 && this.isIdle()) this.settle();
+  }
+
+  protected settle(): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.resolveDone();
+  }
+
+  /** Called once finish() has queued the last sentence. */
+  protected onFinalized(): void {}
 
   protected abstract speak(sentence: string): void;
   protected abstract stop(): void;
+  /** Nothing queued or playing. */
+  protected abstract isIdle(): boolean;
 }
 
 /** Browser voice: the Web Speech API queues utterances itself. Short utterances avoid Chrome cutting off long ones. */
+/** Slow estimate of Vietnamese TTS speed at rate 1 (real voices say ~12-15 characters a second) */
+const CHARS_PER_SECOND = 8;
+/** Slack on top of the estimate before an utterance that never ends counts as said */
+const STALL_MARGIN_MS = 5000;
+
+interface QueuedUtterance {
+  text: string;
+  done: boolean;
+}
+
+/**
+ * Browser voice: the Web Speech API queues utterances itself. Short utterances avoid Chrome cutting off long ones.
+ * The browser may never fire onend (hidden tab, stuck engine): a watchdog on the utterance being said counts it as
+ * said after its estimated length + STALL_MARGIN_MS, so a stuck voice cannot keep the next AI turn silent forever.
+ */
 export class SentenceSpeaker extends SentenceQueue {
+  private queue: QueuedUtterance[] = [];
+  /** Utterances the browser still holds: only a real onend / onerror lowers it, never the watchdog */
+  private inSynth = 0;
+  private generation = 0;
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
+
   constructor(
     private readonly synth: SpeechSynthesis,
     private readonly voice: SpeechSynthesisVoice,
@@ -98,11 +191,69 @@ export class SentenceSpeaker extends SentenceQueue {
     u.voice = this.voice;
     u.lang = this.voice.lang;
     u.rate = this.rate;
+    const gen = this.generation;
+    const item: QueuedUtterance = { text: sentence, done: false };
+    // onend and onerror can both fire (or fire twice): count the utterance once
+    let released = false;
+    const ended = () => {
+      if (gen !== this.generation) return; // cancelled by stop()
+      if (!released) {
+        released = true;
+        this.inSynth = Math.max(0, this.inSynth - 1);
+      }
+      if (!item.done) this.markDone(item); // the watchdog may have counted it already
+    };
+    u.onend = ended;
+    u.onerror = ended;
+    u.onstart = () => {
+      if (gen === this.generation && this.queue[0] === item) this.armWatchdog(); // restart the clock when it starts
+    };
+    this.queue.push(item);
+    this.inSynth += 1;
+    if (this.queue.length === 1) this.armWatchdog();
     this.synth.speak(u);
   }
 
   protected stop(): void {
-    this.synth.cancel();
+    this.generation += 1;
+    // speechSynthesis has one queue for the page: cancel only when this reader has something in it, so a reader
+    // still waiting for the previous turn does not cut that turn
+    // inSynth too: a sentence the watchdog counted as said may still be playing
+    if (this.queue.length > 0 || this.inSynth > 0) this.synth.cancel();
+    this.queue = [];
+    this.inSynth = 0;
+    this.clearWatchdog();
+  }
+
+  protected isIdle(): boolean {
+    return this.queue.length === 0;
+  }
+
+  private markDone(item: QueuedUtterance): void {
+    item.done = true;
+    this.queue = this.queue.filter((q) => q !== item);
+    this.clearWatchdog();
+    if (this.queue.length > 0) this.armWatchdog();
+    this.checkDone();
+  }
+
+  /** Clock for the utterance at the head of the queue (the one being said). */
+  private armWatchdog(): void {
+    this.clearWatchdog();
+    const head = this.queue[0];
+    if (!head) return;
+    const gen = this.generation;
+    const ms = (head.text.length / (CHARS_PER_SECOND * this.rate)) * 1000 + STALL_MARGIN_MS;
+    this.watchdog = setTimeout(() => {
+      if (gen === this.generation && !head.done) this.markDone(head);
+    }, ms);
+  }
+
+  private clearWatchdog(): void {
+    if (this.watchdog !== null) {
+      clearTimeout(this.watchdog);
+      this.watchdog = null;
+    }
   }
 }
 
@@ -162,6 +313,11 @@ export class AudioSentenceSpeaker extends SentenceQueue {
     this.fallback?.cancel();
   }
 
+  abort(): void {
+    this.fallback?.abort();
+    super.abort();
+  }
+
   private startFetches(): void {
     for (const p of this.pending.slice(0, this.prefetch)) {
       if (p.audio) continue;
@@ -195,6 +351,7 @@ export class AudioSentenceSpeaker extends SentenceQueue {
       this.playing = null;
       this.pending.shift();
       void this.playNext();
+      this.checkDone();
     };
     audio.onended = next;
     audio.onerror = () => {
@@ -223,6 +380,24 @@ export class AudioSentenceSpeaker extends SentenceQueue {
       p.controller?.abort();
       this.fallback?.push(`${p.text} `);
     }
+    if (this.finalized) this.finishFallback();
+    this.checkDone();
+  }
+
+  protected onFinalized(): void {
+    if (this.failed) this.finishFallback();
+  }
+
+  /** The browser voice took over: this turn is read out when it is. */
+  private finishFallback(): void {
+    if (!this.fallback) return;
+    this.fallback.finish();
+    void this.fallback.whenDone().then(() => this.settle());
+  }
+
+  protected isIdle(): boolean {
+    // After a failure the fallback decides (finishFallback); without one there is nothing left to wait for
+    return this.pending.length === 0 && !this.playing && (!this.failed || !this.fallback);
   }
 }
 
