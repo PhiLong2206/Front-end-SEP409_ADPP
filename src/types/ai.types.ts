@@ -104,6 +104,8 @@ export interface DebaterSpeechInput {
   turn_index: number;
   round_type: DebateRoundType;
   text: string;
+  /** The learner did not speak this turn (time ran out with nothing written, or "bỏ lượt"): the AI answers a skip */
+  skipped?: boolean;
 }
 
 export interface CreateTurnRequest {
