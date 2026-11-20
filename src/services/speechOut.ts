@@ -341,7 +341,14 @@ export class AudioSentenceSpeaker extends SentenceQueue {
     const audio = this.createAudio(url);
     this.playing = audio;
     this.playingUrl = url;
+    // A sound that never reports its end (stalled decoder, hidden tab) must not keep the turn "being read" forever
+    const stall = setTimeout(() => {
+      if (gen !== this.generation || this.playing !== audio) return;
+      audio.pause();
+      next();
+    }, (head.text.length / CHARS_PER_SECOND) * 1000 + STALL_MARGIN_MS);
     const release = () => {
+      clearTimeout(stall);
       URL.revokeObjectURL(url);
       if (this.playingUrl === url) this.playingUrl = null;
     };
@@ -408,18 +415,30 @@ export class AudioSentenceSpeaker extends SentenceQueue {
 export function makeServerAudioFetcher(
   baseUrl: string,
   fetchImpl: typeof fetch = fetch,
-  getVoice: () => string | null = () => null
+  getVoice: () => string | null = () => null,
+  timeoutMs = 15000
 ): FetchSentenceAudio {
   return async (sentence, signal) => {
     const voice = getVoice();
-    const res = await fetchImpl(`${baseUrl}/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(voice ? { text: sentence, voice } : { text: sentence }),
-      signal,
-    });
-    if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
-    return res.blob();
+    // A request that never answers fails after timeoutMs (the reader then falls back to the browser voice)
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal.aborted) controller.abort();
+    else signal.addEventListener("abort", abort, { once: true });
+    const timer = setTimeout(abort, timeoutMs);
+    try {
+      const res = await fetchImpl(`${baseUrl}/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(voice ? { text: sentence, voice } : { text: sentence }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+      return await res.blob();
+    } finally {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+    }
   };
 }
 
