@@ -174,22 +174,29 @@ describe("DebateRoom when the countdown reaches 00:00 in an AI practice session"
     expect(screen.getAllByText("Gửi khi hết giờ.")).toHaveLength(1);
   });
 
-  it("locks the input and sends nothing to the Backend when the input is empty (or only spaces)", async () => {
+  it("an empty input at 00:00 is recorded as a skipped turn: the AI is told, and the next round opens by itself", async () => {
     await renderRoom("123");
     type("   ");
 
     await advance(135_000);
 
-    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent(
-      "Hết giờ, bạn chưa phát biểu. Lượt bỏ qua chưa được hỗ trợ."
-    );
-    expect(screen.getByLabelText("Lập luận của bạn")).toBeDisabled();
-    expect(mockSubmitArgument).not.toHaveBeenCalled();
-    expect(mockSubmitAiArgument).not.toHaveBeenCalled();
-    expect(mockEvaluateSpeechArgument).not.toHaveBeenCalled();
-    expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
-    // A Backend session cannot skip a turn yet: no way to move on to the next round by hand
+    const notice = "(Thí sinh không đưa ra phát biểu - Hết thời gian)";
+    // The notice goes through the normal flow, and the AI is told that the learner skipped the turn
+    expect(mockSubmitArgument).toHaveBeenCalledTimes(1);
+    expect(mockSubmitArgument).toHaveBeenCalledWith(123, { content: notice });
+    expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(1);
+    expect(mockGenerateOpponentTurn.mock.calls[0][1].new_learner_speeches[0]).toEqual({
+      turn_index: 1,
+      round_type: "opening",
+      text: notice,
+      skipped: true,
+    });
+    expect(mockSubmitAiArgument).toHaveBeenCalledWith(123, { content: "Phản hồi từ Đối thủ AI.", turnIndex: 1 });
+    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Hệ thống tự động chuyển lượt");
+    // No manual step is left: Round 2 is open and the input is usable again
+    expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Lập luận của bạn")).not.toBeDisabled();
+    expect(screen.queryByTestId("round-1-timeout-notice")).not.toBeInTheDocument();
     expect(screen.queryByTestId("advance-round-after-timeout-btn")).not.toBeInTheDocument();
-    expect(screen.getByText(/Vòng 1\/3/)).toBeInTheDocument();
   });
 });

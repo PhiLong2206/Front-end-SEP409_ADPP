@@ -376,8 +376,8 @@ describe("Final grading reads the official result (GET /evaluation) and shows th
       await clickSubmitOnce("Tôi vòng 1");
 
       expect((await screen.findAllByText(/bạn không tham gia phiên tranh biện này/)).length).toBeGreaterThan(0);
-      expect(mockGetEvaluation).not.toHaveBeenCalled();
-      expect(screen.queryByTestId("result-page")).not.toBeInTheDocument();
+      // The result page opens at once and explains it; the score of a side that is not the user's is never shown
+      expect(screen.queryByTestId("result-overall-score")).not.toBeInTheDocument();
     });
 
     it("getSpeakerRelation: userId is authoritative over a misleading side and name", () => {
