@@ -127,6 +127,7 @@ describe("DebateRoom: 'Dừng & Gửi' sends the recorded turn, the AI answers w
   });
 
   afterEach(() => {
+    localStorage.clear();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.clearAllMocks();
@@ -192,5 +193,19 @@ describe("DebateRoom: 'Dừng & Gửi' sends the recorded turn, the AI answers w
     await record();
     expect(await screen.findByText(/Không nghe được nội dung nào/)).toBeInTheDocument();
     expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
+  });
+
+  it("records with the microphone picked on the device check, without the camera it switched off", async () => {
+    localStorage.setItem("adpp.media.micDeviceId", "mic-usb");
+    localStorage.setItem("adpp.media.cameraEnabled", "0");
+    mockAnalyzeTurn.mockResolvedValue(analysis("Bài nói."));
+    await renderRoom();
+    await record();
+    const calls = (navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) {
+      expect(c.video).toBeUndefined(); // camera off: never asked for
+      expect(c.audio.deviceId).toEqual({ ideal: "mic-usb" });
+    }
   });
 });

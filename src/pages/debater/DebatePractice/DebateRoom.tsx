@@ -40,11 +40,11 @@ import {
 import { debateHubService } from "../../../services/debateHub";
 import {
   pickSupportedAudioMimeType,
-  RAW_VOICE_AUDIO_CONSTRAINTS,
   RealtimeSttClient,
   RealtimeSttStatus,
   resolveTurnSpeechInput,
 } from "../../../services/realtimeStt";
+import { cameraConstraints, micConstraints, readStoredMediaChoice } from "../../../services/mediaDevices";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
@@ -2088,22 +2088,27 @@ const DebateRoom: React.FC = () => {
     try {
       let stream: MediaStream;
       let hasVideo = false;
+      // The devices picked on the device check before the room (browser default when none)
+      const media = readStoredMediaChoice();
+      const audio = micConstraints(media.micDeviceId);
       try {
+        if (!media.cameraEnabled) throw new Error("camera switched off on the device check");
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 320 }, height: { ideal: 240 } },
-          audio: RAW_VOICE_AUDIO_CONSTRAINTS,
+          video: cameraConstraints(media.cameraDeviceId),
+          audio,
         });
         hasVideo = stream.getVideoTracks().length > 0;
-      } catch {
+      } catch (firstErr) {
         try {
+          if (!media.cameraEnabled) throw firstErr;
           stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: RAW_VOICE_AUDIO_CONSTRAINTS,
+            video: cameraConstraints(media.cameraDeviceId, false),
+            audio,
           });
           hasVideo = stream.getVideoTracks().length > 0;
         } catch (camErr) {
-          console.warn("Camera unavailable, falling back to microphone-only:", camErr);
-          stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_VOICE_AUDIO_CONSTRAINTS });
+          if (media.cameraEnabled) console.warn("Camera unavailable, falling back to microphone-only:", camErr);
+          stream = await navigator.mediaDevices.getUserMedia({ audio });
           hasVideo = false;
         }
       }
