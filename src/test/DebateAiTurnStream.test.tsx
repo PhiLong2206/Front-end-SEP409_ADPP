@@ -243,6 +243,91 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     expect(spoken).toEqual([]);
   });
 
+  it("a new attempt keeps the old text (dimmed, 'AI đang viết lại...') until the first words of the new one", async () => {
+    await renderRoom();
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Bản bị loại. ");
+    });
+    expect(screen.queryByTestId("ai-rewriting-label")).not.toBeInTheDocument();
+
+    await act(async () => {
+      handlers.onAttempt?.(2, "banned_phrase");
+    });
+    expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Bản bị loại.");
+    expect(screen.getByTestId("ai-rewriting-label")).toHaveTextContent("AI đang viết lại...");
+
+    await act(async () => {
+      handlers.onDelta?.("Bản mới");
+    });
+    expect(screen.getByTestId("ai-live-speech")).toHaveTextContent(/^Bản mới$/);
+    expect(screen.queryByTestId("ai-rewriting-label")).not.toBeInTheDocument();
+  });
+
+  describe("the banner of a new round waits for the AI to finish reading", () => {
+    const renderLearnerPro = async (id: string) => {
+      render(
+        <MemoryRouter initialEntries={[`/debater/debate/${id}?role=PRO`]}>
+          <Routes>
+            <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await act(async () => {});
+    };
+    /** The learner speaks (Round 1), the AI answers; Round 2 begins once that answer is done. */
+    const playRoundOne = async () => {
+      fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: "PRO mở đầu." } });
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await act(async () => {
+        handlers.onAttempt?.(1, null);
+        handlers.onDelta?.("AI mở đầu. ");
+        finishTurn("AI mở đầu.");
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    };
+
+    it("does not show while the AI is still reading; skipping the reading shows it once", async () => {
+      autoEnd = false; // the voice is still reading when Round 2 begins
+      await renderLearnerPro("banner-1");
+      await playRoundOne();
+
+      expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument(); // the label follows the data at once
+      expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("skip-ai-reading-btn"));
+      });
+      expect(screen.getAllByTestId("round-banner")).toHaveLength(1);
+      expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 2 – Phản biện");
+    });
+
+    it("shows when the reading ends by itself", async () => {
+      autoEnd = false;
+      await renderLearnerPro("banner-2");
+      await playRoundOne();
+      expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument();
+
+      await act(async () => {
+        endSpeech();
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(screen.getAllByTestId("round-banner")).toHaveLength(1);
+      expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 2 – Phản biện");
+    });
+
+    it("with read-aloud off it shows as soon as the AI has finished writing", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      await renderLearnerPro("banner-3");
+      await playRoundOne();
+
+      expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 2 – Phản biện");
+    });
+  });
+
   it("the learner can skip the AI's reading: the voice stops and the button goes away", async () => {
     autoEnd = false; // the voice is still in the middle of a sentence when the learner skips
     await renderRoom();

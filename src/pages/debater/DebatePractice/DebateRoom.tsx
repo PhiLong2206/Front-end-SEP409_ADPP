@@ -341,6 +341,10 @@ const DebateRoom: React.FC = () => {
   const [isAiReadingAloud, setIsAiReadingAloud] = useState(false);
   // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
   const liveAiSpeechRef = useRef<string | null>(null);
+  // The turn that owns the live text on screen: an older turn that ends late must not touch the newer turn's text
+  const liveTurnRef = useRef<object | null>(null);
+  // A new attempt of the AI turn: the old text stays (dimmed) until the first words of the new one arrive
+  const [isAiRewriting, setIsAiRewriting] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -455,18 +459,29 @@ const DebateRoom: React.FC = () => {
         speakerRef.current = speaker;
         trackReader(speaker);
       });
+      // Only the turn that owns the live text may change it (a slow older turn ends after the newer one began)
+      liveTurnRef.current = turn;
+      const isCurrent = () => liveTurnRef.current === turn;
       const showLive = (text: string | null) => {
+        if (!isCurrent()) return;
         liveAiSpeechRef.current = text;
         setLiveAiSpeech(text);
       };
       showLive("");
+      setIsAiRewriting(false);
       try {
         const res = await aiApi.streamOpponentTurn(opponentId, request, {
           onAttempt: () => {
-            showLive("");
+            if (!isCurrent()) return;
+            // The text of the new attempt starts empty, but what is on screen stays until its first words arrive
+            const hadText = Boolean(liveAiSpeechRef.current);
+            liveAiSpeechRef.current = "";
+            if (hadText) setIsAiRewriting(true);
             reader()?.cancel();
           },
           onDelta: (text) => {
+            if (!isCurrent()) return;
+            setIsAiRewriting(false);
             showLive((liveAiSpeechRef.current ?? "") + text);
             reader()?.push(text);
           },
@@ -478,7 +493,11 @@ const DebateRoom: React.FC = () => {
         reader()?.abort();
         throw err;
       } finally {
-        showLive(null);
+        if (isCurrent()) {
+          showLive(null);
+          setIsAiRewriting(false);
+          liveTurnRef.current = null;
+        }
       }
     },
     [makeSpeaker]
@@ -495,6 +514,8 @@ const DebateRoom: React.FC = () => {
   const sendArgumentRef = useRef<(opts?: SendArgumentOptions) => Promise<void>>(async () => {});
   const opponentReadyRef = useRef<{ sessionId: string; promise: Promise<void> } | null>(null);
   const casePlanRequestedRef = useRef<string | null>(null);
+  // The AI's opening is asked for once per opponent session; reset when it fails so the retry button can ask again
+  const openingRequestedRef = useRef<string | null>(null);
   const unmountedRef = useRef(false);
   const clearedOnLeaveRef = useRef(false);
   // Rounds whose argument the Backend already accepted: a retry must never submit them again
@@ -628,6 +649,8 @@ const DebateRoom: React.FC = () => {
   );
   // The server says whether Round 1 has begun: the room stays locked until a response says so, not by its own clock
   const isPreparing = Boolean(sessionDetails?.isPreparing);
+  // The init effect only needs to know the session has loaded, not to run again on every poll of it
+  const hasSessionDetails = Boolean(sessionDetails);
   const preparationEndsAt = sessionDetails?.preparationEndsAt ?? null;
   // The round shown in the header: this side's round, or the one the server announced if that is further on
   const totalRounds = sessionDetails?.totalRounds ?? lastRoundEvent?.totalRounds ?? DEFAULT_TOTAL_ROUNDS;
@@ -1412,14 +1435,29 @@ const DebateRoom: React.FC = () => {
   }, [roomFeedback]);
 
   // ── Round announcements: one banner per (session, round), also after a reload ──
+  // announceRound only marks the round as new; the banner itself waits until the AI has finished writing and reading
+  const [pendingRoundBanner, setPendingRoundBanner] = useState<{ round: number; label: string } | null>(null);
   const announceRound = useCallback(
     (round: number, label?: string) => {
       if (hasShownRoundBanner(sessionId, round)) return;
-      markRoundBannerShown(sessionId, round);
-      setRoundBanner({ round, label: label || roundLabelOf(round) });
+      setPendingRoundBanner((prev) =>
+        prev && prev.round === round
+          ? { round, label: label || prev.label }
+          : { round, label: label || roundLabelOf(round) }
+      );
     },
     [sessionId]
   );
+
+  const isAiBusy = isAiReadingAloud || isAiGenerating || liveAiSpeech !== null;
+  useEffect(() => {
+    if (!pendingRoundBanner || isAiBusy) return;
+    setPendingRoundBanner(null);
+    // Marked only now that it really shows: a repeat (second event, reload) never shows it again
+    if (hasShownRoundBanner(sessionId, pendingRoundBanner.round)) return;
+    markRoundBannerShown(sessionId, pendingRoundBanner.round);
+    setRoundBanner(pendingRoundBanner);
+  }, [pendingRoundBanner, isAiBusy, sessionId]);
 
   useEffect(() => {
     if (!roundBanner) return;
@@ -1479,6 +1517,7 @@ const DebateRoom: React.FC = () => {
   useEffect(() => {
     setLastRoundEvent(null);
     setRoundBanner(null);
+    setPendingRoundBanner(null);
   }, [sessionId]);
 
   const handleSkipPreparation = useCallback(async () => {
@@ -1650,13 +1689,15 @@ const DebateRoom: React.FC = () => {
     if (isP2pOr2v2) return;
     if (isWaitingInLobby || isLoadingBackendSession) return;
     // The session data must come from the Backend session: wait for it instead of using URL defaults
-    if (isBackendSession && !sessionDetails) return;
+    if (isBackendSession && !hasSessionDetails) return;
     // A finished debate never (re)creates an opponent session
     if (EffectiveDebateCompleted || isTerminalBackendStatus) return;
     // Each poll of the session runs this effect again: a conflict must not call the service every time
     if (isOpponentDataConflict) return;
 
     let isMounted = true;
+    // The AI's opening failed in this run: its error is shown even if a newer run of the effect has begun since
+    let openingFailed = false;
     const initOpponent = async () => {
       try {
         setOpponentError(null);
@@ -1733,9 +1774,21 @@ const DebateRoom: React.FC = () => {
         // After a reload the AI may already have spoken its opening: never ask for it again
         const aiAlreadyOpened = messagesRef.current.some((m) => m.speaker === "AI" && m.roundNumber === 1);
         // ...and not while the learner prepares (the Backend refuses a speech before Round 1 with 409)
-        if (aiSide === "pro" && isMounted && !aiAlreadyOpened && !isPreparing) {
+        // ...and not twice: this effect runs again whenever the session is read, while the first request still streams
+        if (
+          aiSide === "pro" &&
+          isMounted &&
+          !aiAlreadyOpened &&
+          !isPreparing &&
+          openingRequestedRef.current !== opponentSessionId &&
+          !isAiGeneratingRef.current
+        ) {
+          openingRequestedRef.current = opponentSessionId;
           isAiGeneratingRef.current = true;
           setIsAiGenerating(true);
+          // A newer run of the effect may have started while this one streams: it left this run the work, so the
+          // result is shown unless the room is gone or another opponent session took over
+          const stillThisOpening = () => !unmountedRef.current && openingRequestedRef.current === opponentSessionId;
           try {
             const firstTurnRes = await retryWhilePlanning(
               () =>
@@ -1757,7 +1810,7 @@ const DebateRoom: React.FC = () => {
               text: speechText,
             });
 
-            if (isMounted) {
+            if (stillThisOpening()) {
               const aiFirstMsg: DebateRoomMessage = {
                 id: `msg-${Date.now()}`,
                 speaker: "AI",
@@ -1769,16 +1822,22 @@ const DebateRoom: React.FC = () => {
                 content: speechText,
                 isCurrentUser: false,
               };
-              setMessages((prev) => (prev.length === 0 ? [aiFirstMsg] : prev));
+              setMessages((prev) =>
+                prev.some((m) => m.speaker === "AI" && m.roundNumber === 1) ? prev : prev.length === 0 ? [aiFirstMsg] : prev
+              );
             }
+          } catch (openingErr) {
+            if (openingRequestedRef.current === opponentSessionId) openingRequestedRef.current = null;
+            openingFailed = true;
+            throw openingErr;
           } finally {
             isAiGeneratingRef.current = false;
-            if (isMounted) setIsAiGenerating(false);
+            if (!unmountedRef.current) setIsAiGenerating(false);
           }
         }
       } catch (initErr) {
         console.error("Error initialising AI Opponent:", initErr);
-        if (isMounted) {
+        if (isMounted || (openingFailed && !unmountedRef.current)) {
           setAiOpponentStatus("error");
           if (isSessionDataConflict(initErr)) {
             setIsOpponentDataConflict(true);
@@ -1808,7 +1867,7 @@ const DebateRoom: React.FC = () => {
     opponentInitNonce,
     isBackendSession,
     numSessionId,
-    sessionDetails,
+    hasSessionDetails,
     isPreparing,
     EffectiveDebateCompleted,
     isTerminalBackendStatus,
@@ -3431,6 +3490,7 @@ const DebateRoom: React.FC = () => {
               currentRound={currentRound}
               isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
               liveAiSpeech={liveAiSpeech}
+              isAiRewriting={isAiRewriting}
               aiSide={aiSide}
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}

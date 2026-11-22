@@ -6,18 +6,21 @@ interface RoundBannerProps {
 }
 
 /**
- * A big notice in the middle of the screen when a round begins. It never takes a click (pointer-events-none), and the
- * live region is always mounted so a screen reader announces the text when it appears.
+ * A big line of text in the middle of the screen when a round begins: no box around it, so it stays readable on any
+ * background through the colour and a soft shadow. It never takes a click (pointer-events-none), and the live region is
+ * always mounted so a screen reader announces the text when it appears.
  */
 const RoundBanner: React.FC<RoundBannerProps> = ({ text }) => (
   <div aria-live="polite" aria-atomic="true" className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4">
     {text && (
-      <div
+      <p
         data-testid="round-banner"
-        className="animate-fade-in rounded-3xl bg-[#0F172A]/90 dark:bg-[#F8FAFC]/95 px-8 py-5 sm:px-12 sm:py-7 text-center shadow-2xl border border-white/10 dark:border-slate-300/40"
+        // A soft shadow on top of the colour, for the light and the dark background alike
+        style={{ textShadow: "0 2px 14px rgba(0, 0, 0, 0.35), 0 0 2px rgba(0, 0, 0, 0.25)" }}
+        className="animate-fade-in text-center text-4xl sm:text-6xl font-black tracking-tight text-[#008A64] dark:text-emerald-400 drop-shadow-lg"
       >
-        <p className="text-2xl sm:text-4xl font-black tracking-tight text-white dark:text-[#0F172A]">{text}</p>
-      </div>
+        {text}
+      </p>
     )}
   </div>
 );

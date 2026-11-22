@@ -11,6 +11,8 @@ export interface DebateChatProps {
   isAiGenerating?: boolean;
   /** Speech of the AI turn being generated, as it streams in (null / empty: only the typing dots). */
   liveAiSpeech?: string | null;
+  /** A new attempt of the AI turn is being written: the old text shows dimmed until the first words of the new one. */
+  isAiRewriting?: boolean;
   aiSide?: "pro" | "con";
   timedOutRounds?: number[];
   isTurnExpired?: boolean;
@@ -31,6 +33,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   currentRound,
   isAiGenerating = false,
   liveAiSpeech = null,
+  isAiRewriting = false,
   aiSide = "con",
   timedOutRounds = [],
   isTurnExpired = false,
@@ -292,12 +295,19 @@ const DebateChat: React.FC<DebateChatProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce" />
                 </span>
               </div>
+              {isAiRewriting && (
+                <p data-testid="ai-rewriting-label" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  AI đang viết lại...
+                </p>
+              )}
               {liveAiSpeech && (
                 // aria-live off: the text grows every few ms; the final message is announced once it lands
                 <p
                   data-testid="ai-live-speech"
                   aria-live="off"
-                  className="text-sm leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap"
+                  className={`text-sm leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap transition-opacity ${
+                    isAiRewriting ? "opacity-50" : ""
+                  }`}
                 >
                   {liveAiSpeech}
                 </p>

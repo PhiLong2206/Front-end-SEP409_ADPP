@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
 import type { DebateHubCallbacks } from "../services/debateHub";
+import type { OpponentTurnStreamHandlers } from "../services/opponentTurnStream";
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
@@ -34,12 +35,14 @@ const mockGetTranscript = vi.fn();
 const mockSubmitArgument = vi.fn();
 const mockSubmitAiArgument = vi.fn();
 const mockSkipPreparation = vi.fn();
+const mockStreamOpponentTurn = vi.fn();
 
 vi.mock("../api", () => ({
   aiApi: {
     createOpponentSession: (...args: unknown[]) => mockCreateOpponentSession(...args),
     getOpponentCasePlan: (...args: unknown[]) => mockGetOpponentCasePlan(...args),
     generateOpponentTurn: (...args: unknown[]) => mockGenerateOpponentTurn(...args),
+    streamOpponentTurn: (...args: unknown[]) => mockStreamOpponentTurn(...args),
     evaluateSpeechArgument: (...args: unknown[]) => mockEvaluateSpeechArgument(...args),
     evaluateDebateRound: vi.fn(),
     evaluateDebateSession: vi.fn(),
@@ -180,6 +183,8 @@ describe("the preparation before Round 1 and the round announcements", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.stubEnv("VITE_AI_TURN_STREAM", "false"); // back to the suite default (setup.ts)
     vi.restoreAllMocks();
     vi.clearAllMocks();
   });
@@ -349,6 +354,19 @@ describe("the preparation before Round 1 and the round announcements", () => {
     expect(region.className).toContain("pointer-events-none");
   });
 
+  it("the banner is only a big line of text: no box, background, border or shadow around it", async () => {
+    await renderRoom("PRO");
+    await advance(60_000);
+
+    const banner = screen.getByTestId("round-banner");
+    expect(banner.tagName).toBe("P");
+    expect(banner.className).not.toMatch(/(bg-|border|rounded|shadow-2xl|px-|py-)/);
+    expect(banner.className).toContain("text-[#008A64]");
+    expect(banner.className).toContain("dark:text-emerald-400");
+    expect(banner.style.textShadow).not.toBe(""); // a soft text shadow keeps it readable on any background
+    expect(banner.className).toContain("animate-fade-in");
+  });
+
   it("Round 1 deadline = the end of the preparation + the turn time (also with a machine clock that is off)", async () => {
     machineOffsetMs = 5 * 60_000;
     vi.setSystemTime(SERVER_T0 + machineOffsetMs);
@@ -382,5 +400,104 @@ describe("the preparation before Round 1 and the round announcements", () => {
     expect((screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement).value).toBe("Luận điểm mở đầu.");
     expect(mockGetSessionDetails.mock.calls.length).toBeGreaterThan(callsBefore);
     expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
+  });
+
+  describe("the AI opens Round 1 while the preparation just ended (AI is PRO, the turn streams slowly)", () => {
+    let streamHandlers: OpponentTurnStreamHandlers;
+    let finishStream: (text: string) => void;
+
+    beforeEach(() => {
+      vi.stubEnv("VITE_AI_TURN_STREAM", "true");
+      mockStreamOpponentTurn.mockImplementation(
+        (_id: string, body: { turn_index: number }, handlers: OpponentTurnStreamHandlers) =>
+          new Promise((resolve) => {
+            streamHandlers = handlers;
+            finishStream = (text) =>
+              resolve({ turn_index: body.turn_index, round_type: "opening", mode: "opening_first", speech_text: text });
+          })
+      );
+    });
+
+    const OPENING = "Kính thưa ban giám khảo. Mình ủng hộ kiến nghị.";
+
+    it("asks for the opening once, shows it once, and never clears the text that is streaming", async () => {
+      await renderRoom("CON"); // the learner is CON: the AI (PRO) speaks first
+      await advance(60_000); // the preparation ends: isPreparing true -> false
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        streamHandlers.onAttempt?.(1, null);
+        streamHandlers.onDelta?.("Kính thưa ban giám khảo. ");
+      });
+      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
+
+      // The session is read again three times while the stream is not done: each one is a new sessionDetails object
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          hubCallbacks.onSessionStarted?.({});
+        });
+        await flush();
+        expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
+      }
+      await advance(3_000); // and the regular polling too
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
+
+      await act(async () => {
+        streamHandlers.onDelta?.("Mình ủng hộ kiến nghị.");
+        finishStream(OPENING);
+      });
+      await flush();
+
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
+      expect(screen.getAllByText(OPENING)).toHaveLength(1); // the opening is on screen once
+      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+    });
+
+    it("a failed opening can be asked for again with the retry button", async () => {
+      await renderRoom("CON");
+      await advance(60_000);
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
+
+      // The AI answers with no text: the opening fails
+      await act(async () => {
+        finishStream("   ");
+      });
+      await flush();
+      fireEvent.click(screen.getByTestId("retry-opponent-init-btn")); // (fake timers: no findBy)
+      await flush();
+
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(2);
+    });
+
+    it("RoundStarted during the AI's opening waits until the AI has finished writing", async () => {
+      await renderRoom("CON");
+      await advance(60_000);
+      await advance(3_000); // the Round 1 banner is gone
+      await act(async () => {
+        streamHandlers.onAttempt?.(1, null);
+        streamHandlers.onDelta?.("Kính thưa ban giám khảo. ");
+      });
+
+      await act(async () => {
+        hubCallbacks.onRoundStarted?.({
+          sessionId: 123,
+          roundNumber: 2,
+          totalRounds: 3,
+          roundLabel: "Phản biện",
+          startedAt: new Date(serverNow()).toISOString(),
+          currentTurnSide: "CON",
+        });
+      });
+      expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument(); // the AI is still writing
+      expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 2/3 – Phản biện"); // the label follows at once
+
+      await act(async () => {
+        finishStream(OPENING);
+      });
+      await flush();
+      expect(screen.getAllByTestId("round-banner")).toHaveLength(1);
+      expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 2 – Phản biện");
+    });
   });
 });
