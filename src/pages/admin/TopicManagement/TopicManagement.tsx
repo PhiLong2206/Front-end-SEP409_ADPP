@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import topicApi from "../../../api/topicApi";
 import { Topic, CreateTopicDto, UpdateTopicDto } from "../../../types";
+import { normalizeTopicCategory, TOPIC_CATEGORIES, topicCategoryLabel } from "../../../constants/topicCategories";
 
 const AdminTopicManagement: React.FC = () => {
   // Topics and Pagination state
@@ -54,23 +55,13 @@ const AdminTopicManagement: React.FC = () => {
   }>({
     title: "",
     description: "",
-    category: "Xã hội",
+    category: "",
     difficulty: "Medium",
     isActive: true,
   });
 
-  const categoriesList = [
-    "Xã hội",
-    "Giáo dục",
-    "Công nghệ",
-    "Kinh tế",
-    "Môi trường",
-    "Y tế & Sức khỏe",
-    "Triết học",
-    "Pháp luật",
-    "Nghệ thuật & Văn hóa",
-    "Chung",
-  ];
+  // The fixed categories: the option value is the code the backend stores, the text its label
+  const categoriesList = TOPIC_CATEGORIES;
 
   // Fetch topics from real backend API: GET /api/topics
   const fetchTopics = useCallback(async () => {
@@ -117,7 +108,7 @@ const AdminTopicManagement: React.FC = () => {
     setFormData({
       title: "",
       description: "",
-      category: "Xã hội",
+      category: "",
       difficulty: "Medium",
       isActive: true,
     });
@@ -130,7 +121,8 @@ const AdminTopicManagement: React.FC = () => {
     setFormData({
       title: t.title || "",
       description: t.description || "",
-      category: t.category || "Xã hội",
+      // an old topic outside the list ("General") shows no category: the admin must pick one
+      category: normalizeTopicCategory(t.category) ?? "",
       difficulty: t.difficulty || "Medium",
       isActive: t.isActive !== false,
     });
@@ -327,8 +319,8 @@ const AdminTopicManagement: React.FC = () => {
           >
             <option value="ALL">Tất cả danh mục</option>
             {categoriesList.map((c) => (
-              <option key={c} value={c}>
-                {c}
+              <option key={c.code} value={c.code}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -416,7 +408,7 @@ const AdminTopicManagement: React.FC = () => {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
-                          {topic.category || "Chung"}
+                          {topicCategoryLabel(topic.category)}
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
@@ -576,11 +568,16 @@ const AdminTopicManagement: React.FC = () => {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    required
+                    data-testid="topic-category-select"
                     className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
                   >
+                    <option value="" disabled>
+                      Chọn danh mục
+                    </option>
                     {categoriesList.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                      <option key={c.code} value={c.code}>
+                        {c.label}
                       </option>
                     ))}
                   </select>
@@ -680,11 +677,16 @@ const AdminTopicManagement: React.FC = () => {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    required
+                    data-testid="topic-category-select"
                     className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
                   >
+                    <option value="" disabled>
+                      Chọn danh mục
+                    </option>
                     {categoriesList.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                      <option key={c.code} value={c.code}>
+                        {c.label}
                       </option>
                     ))}
                   </select>

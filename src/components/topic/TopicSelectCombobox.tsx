@@ -12,6 +12,7 @@ import {
 import topicApi from "../../api/topicApi";
 import { Topic } from "../../types";
 import DifficultyBadge from "./DifficultyBadge";
+import { topicCategoryLabel } from "../../constants/topicCategories";
 
 export interface SelectedTopicOption {
   topicId: number;
@@ -150,7 +151,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
       (t) =>
         t.title.toLowerCase().includes(query) ||
         (t.description && t.description.toLowerCase().includes(query)) ||
-        (t.category && t.category.toLowerCase().includes(query))
+        (t.category && topicCategoryLabel(t.category).toLowerCase().includes(query))
     );
   }, [topics, searchTerm]);
 
@@ -263,7 +264,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                   </span>
                   {selectedTopic.category && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399] border border-emerald-200/70 dark:border-emerald-800/60">
-                      {selectedTopic.category}
+                      {topicCategoryLabel(selectedTopic.category)}
                     </span>
                   )}
                   {selectedTopic.difficulty && (
@@ -371,7 +372,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                               {topic.category && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                  {topic.category}
+                                  {topicCategoryLabel(topic.category)}
                                 </span>
                               )}
                               {topic.difficulty && (

@@ -21,6 +21,7 @@ import {
   Topic,
   PrepareDebateRequest,
 } from "../../../types";
+import { topicCategoryLabel } from "../../../constants/topicCategories";
 
 interface Props {
   isOpen: boolean;
@@ -319,7 +320,7 @@ const MatchDetailModal: React.FC<Props> = ({
                         const val = t.topicId ?? t.id;
                         return (
                           <option key={val} value={val}>
-                            [{t.category || "General"}] {t.title}
+                            [{topicCategoryLabel(t.category)}] {t.title}
                           </option>
                         );
                       })

@@ -4,6 +4,7 @@ import Badge from "../common/Badge";
 import DifficultyBadge from "./DifficultyBadge";
 import { Topic } from "../../types";
 import { BookOpen } from "lucide-react";
+import { topicCategoryLabel } from "../../constants/topicCategories";
 
 export interface TopicTableProps {
   topics: Topic[];
@@ -40,7 +41,7 @@ const TopicTable: React.FC<TopicTableProps> = ({ topics }) => {
                   <div className="text-xs text-slate-500 line-clamp-1 mt-0.5">{topic.motion}</div>
                 </td>
                 <td className="px-5 py-4 whitespace-nowrap">
-                  <Badge variant="primary" size="sm">{topic.category}</Badge>
+                  <Badge variant="primary" size="sm">{topicCategoryLabel(topic.category)}</Badge>
                 </td>
                 <td className="px-5 py-4 whitespace-nowrap">
                   <DifficultyBadge difficulty={topic.difficulty} />

@@ -8,6 +8,7 @@ import topicApi from "../../../api/topicApi";
 import { debateApi } from "../../../api";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 import AiVoicePicker from "../../../components/debate/AiVoicePicker";
+import { topicCategoryLabel } from "../../../constants/topicCategories";
 
 const TopicDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -144,7 +145,7 @@ const TopicDetail: React.FC = () => {
       {/* Main Topic Header Card */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center gap-2">
-          <Badge variant="primary" size="sm">{topic.category || "Chung"}</Badge>
+          <Badge variant="primary" size="sm">{topicCategoryLabel(topic.category)}</Badge>
           <DifficultyBadge difficulty={topic.difficulty} />
         </div>
 
