@@ -128,6 +128,8 @@ export interface CreateAiPracticeSessionRequest {
   topicId?: number;
   title: string;
   topic: string;
+  /** Category code (see constants/topicCategories), required by the backend when there is no topicId */
+  category?: string;
   userSide: SystemDebateSide | number;
   isAI?: boolean;
   difficulty?: string;
@@ -138,6 +140,8 @@ export interface CreateP2pSessionRequest {
   topicId?: number;
   title: string;
   topic: string;
+  /** Category code (see constants/topicCategories), required by the backend when there is no topicId */
+  category?: string;
   userSide: SystemDebateSide | number;
   isAI?: boolean;
   turnTimeLimitSeconds?: number;
@@ -285,6 +289,8 @@ export interface CreateChallengeRequest {
   challengedUserId: number;
   topicId?: number;
   topic: string;
+  /** Category code (see constants/topicCategories), required by the backend when there is no topicId */
+  category?: string;
   challengerPreferredSide: SystemDebateSide | number;
   turnTimeLimitSeconds?: number;
   expiresAt?: string;

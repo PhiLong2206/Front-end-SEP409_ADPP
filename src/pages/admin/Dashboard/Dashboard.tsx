@@ -21,6 +21,7 @@ import {
   User,
   Settings,
 } from "lucide-react";
+import { topicCategoryLabel } from "../../../constants/topicCategories";
 
 interface ServiceStatus {
   name: string;
@@ -614,7 +615,7 @@ const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium text-[11px]">
-                          {topic.category || "Chung"}
+                          {topicCategoryLabel(topic.category)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

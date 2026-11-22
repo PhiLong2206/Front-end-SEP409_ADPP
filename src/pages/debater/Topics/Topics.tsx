@@ -6,6 +6,7 @@ import Pagination from "../../../components/common/Pagination";
 import { Topic } from "../../../types";
 import { useDebounce } from "../../../hooks/useDebounce";
 import topicApi from "../../../api/topicApi";
+import { TOPIC_CATEGORIES, normalizeTopicCategory, topicCategoryLabel } from "../../../constants/topicCategories";
 
 const Topics: React.FC = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -17,16 +18,7 @@ const Topics: React.FC = () => {
 
   const debouncedSearch = useDebounce(searchTerm, 300);
 
-  const categories = [
-    "Tất cả",
-    "Xã hội",
-    "Giáo dục",
-    "Công nghệ",
-    "Môi trường",
-    "Kinh tế",
-    "Văn hóa",
-    "Triết học",
-  ];
+  const categories = ["Tất cả", ...TOPIC_CATEGORIES.map((c) => c.label)];
 
   const fetchTopics = async () => {
     setLoading(true);
@@ -61,7 +53,7 @@ const Topics: React.FC = () => {
 
       const matchCategory =
         selectedCategory === "Tất cả" ||
-        (topic.category && topic.category.toLowerCase() === selectedCategory.toLowerCase());
+        normalizeTopicCategory(topic.category) === normalizeTopicCategory(selectedCategory);
 
       return matchSearch && matchCategory;
     });
@@ -158,7 +150,7 @@ const Topics: React.FC = () => {
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 border border-emerald-200/80 text-[#008A64]">
-                      {topic.category || "Chung"}
+                      {topicCategoryLabel(topic.category)}
                     </span>
                     <DifficultyBadge difficulty={topic.difficulty} />
                   </div>

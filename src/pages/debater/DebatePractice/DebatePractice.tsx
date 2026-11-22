@@ -15,16 +15,18 @@ import { debateApi, topicApi } from "../../../api";
 import { Topic } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 import AiVoicePicker from "../../../components/debate/AiVoicePicker";
+import { TOPIC_CATEGORIES, topicCategoryLabel } from "../../../constants/topicCategories";
 
 type PracticeMode = "available" | "custom";
 type DebateRole = "PRO" | "CON";
 type AIDifficultyLevel = "Dễ" | "Trung bình" | "Khó";
 
-const QUICK_PROMPTS = [
-  "Trí tuệ nhân tạo (AI) nên được kiểm soát chặt chẽ bởi luật pháp quốc tế.",
-  "Nên cấm sử dụng điện thoại thông minh trong các trường phổ thông.",
-  "Năng lượng hạt nhân là giải pháp tất yếu để chống biến đổi khí hậu toàn cầu.",
-  "Làm việc từ xa (Remote work) mang lại hiệu quả cao hơn làm việc truyền thống.",
+// Each quick motion comes with its category (a custom motion must belong to one)
+const QUICK_PROMPTS: { text: string; category: string }[] = [
+  { text: "Trí tuệ nhân tạo (AI) nên được kiểm soát chặt chẽ bởi luật pháp quốc tế.", category: "technology" },
+  { text: "Nên cấm sử dụng điện thoại thông minh trong các trường phổ thông.", category: "education" },
+  { text: "Nên áp dụng tuần làm việc 4 ngày cho người lao động.", category: "society" },
+  { text: "Làm việc từ xa (Remote work) mang lại hiệu quả cao hơn làm việc truyền thống.", category: "society" },
 ];
 
 const DebatePractice: React.FC = () => {
@@ -44,6 +46,8 @@ const DebatePractice: React.FC = () => {
 
   // Mode 2: Custom Topic Input State
   const [customMotion, setCustomMotion] = useState("");
+  // The category of a custom motion (required: there is no "General" category)
+  const [customCategory, setCustomCategory] = useState("");
   const [validationError, setValidationError] = useState("");
 
   // Common Settings
@@ -78,7 +82,7 @@ const DebatePractice: React.FC = () => {
         title: t.title || "Chủ đề tranh biện",
         motion: t.motion || t.description || t.title || "",
         description: t.description || t.title || "",
-        category: t.category || "Chung",
+        category: t.category || "",
         difficulty: (t.difficulty === "Easy" ? "Dễ" : t.difficulty === "Hard" ? "Khó" : "Trung bình") as any,
         isActive: t.isActive ?? true,
         createdAt: t.createdAt || new Date().toISOString(),
@@ -97,7 +101,7 @@ const DebatePractice: React.FC = () => {
   const categories = useMemo(() => {
     const set = new Set<string>(["Tất cả"]);
     topics.forEach((t) => {
-      if (t.category) set.add(t.category);
+      set.add(topicCategoryLabel(t.category));
     });
     return Array.from(set);
   }, [topics]);
@@ -109,7 +113,7 @@ const DebatePractice: React.FC = () => {
         (t.title && t.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (t.motion && t.motion.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchCat =
-        selectedCategory === "Tất cả" || t.category === selectedCategory;
+        selectedCategory === "Tất cả" || topicCategoryLabel(t.category) === selectedCategory;
       return matchSearch && matchCat;
     });
   }, [topics, searchTerm, selectedCategory]);
@@ -138,6 +142,10 @@ const DebatePractice: React.FC = () => {
         setValidationError("Chủ đề tranh biện không được vượt quá 300 ký tự.");
         return false;
       }
+      if (!customCategory) {
+        setValidationError("Vui lòng chọn lĩnh vực cho chủ đề.");
+        return false;
+      }
     }
 
     return true;
@@ -163,7 +171,10 @@ const DebatePractice: React.FC = () => {
       difficulty === "Khó" ? "Hard" : difficulty === "Dễ" ? "Easy" : "Medium";
 
     try {
+      const listedTopicId = mode === "available" && selectedTopic ? Number(selectedTopic.id) : NaN;
       const res = await debateApi.createAiPracticeSession({
+        // a listed topic by its id (its category comes with it); a custom motion with the chosen category
+        ...(Number.isInteger(listedTopicId) && listedTopicId > 0 ? { topicId: listedTopicId } : { category: customCategory }),
         title: finalTitle,
         topic: finalMotion,
         userSide: role === "PRO" ? 1 : 2,
@@ -304,6 +315,31 @@ const DebatePractice: React.FC = () => {
               </span>
             </div>
 
+            <div className="space-y-1.5">
+              <label htmlFor="select-custom-category" className="text-sm font-bold text-slate-900 dark:text-[#F8FAFC]">
+                Lĩnh vực <span className="text-rose-500">*</span>
+              </label>
+              <select
+                id="select-custom-category"
+                data-testid="custom-category"
+                value={customCategory}
+                onChange={(e) => {
+                  setCustomCategory(e.target.value);
+                  if (validationError) setValidationError("");
+                }}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#091713] border border-slate-200 dark:border-[rgba(148,163,184,0.20)] rounded-xl text-sm font-medium text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/20"
+              >
+                <option value="" disabled>
+                  Chọn lĩnh vực của chủ đề
+                </option>
+                {TOPIC_CATEGORIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="relative">
               <textarea
                 id="textarea-custom-motion"
@@ -335,12 +371,13 @@ const DebatePractice: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => {
-                      setCustomMotion(prompt);
+                      setCustomMotion(prompt.text);
+                      setCustomCategory(prompt.category);
                       setValidationError("");
                     }}
                     className="text-xs px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-[#10231C] dark:hover:bg-[#153026] text-slate-700 dark:text-slate-300 transition-colors text-left border border-slate-200/60 dark:border-slate-700/40"
                   >
-                    {prompt}
+                    {prompt.text}
                   </button>
                 ))}
               </div>
@@ -476,7 +513,7 @@ const DebatePractice: React.FC = () => {
                         <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                              {item.category || "Chung"}
+                              {topicCategoryLabel(item.category)}
                             </span>
                             {item.difficulty && (
                               <span className="text-xs text-slate-400">

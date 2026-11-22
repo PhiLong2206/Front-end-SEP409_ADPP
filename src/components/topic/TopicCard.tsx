@@ -4,6 +4,7 @@ import Badge from "../common/Badge";
 import DifficultyBadge from "./DifficultyBadge";
 import { Topic } from "../../types";
 import { ArrowUpRight } from "lucide-react";
+import { topicCategoryLabel } from "../../constants/topicCategories";
 
 export interface TopicCardProps {
   topic: Topic;
@@ -33,7 +34,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, showImage = true }) => {
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div>
           <div className="flex items-center gap-1.5 mb-2">
-            <Badge variant="primary" size="sm">{topic.category}</Badge>
+            <Badge variant="primary" size="sm">{topicCategoryLabel(topic.category)}</Badge>
             <DifficultyBadge difficulty={topic.difficulty} />
           </div>
           <h3 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-[#008A64] transition-colors">
