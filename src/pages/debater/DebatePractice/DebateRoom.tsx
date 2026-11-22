@@ -12,6 +12,7 @@ import {
   Loader2,
   ArrowRight,
   Volume2,
+  SkipForward,
   VolumeX,
 } from "lucide-react";
 import DebateHeader from "../../../components/debate/DebateHeader";
@@ -52,11 +53,11 @@ import {
 } from "../../../utils/debatePreparation";
 import {
   pickSupportedAudioMimeType,
-  RAW_VOICE_AUDIO_CONSTRAINTS,
   RealtimeSttClient,
   RealtimeSttStatus,
   resolveTurnSpeechInput,
 } from "../../../services/realtimeStt";
+import { cameraConstraints, micConstraints, readStoredMediaChoice } from "../../../services/mediaDevices";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
@@ -372,6 +373,15 @@ const DebateRoom: React.FC = () => {
     speakerRef.current = null;
     setIsAiReadingAloud(false);
   }
+
+  /**
+   * The learner has read the AI turn already: stop the reading now, so their clock starts without waiting for the
+   * voice. Dropping the current turn marker keeps a voice that is not ready yet from starting to read it afterwards.
+   */
+  const skipAiReading = useCallback(() => {
+    currentAiTurnRef.current = null;
+    stopAllReading();
+  }, []);
 
   /** Remembers a reader until it is done, so stopAllReading can reach it, and so the clock waits for it. */
   function trackReader(reader: SentenceQueue) {
@@ -2251,22 +2261,27 @@ const DebateRoom: React.FC = () => {
     try {
       let stream: MediaStream;
       let hasVideo = false;
+      // The devices picked on the device check before the room (browser default when none)
+      const media = readStoredMediaChoice();
+      const audio = micConstraints(media.micDeviceId);
       try {
+        if (!media.cameraEnabled) throw new Error("camera switched off on the device check");
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 320 }, height: { ideal: 240 } },
-          audio: RAW_VOICE_AUDIO_CONSTRAINTS,
+          video: cameraConstraints(media.cameraDeviceId),
+          audio,
         });
         hasVideo = stream.getVideoTracks().length > 0;
-      } catch {
+      } catch (firstErr) {
         try {
+          if (!media.cameraEnabled) throw firstErr;
           stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: RAW_VOICE_AUDIO_CONSTRAINTS,
+            video: cameraConstraints(media.cameraDeviceId, false),
+            audio,
           });
           hasVideo = stream.getVideoTracks().length > 0;
         } catch (camErr) {
-          console.warn("Camera unavailable, falling back to microphone-only:", camErr);
-          stream = await navigator.mediaDevices.getUserMedia({ audio: RAW_VOICE_AUDIO_CONSTRAINTS });
+          if (media.cameraEnabled) console.warn("Camera unavailable, falling back to microphone-only:", camErr);
+          stream = await navigator.mediaDevices.getUserMedia({ audio });
           hasVideo = false;
         }
       }
@@ -3382,6 +3397,18 @@ const DebateRoom: React.FC = () => {
                   <span data-testid="ai-voice-current" className="text-xs text-slate-500 dark:text-slate-400">
                     Giọng: {currentVoiceLabel}
                   </span>
+                )}
+                {isAiReadingAloud && (
+                  <button
+                    type="button"
+                    onClick={skipAiReading}
+                    data-testid="skip-ai-reading-btn"
+                    title="Bạn đã đọc xong lập luận của AI: bỏ qua phần đọc to và sang lượt của bạn ngay"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#008A64] bg-[#ECFDF5] hover:bg-[#D1FAE5] dark:bg-emerald-950/30 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                  >
+                    <SkipForward size={14} aria-hidden="true" />
+                    Bỏ qua phần AI đọc
+                  </button>
                 )}
                 <button
                   type="button"

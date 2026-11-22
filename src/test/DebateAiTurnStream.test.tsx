@@ -243,6 +243,83 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     expect(spoken).toEqual([]);
   });
 
+  it("the learner can skip the AI's reading: the voice stops and the button goes away", async () => {
+    autoEnd = false; // the voice is still in the middle of a sentence when the learner skips
+    await renderRoom();
+
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Câu thứ nhất. Câu thứ hai ");
+    });
+    const skip = await screen.findByTestId("skip-ai-reading-btn");
+
+    synth.cancel.mockClear();
+    fireEvent.click(skip);
+
+    expect(synth.cancel).toHaveBeenCalled();
+    expect(screen.queryByTestId("skip-ai-reading-btn")).not.toBeInTheDocument();
+
+    // The rest of the turn is shown but never read after a skip
+    const spokenBefore = spoken.length;
+    await act(async () => {
+      handlers.onDelta?.("vẫn đang viết. ");
+      finishTurn("Câu thứ nhất. Câu thứ hai vẫn đang viết.");
+    });
+    expect(spoken.length).toBe(spokenBefore);
+  });
+
+  it("skipping the reading once the AI turn is written starts the learner's clock with the full time at once", async () => {
+    autoEnd = false; // the voice would still be reading
+    await renderRoom(); // learner CON: the AI (PRO) opens
+    const deadlineKey = "adpp_turn_deadline_stream-1_ai_r1_con";
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("AI mở đầu. ");
+      finishTurn("AI mở đầu.");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(sessionStorage.getItem(deadlineKey)).toBeNull(); // still being read: the learner's turn has not started
+
+    const before = Date.now();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("skip-ai-reading-btn"));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(screen.queryByTestId("skip-ai-reading-btn")).not.toBeInTheDocument();
+    const deadline = Number(sessionStorage.getItem(deadlineKey));
+    expect(deadline).toBeGreaterThanOrEqual(before + 135 * 1000 - 50);
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 135 * 1000);
+    expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("02:15");
+  });
+
+  it("skipping while the AI is still writing: the clock starts with the full time when the turn is done, and it is not read again", async () => {
+    autoEnd = false;
+    await renderRoom();
+    const deadlineKey = "adpp_turn_deadline_stream-1_ai_r1_con";
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      handlers.onDelta?.("Câu thứ nhất. Câu thứ hai ");
+    });
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("skip-ai-reading-btn"));
+    });
+    expect(sessionStorage.getItem(deadlineKey)).toBeNull(); // the AI is still writing: no learner turn yet
+    const spokenAfterSkip = spoken.length;
+
+    const before = Date.now();
+    await act(async () => {
+      handlers.onDelta?.("vẫn đang viết. ");
+      finishTurn("Câu thứ nhất. Câu thứ hai vẫn đang viết.");
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(spoken.length).toBe(spokenAfterSkip);
+    const deadline = Number(sessionStorage.getItem(deadlineKey));
+    expect(deadline).toBeGreaterThanOrEqual(before + 135 * 1000 - 50); // counted from the end of the turn, not earlier
+    expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("02:15");
+  });
+
   it("turning read-aloud on during the AI's turn reads that turn, from what is already written", async () => {
     localStorage.setItem("adpp.aiReadAloud", "off");
     await renderRoom();

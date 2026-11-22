@@ -4,7 +4,7 @@ import DebaterDashboard from "../pages/debater/Dashboard/Dashboard";
 import Topics from "../pages/debater/Topics/Topics";
 import TopicDetail from "../pages/debater/Topics/TopicDetail";
 import DebatePractice from "../pages/debater/DebatePractice/DebatePractice";
-import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
+import DebateRoomEntry from "../pages/debater/DebatePractice/DebateRoomEntry";
 import DebateResult from "../pages/debater/DebatePractice/DebateResult";
 import Debate1v1 from "../pages/debater/Debate1v1/Debate1v1";
 import Debate1v1Result from "../pages/debater/Debate1v1/Debate1v1Result";
@@ -26,7 +26,7 @@ const DebaterRoutes: React.FC = () => {
       <Route path="topics/:id" element={<TopicDetail />} />
       <Route path="debate" element={<DebatePractice />} />
       <Route path="debate-practice" element={<DebatePractice />} />
-      <Route path="debate/:sessionId" element={<DebateRoom />} />
+      <Route path="debate/:sessionId" element={<DebateRoomEntry />} />
       <Route path="debate/:sessionId/result" element={<DebateResult />} />
       <Route path="debate-1v1" element={<Debate1v1 />} />
       <Route path="debate-1v1/:matchId/result" element={<Debate1v1Result />} />
