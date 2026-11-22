@@ -220,7 +220,10 @@ export interface TurnDto {
   turnIndex?: number | null;
   timeLimitSeconds: number;
   status: BackendTurnStatus | number;
+  /** While the session is preparing it is the preparation end, i.e. the start of Round 1. */
   startedAt?: string;
+  /** "Mở đầu" | "Phản biện" | "Kết luận" */
+  roundLabel?: string;
 }
 
 export interface DebateSessionResponse {
@@ -243,6 +246,27 @@ export interface DebateSessionResponse {
   endedAt?: string;
   participants: ParticipantDto[];
   currentTurn?: TurnDto;
+  /** Preparation before Round 1 (every mode): 60 s. */
+  preparationSeconds?: number;
+  /** UTC ISO: the start of Round 1; null once there is no preparation. */
+  preparationEndsAt?: string | null;
+  isPreparing?: boolean;
+  /** Only true for an AI practice session that is still preparing. */
+  canSkipPreparation?: boolean;
+  totalRounds?: number;
+  /** UTC ISO: when the server built this response (to read the countdown on the server clock). */
+  serverTime?: string;
+}
+
+/** SignalR "RoundStarted": a new round began (Round 2 or 3, or preparation skipped). Not sent when the 60 s run out. */
+export interface RoundStartedEvent {
+  sessionId: number;
+  roundNumber: number;
+  totalRounds: number;
+  roundLabel: string;
+  startedAt: string;
+  currentTurnSide: "PRO" | "CON";
+  timestamp?: string;
 }
 
 export interface ArgumentDetailDto {

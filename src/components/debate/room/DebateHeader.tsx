@@ -8,6 +8,12 @@ export interface DebateHeaderProps {
   userRoleInRoom?: DebateRoleInRoom;
   debaterSide: "pro" | "con";
   currentRound: number;
+  /** Total rounds (3). */
+  totalRounds?: number;
+  /** "Mở đầu" | "Phản biện" | "Kết luận"; the header falls back to its own names. */
+  roundLabel?: string;
+  /** Before Round 1: the header says "Chuẩn bị" instead of a round. */
+  isPreparing?: boolean;
   secondsRemaining: number;
   canSpeak?: boolean;
   isTurnExpired?: boolean;
@@ -27,6 +33,9 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
   userRoleInRoom = "Debater",
   debaterSide,
   currentRound,
+  totalRounds = 3,
+  roundLabel,
+  isPreparing = false,
   secondsRemaining,
   canSpeak = false,
   isTurnExpired = false,
@@ -191,12 +200,10 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
                 : "bg-slate-100/90 dark:bg-[#13261E] border-slate-200/70 dark:border-slate-800"
             }`}
           >
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              Vòng {currentRound}/3
-              <span className="hidden md:inline font-normal text-slate-500 dark:text-slate-400">
-                {" "}
-                · {getRoundShortName(currentRound)}
-              </span>
+            <span data-testid="round-label" className="font-semibold text-slate-700 dark:text-slate-200">
+              {isPreparing
+                ? "Chuẩn bị"
+                : `Vòng ${currentRound}/${totalRounds} – ${roundLabel || getRoundShortName(currentRound)}`}
             </span>
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <span

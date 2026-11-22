@@ -147,6 +147,16 @@ const debateApi = {
   ): Promise<ApiResponse<DebateSessionResponse>> =>
     axiosClient.get(`/debate/${sessionId}`),
 
+  /**
+   * POST /api/Debate/{sessionId}/skip-preparation [Authorized]
+   * Ends the preparation before Round 1 at once (AI practice only; calling it again later still succeeds).
+   * Errors: 400 NOT_AI_SESSION, 403 NOT_PARTICIPANT, 409 SESSION_NOT_IN_PROGRESS.
+   */
+  skipPreparation: (
+    sessionId: number | string
+  ): Promise<ApiResponse<DebateSessionResponse>> =>
+    axiosClient.post(`/debate/${sessionId}/skip-preparation`),
+
   // Alias for getSessionDetails
   getSessionById: (
     id: number | string

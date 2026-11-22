@@ -1,6 +1,7 @@
 import { debateApi } from "../api";
 import { clearActiveDebateSession } from "../hooks/useDebateNavigationGuard";
 import { clearLocalOpponentSessionId } from "./opponentReadiness";
+import { ROUND_BANNER_PREFIX } from "./debatePreparation";
 
 export const DEADLINE_STORAGE_PREFIX = "adpp_turn_deadline_";
 export const EXPIRED_STORAGE_PREFIX = "adpp_turn_expired_";
@@ -24,6 +25,7 @@ export const clearDebateRoomStorage = (roomId: string): void => {
       COMPLETED_STORAGE_PREFIX,
       MESSAGES_STORAGE_PREFIX,
       DIFFICULTY_STORAGE_PREFIX,
+      ROUND_BANNER_PREFIX,
     ].forEach((prefix) => sessionStorage.removeItem(prefix + roomId));
     // Turn keys are `${roomId}_...`: the separator keeps room 1 from matching room 11
     const turnKeyPrefixes = [DEADLINE_STORAGE_PREFIX, EXPIRED_STORAGE_PREFIX].map((prefix) => `${prefix}${roomId}_`);

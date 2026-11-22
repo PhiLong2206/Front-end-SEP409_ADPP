@@ -38,6 +38,18 @@ import {
   voiceOptionLabel,
 } from "../../../services/speechOut";
 import { debateHubService } from "../../../services/debateHub";
+import type { RoundStartedEvent } from "../../../types/debate.types";
+import PreparationPanel from "../../../components/debate/room/PreparationPanel";
+import RoundBanner from "../../../components/debate/room/RoundBanner";
+import {
+  DEFAULT_TOTAL_ROUNDS,
+  hasShownRoundBanner,
+  markRoundBannerShown,
+  roundLabelOf,
+  secondsUntilServerTime,
+  serverClockOffsetMs,
+  serverTimeToLocalMs,
+} from "../../../utils/debatePreparation";
 import {
   pickSupportedAudioMimeType,
   RAW_VOICE_AUDIO_CONSTRAINTS,
@@ -85,7 +97,7 @@ import {
 import type { CreateTurnRequest, TurnResponse } from "../../../types";
 import { getErrorMessage } from "../../../utils/debateScoring";
 import { recordAiArgument } from "../../../utils/recordAiArgument";
-import { getDebateErrorMessage } from "../../../utils/debateErrors";
+import { getDebateErrorMessage, isPreparationInProgressError, PREPARATION_IN_PROGRESS_MESSAGE } from "../../../utils/debateErrors";
 import {
   getAiTurnsAfterLearnerTurn,
   getAiTurnsFromBackendState,
@@ -286,6 +298,17 @@ const DebateRoom: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+
+  // Preparation before Round 1: its clock is the server's (offset = server time - local time, from each response)
+  const [prepSecondsLeft, setPrepSecondsLeft] = useState(0);
+  const [prepClockExpired, setPrepClockExpired] = useState(false);
+  const [isSkippingPreparation, setIsSkippingPreparation] = useState(false);
+  const isSkippingPreparationRef = useRef(false);
+  const serverOffsetRef = useRef(0);
+  // The start of Round 1 on the server clock, kept after the preparation is over (the Round 1 deadline counts from it)
+  const roundOneStartIsoRef = useRef<string | null>(null);
+  const [roundBanner, setRoundBanner] = useState<{ round: number; label: string } | null>(null);
+  const [lastRoundEvent, setLastRoundEvent] = useState<{ round: number; label: string; totalRounds: number } | null>(null);
 
   // Synchronous locks to prevent duplicate sends, concurrent AI turns & premature timeout triggers
   const isSubmittingRef = useRef(false);
@@ -593,6 +616,18 @@ const DebateRoom: React.FC = () => {
           (sessionDetails.title.toLowerCase().includes("2 vs 2") ||
             sessionDetails.title.toLowerCase().includes("2v2"))))
   );
+  // The server says whether Round 1 has begun: the room stays locked until a response says so, not by its own clock
+  const isPreparing = Boolean(sessionDetails?.isPreparing);
+  const preparationEndsAt = sessionDetails?.preparationEndsAt ?? null;
+  // The round shown in the header: this side's round, or the one the server announced if that is further on
+  const totalRounds = sessionDetails?.totalRounds ?? lastRoundEvent?.totalRounds ?? DEFAULT_TOTAL_ROUNDS;
+  const displayRound = Math.min(Math.max(currentRound, lastRoundEvent?.round ?? 0), totalRounds);
+  const displayRoundLabel =
+    lastRoundEvent && lastRoundEvent.round === displayRound
+      ? lastRoundEvent.label
+      : sessionDetails?.currentTurn?.roundLabel && sessionDetails.currentTurn.turnOrder === displayRound
+      ? sessionDetails.currentTurn.roundLabel
+      : roundLabelOf(displayRound);
   const myParticipant = sessionDetails?.participants.find((p) => isSameUserId(p.userId, currentUserId));
   const isParticipant = Boolean(myParticipant);
   const queryRole = searchParams.get("role")?.toLowerCase();
@@ -731,7 +766,9 @@ const DebateRoom: React.FC = () => {
     aiSide === "pro" &&
     currentRound === 1 &&
     !hasOpponentSpokenInRound(1) &&
-    !isCurrentRoundTimedOut;
+    !isCurrentRoundTimedOut &&
+    // Not while the learner prepares: the AI opens only once Round 1 has begun
+    !isPreparing;
 
   // Keep session in waiting-for-opponent state after Debater speaks until AI Opponent response is recorded
   const isWaitingForOpponentInAiMode =
@@ -805,6 +842,7 @@ const DebateRoom: React.FC = () => {
 
   const canSpeak =
     userRoleInRoom === "Debater" &&
+    !isPreparing &&
     (isP2pOr2v2
       ? isMyP2pTurn && !isSubmitting && !EffectiveDebateCompleted && !EffectiveExpired
       : isDebaterTurnInAiMode);
@@ -815,6 +853,8 @@ const DebateRoom: React.FC = () => {
     ? "Bạn đang ở chế độ Giám sát/Khán giả theo dõi trận đấu (Read-only)."
     : EffectiveDebateCompleted
     ? "Đã hoàn thành 3 vòng tranh biện. Nhấn 'Nộp bài' ở góc trên để xem kết quả."
+    : isPreparing
+    ? "Đang trong thời gian chuẩn bị. Vòng 1 sẽ bắt đầu khi hết giờ chuẩn bị."
     : opponentInitFailed
     ? "Chưa kết nối được Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
     : opponentError === OPPONENT_SESSION_ID_ERROR
@@ -845,11 +885,27 @@ const DebateRoom: React.FC = () => {
     ? "Đang chờ lượt phát biểu của đối thủ..."
     : undefined;
 
+  /** Takes the server clock offset and the start of Round 1 from a session response. */
+  const syncServerClock = useCallback((data: DebateSessionResponse) => {
+    const offset = serverClockOffsetMs(data.serverTime);
+    if (offset !== null) serverOffsetRef.current = offset;
+    if (data.preparationEndsAt) {
+      // Preparation over while its planned end is still ahead of the server time: it was skipped, so Round 1 began
+      // when this response was built, not at the planned end
+      const skipped =
+        !data.isPreparing &&
+        Boolean(data.serverTime) &&
+        Date.parse(data.preparationEndsAt) > Date.parse(data.serverTime as string);
+      roundOneStartIsoRef.current = skipped ? (data.serverTime as string) : data.preparationEndsAt;
+    }
+  }, []);
+
   const loadBackendSession = useCallback(async (numId: number): Promise<DebateSessionResponse | null> => {
     try {
       const res = await debateApi.getSessionDetails(numId);
       if (res?.success && res.data) {
         setIsReconnecting(false);
+        syncServerClock(res.data);
         setSessionDetails(res.data);
         if (res.data.topic || res.data.title) {
           setMotionText(res.data.topic || res.data.title);
@@ -903,7 +959,7 @@ const DebateRoom: React.FC = () => {
       console.error("Error fetching session details:", e);
       return null;
     }
-  }, [isP2pOr2v2]);
+  }, [isP2pOr2v2, syncServerClock]);
 
   // Resolves to the loaded speeches, or null when the transcript could not be read.
   const loadBackendTranscript = useCallback(
@@ -1176,6 +1232,8 @@ const DebateRoom: React.FC = () => {
 
   const isCountdownActive =
     !isWaitingInLobby &&
+    // The preparation has its own clock: the speaking clock starts with Round 1
+    !isPreparing &&
     !EffectiveDebateCompleted &&
     !isSubmitting &&
     !isAiGenerating &&
@@ -1243,7 +1301,13 @@ const DebateRoom: React.FC = () => {
 
     let deadlineMs = readStoredNumber(DEADLINE_STORAGE_PREFIX + activeTurnKey);
     if (!deadlineMs || deadlineMs <= 0) {
-      deadlineMs = Date.now() + defaultDurationSec * 1000;
+      // The learner's Round 1 turn began when the preparation ended (on the server clock), not when this page opened.
+      // When the AI speaks first, the turn only begins after the AI has finished: that stays counted from now.
+      const roundOneStartMs =
+        currentRound === 1 && roundOneStartIsoRef.current && (isP2pOr2v2 || aiSide !== "pro")
+          ? serverTimeToLocalMs(roundOneStartIsoRef.current, serverOffsetRef.current)
+          : null;
+      deadlineMs = (roundOneStartMs ?? Date.now()) + defaultDurationSec * 1000;
       writeStoredValue(DEADLINE_STORAGE_PREFIX + activeTurnKey, String(deadlineMs));
     }
 
@@ -1337,6 +1401,97 @@ const DebateRoom: React.FC = () => {
     return () => clearTimeout(timer);
   }, [roomFeedback]);
 
+  // ── Round announcements: one banner per (session, round), also after a reload ──
+  const announceRound = useCallback(
+    (round: number, label?: string) => {
+      if (hasShownRoundBanner(sessionId, round)) return;
+      markRoundBannerShown(sessionId, round);
+      setRoundBanner({ round, label: label || roundLabelOf(round) });
+    },
+    [sessionId]
+  );
+
+  useEffect(() => {
+    if (!roundBanner) return;
+    const timer = setTimeout(() => setRoundBanner(null), 3000);
+    return () => clearTimeout(timer);
+  }, [roundBanner]);
+
+  // Round 1 begins when the preparation ends (the countdown, "Bắt đầu ngay", or the server saying so)
+  const wasPreparingRef = useRef(false);
+  useEffect(() => {
+    if (wasPreparingRef.current && !isPreparing) announceRound(1, roundLabelOf(1));
+    wasPreparingRef.current = isPreparing;
+  }, [isPreparing, announceRound]);
+
+  // The round changed on this side (AI practice moves on by itself; P2P follows the server)
+  const previousRoundRef = useRef(currentRound);
+  useEffect(() => {
+    const previous = previousRoundRef.current;
+    previousRoundRef.current = currentRound;
+    if (currentRound > previous && !isPreparing) announceRound(currentRound);
+  }, [currentRound, isPreparing, announceRound]);
+
+  // ── Preparation before Round 1, counted on the server clock ──
+  useEffect(() => {
+    if (!isPreparing || !preparationEndsAt) {
+      setPrepClockExpired(false);
+      return;
+    }
+    const tick = () => {
+      const left = secondsUntilServerTime(preparationEndsAt, serverOffsetRef.current);
+      setPrepSecondsLeft(left);
+      setPrepClockExpired(left <= 0);
+    };
+    tick();
+    const intervalId = setInterval(tick, 250);
+    return () => clearInterval(intervalId);
+  }, [isPreparing, preparationEndsAt]);
+
+  // The countdown is over: read the session again (it now has the Active turn) and keep asking until the server
+  // says Round 1 has begun, even when this machine's clock runs ahead of the server's
+  useEffect(() => {
+    if (!isPreparing || !prepClockExpired || !isBackendSession) return;
+    let inFlight = false;
+    const refresh = () => {
+      if (inFlight) return; // a slow answer must not pile up requests
+      inFlight = true;
+      void loadBackendSession(numSessionId).finally(() => {
+        inFlight = false;
+      });
+    };
+    refresh();
+    const intervalId = setInterval(refresh, 1000);
+    return () => clearInterval(intervalId);
+  }, [isPreparing, prepClockExpired, isBackendSession, numSessionId, loadBackendSession]);
+
+  // Another session in the same room component: nothing of the previous one's rounds carries over
+  useEffect(() => {
+    setLastRoundEvent(null);
+    setRoundBanner(null);
+  }, [sessionId]);
+
+  const handleSkipPreparation = useCallback(async () => {
+    if (!isBackendSession || isSkippingPreparationRef.current) return;
+    isSkippingPreparationRef.current = true;
+    setIsSkippingPreparation(true);
+    try {
+      const res = await debateApi.skipPreparation(numSessionId);
+      if (res?.success && res.data) {
+        syncServerClock(res.data);
+        setSessionDetails(res.data);
+      } else {
+        setRoomFeedback({ text: getDebateErrorMessage(res, "Không thể bỏ qua thời gian chuẩn bị."), type: "error" });
+      }
+    } catch (skipErr) {
+      setRoomFeedback({ text: getDebateErrorMessage(skipErr, "Không thể bỏ qua thời gian chuẩn bị."), type: "error" });
+      void loadBackendSession(numSessionId);
+    } finally {
+      isSkippingPreparationRef.current = false;
+      setIsSkippingPreparation(false);
+    }
+  }, [isBackendSession, numSessionId, syncServerClock, loadBackendSession]);
+
   // Real-time synchronization via SignalR for debate rooms
   useEffect(() => {
     if (!isBackendSession) return;
@@ -1414,6 +1569,11 @@ const DebateRoom: React.FC = () => {
           type: "success",
         });
       },
+      onRoundStarted: (data: RoundStartedEvent) => {
+        setLastRoundEvent({ round: data.roundNumber, label: data.roundLabel, totalRounds: data.totalRounds });
+        announceRound(data.roundNumber, data.roundLabel);
+        loadBackendSession(numSessionId);
+      },
       onSessionStatusChanged: (data) => {
         loadBackendSession(numSessionId);
         if (data.status === "Completed") {
@@ -1431,6 +1591,7 @@ const DebateRoom: React.FC = () => {
     currentUserId,
     loadBackendSession,
     loadBackendTranscript,
+    announceRound,
   ]);
 
   // Broadcast current user's live speaking status to other debaters in real-time
@@ -1561,7 +1722,8 @@ const DebateRoom: React.FC = () => {
 
         // After a reload the AI may already have spoken its opening: never ask for it again
         const aiAlreadyOpened = messagesRef.current.some((m) => m.speaker === "AI" && m.roundNumber === 1);
-        if (aiSide === "pro" && isMounted && !aiAlreadyOpened) {
+        // ...and not while the learner prepares (the Backend refuses a speech before Round 1 with 409)
+        if (aiSide === "pro" && isMounted && !aiAlreadyOpened && !isPreparing) {
           isAiGeneratingRef.current = true;
           setIsAiGenerating(true);
           try {
@@ -1637,6 +1799,7 @@ const DebateRoom: React.FC = () => {
     isBackendSession,
     numSessionId,
     sessionDetails,
+    isPreparing,
     EffectiveDebateCompleted,
     isTerminalBackendStatus,
   ]);
@@ -2336,6 +2499,10 @@ const DebateRoom: React.FC = () => {
     const currentText = opts.text?.trim() || argumentText.trim() || opts.fallbackText?.trim() || "";
     // Nothing said or written: the fallback notice stands in for the speech, and the AI is told it was a skipped turn
     const skippedTurn = !opts.text?.trim() && !argumentText.trim() && Boolean(opts.fallbackText?.trim());
+    if (isPreparing) {
+      setRoomFeedback({ text: PREPARATION_IN_PROGRESS_MESSAGE, type: "info" });
+      return;
+    }
     if (
       isSubmittingRef.current ||
       isAiGeneratingRef.current ||
@@ -2398,14 +2565,14 @@ const DebateRoom: React.FC = () => {
 
     // The Backend rejected (or could not receive) the argument: nothing was submitted, the user keeps
     // their text and the same turn (including its remaining time).
-    const abortSubmission = (message: string) => {
+    const abortSubmission = (message: string, type: "error" | "info" = "error") => {
       if (!isP2pOr2v2) {
         submittedRoundsRef.current.delete(roundAtSubmission);
       }
       if (previousDeadlineMs) {
         writeStoredValue(deadlineStorageKey, String(previousDeadlineMs));
       }
-      setRoomFeedback({ text: message, type: "error" });
+      setRoomFeedback({ text: message, type });
       setIsSubmitting(false);
       isSubmittingRef.current = false;
     };
@@ -2429,6 +2596,12 @@ const DebateRoom: React.FC = () => {
           setSessionDetails(res.data);
         }
       } catch (submitErr) {
+        if (isPreparationInProgressError(submitErr)) {
+          // Not a network error: Round 1 has not begun on the server. Keep the text and resync the session
+          abortSubmission(PREPARATION_IN_PROGRESS_MESSAGE, "info");
+          void loadBackendSession(numSessionId);
+          return;
+        }
         console.error("Error submitting argument:", submitErr);
         abortSubmission(getDebateErrorMessage(submitErr, "Lỗi khi nộp bài tranh biện. Vui lòng thử lại."));
         return;
@@ -2750,7 +2923,10 @@ const DebateRoom: React.FC = () => {
         mode={roomMode}
         userRoleInRoom={userRoleInRoom}
         debaterSide={debaterSide}
-        currentRound={currentRound}
+        currentRound={displayRound}
+        totalRounds={totalRounds}
+        roundLabel={displayRoundLabel}
+        isPreparing={isPreparing}
         secondsRemaining={secondsRemaining}
         canSpeak={canSpeak}
         isTurnExpired={EffectiveExpired}
@@ -2767,6 +2943,8 @@ const DebateRoom: React.FC = () => {
         onExit={() => requestExit("/debater/dashboard")}
         onSubmitDebate={handleFinishDebate}
       />
+
+      <RoundBanner text={roundBanner ? `Vòng ${roundBanner.round} – ${roundBanner.label}` : null} />
 
       {/* Reconnecting Indicator */}
       {isReconnecting && isDebateActivelyInProgress && (
@@ -3183,6 +3361,18 @@ const DebateRoom: React.FC = () => {
                     </p>
                   )}
               </div>
+            )}
+
+            {isPreparing && (
+              <PreparationPanel
+                secondsLeft={prepSecondsLeft}
+                isStarting={prepClockExpired}
+                motion={motionText}
+                side={userRoleInRoom === "Debater" && isParticipant ? debaterSide : null}
+                canSkip={Boolean(sessionDetails?.canSkipPreparation) && userRoleInRoom === "Debater"}
+                isSkipping={isSkippingPreparation}
+                onSkip={() => void handleSkipPreparation()}
+              />
             )}
 
             {!isP2pOr2v2 && (hasServerVoice || viVoice) && isAiTurnStreamEnabled() && (

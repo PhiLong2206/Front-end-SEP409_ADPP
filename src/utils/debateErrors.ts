@@ -1,3 +1,5 @@
+export const PREPARATION_IN_PROGRESS_MESSAGE = "Đang trong thời gian chuẩn bị";
+
 /** Error codes returned by the debate Backend in `errors.code` (/arguments and /ai-arguments). */
 const DEBATE_ERROR_MESSAGES: Record<string, string> = {
   INVALID_REQUEST: "Dữ liệu gửi lên không hợp lệ.",
@@ -10,6 +12,7 @@ const DEBATE_ERROR_MESSAGES: Record<string, string> = {
   SESSION_NOT_IN_PROGRESS: "Phiên tranh biện hiện không diễn ra.",
   SESSION_COMPLETED: "Phiên tranh biện đã kết thúc.",
   CONCURRENT_SUBMISSION: "Hệ thống đang xử lý một lượt khác, vui lòng thử lại.",
+  PREPARATION_IN_PROGRESS: PREPARATION_IN_PROGRESS_MESSAGE,
 };
 
 type ErrorLike = { message?: unknown; errors?: unknown } | null | undefined;
@@ -27,3 +30,7 @@ export function getDebateErrorMessage(error: unknown, fallback: string): string 
   }
   return fallback;
 }
+
+/** 409 PREPARATION_IN_PROGRESS: a speech was sent before Round 1 began. Not a network error: the room just resyncs. */
+export const isPreparationInProgressError = (error: unknown): boolean =>
+  getDebateErrorCode(error) === "PREPARATION_IN_PROGRESS";

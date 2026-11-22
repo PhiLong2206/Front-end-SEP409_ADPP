@@ -1,5 +1,6 @@
 import * as signalR from "@microsoft/signalr";
 import { getToken } from "../utils/token";
+import type { RoundStartedEvent } from "../types/debate.types";
 
 export interface UserJoinedEvent {
   sessionId: number;
@@ -69,6 +70,8 @@ export interface SessionStatusEvent {
   timestamp?: string;
 }
 
+export type { RoundStartedEvent } from "../types/debate.types";
+
 export interface DebateHubCallbacks {
   onUserJoined?: (data: UserJoinedEvent) => void;
   onUserLeft?: (data: UserLeftEvent) => void;
@@ -76,6 +79,7 @@ export interface DebateHubCallbacks {
   onLiveTranscriptUpdated?: (data: LiveTranscriptEvent) => void;
   onArgumentSubmitted?: (data: ArgumentSubmittedEvent) => void;
   onSessionStarted?: (data: unknown) => void;
+  onRoundStarted?: (data: RoundStartedEvent) => void;
   onSessionStatusChanged?: (data: SessionStatusEvent) => void;
 }
 
@@ -204,6 +208,10 @@ export class DebateHubService {
 
     this.connection.on("SessionStarted", (data: unknown) => {
       this.callbacks.onSessionStarted?.(data);
+    });
+
+    this.connection.on("RoundStarted", (data: RoundStartedEvent) => {
+      this.callbacks.onRoundStarted?.(data);
     });
 
     this.connection.on("SessionStatusChanged", (data: SessionStatusEvent) => {
