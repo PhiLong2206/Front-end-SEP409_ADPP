@@ -182,3 +182,24 @@ export function getOpponentErrorMessage(error: unknown, fallbackDetail = "lỗi 
     }
   }
 }
+
+export const OPPONENT_TURN_DEFAULT_ERROR =
+  "Không nhận được phản hồi từ Đối thủ AI (lỗi kết nối hoặc quá thời gian chờ). Vui lòng thử lại.";
+
+/** Message for a failed AI turn, chosen by the `code` the AI service reports; `fallback` is used when nothing specific is known. */
+export function opponentTurnErrorMessage(error: unknown, fallback: string = OPPONENT_TURN_DEFAULT_ERROR): string {
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  switch (code) {
+    case "side_flip":
+      return "Đối thủ AI viết lệch phe nhiều lần. Vui lòng bấm Thử lại.";
+    case "budget_exceeded":
+      return "Đối thủ AI phản hồi quá lâu. Vui lòng thử lại.";
+    case "truncated_max_tokens":
+    case "banned_phrase":
+    case "schema_validation":
+    case "invalid_json":
+      return "Đối thủ AI chưa tạo được bài nói hợp lệ. Vui lòng thử lại.";
+  }
+  if (errorStatus(error) === 504) return "Đối thủ AI phản hồi quá lâu. Vui lòng thử lại.";
+  return fallback;
+}

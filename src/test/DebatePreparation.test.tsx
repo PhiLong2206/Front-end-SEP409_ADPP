@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
 import type { DebateHubCallbacks } from "../services/debateHub";
-import type { OpponentTurnStreamHandlers } from "../services/opponentTurnStream";
+
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
@@ -198,7 +198,8 @@ describe("the preparation before Round 1 and the round announcements", () => {
     expect(screen.getByTestId("preparation-motion")).toHaveTextContent("Mạng xã hội có hại hơn lợi?");
     expect(screen.getByTestId("preparation-side")).toHaveTextContent("Phản đối (CON)");
     expect(screen.getByText("Vòng 1 – Mở đầu sắp bắt đầu")).toBeInTheDocument();
-    expect(screen.getByTestId("round-label")).toHaveTextContent("Chuẩn bị");
+    expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 1/3 · Mở đầu");
+    expect(screen.getByTestId("round-status-text")).toHaveTextContent("Thời gian chuẩn bị");
 
     expect(screen.getByLabelText("Lập luận của bạn")).toBeDisabled();
     expect(screen.getByLabelText("Gửi lập luận")).toBeDisabled();
@@ -206,7 +207,9 @@ describe("the preparation before Round 1 and the round announcements", () => {
 
     await advance(30_000);
     expect(screen.getByTestId("preparation-countdown")).toHaveTextContent("00:30");
-    expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
+    // The AI opening is written ahead while the learner prepares, but recorded and shown only after the minute
+    expect(mockSubmitAiArgument).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Lượt AI số/)).not.toBeInTheDocument();
     expect(mockSubmitArgument).not.toHaveBeenCalled();
   });
 
@@ -219,7 +222,7 @@ describe("the preparation before Round 1 and the round announcements", () => {
     expect(mockGetSessionDetails.mock.calls.length).toBeGreaterThan(callsBefore);
     expect(screen.queryByTestId("preparation-panel")).not.toBeInTheDocument();
     expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 1 – Mở đầu");
-    expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 1/3 – Mở đầu");
+    expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 1/3 · Mở đầu");
     expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(1); // the AI opened once the preparation was over
 
     await advance(3_000);
@@ -332,8 +335,10 @@ describe("the preparation before Round 1 and the round announcements", () => {
 
     expect(screen.getAllByTestId("round-banner")).toHaveLength(1);
     expect(screen.getByTestId("round-banner")).toHaveTextContent("Vòng 2 – Phản biện");
-    expect(screen.getByTestId("round-banner")).toHaveAttribute("class", expect.stringContaining("animate-fade-in"));
-    expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 2/3 – Phản biện");
+    expect(screen.getByTestId("round-status-bar")).toHaveAttribute("data-glow", "true"); // the bar glows...
+    await advance(1_000);
+    expect(screen.getByTestId("round-status-bar")).toHaveAttribute("data-glow", "false"); // ...for about a second
+    expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 2/3 · Phản biện");
 
     // The same round again (a repeated event, or a reload) is not announced twice
     await advance(3_000);
@@ -351,20 +356,19 @@ describe("the preparation before Round 1 and the round announcements", () => {
     const banner = screen.getByTestId("round-banner");
     const region = banner.parentElement!;
     expect(region).toHaveAttribute("aria-live", "polite");
-    expect(region.className).toContain("pointer-events-none");
+    expect(region.className).toContain("sr-only"); // read out, never drawn over the room (no floating text to block clicks)
   });
 
-  it("the banner is only a big line of text: no box, background, border or shadow around it", async () => {
+  it("a new round makes the status bar glow instead of a floating banner", async () => {
     await renderRoom("PRO");
     await advance(60_000);
 
-    const banner = screen.getByTestId("round-banner");
-    expect(banner.tagName).toBe("P");
-    expect(banner.className).not.toMatch(/(bg-|border|rounded|shadow-2xl|px-|py-)/);
-    expect(banner.className).toContain("text-[#008A64]");
-    expect(banner.className).toContain("dark:text-emerald-400");
-    expect(banner.style.textShadow).not.toBe(""); // a soft text shadow keeps it readable on any background
-    expect(banner.className).toContain("animate-fade-in");
+    const bar = screen.getByTestId("round-status-bar");
+    expect(bar).toHaveAttribute("data-glow", "true");
+    expect(bar.className).toContain("ring-4");
+    expect(screen.getByTestId("round-banner").className).not.toMatch(/(fixed|text-6xl|animate-fade-in)/);
+    await advance(1_000);
+    expect(bar).toHaveAttribute("data-glow", "false");
   });
 
   it("Round 1 deadline = the end of the preparation + the turn time (also with a machine clock that is off)", async () => {
@@ -399,19 +403,17 @@ describe("the preparation before Round 1 and the round announcements", () => {
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Đang trong thời gian chuẩn bị");
     expect((screen.getByLabelText("Lập luận của bạn") as HTMLTextAreaElement).value).toBe("Luận điểm mở đầu.");
     expect(mockGetSessionDetails.mock.calls.length).toBeGreaterThan(callsBefore);
-    expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
+    expect(mockSubmitAiArgument).not.toHaveBeenCalled();
   });
 
   describe("the AI opens Round 1 while the preparation just ended (AI is PRO, the turn streams slowly)", () => {
-    let streamHandlers: OpponentTurnStreamHandlers;
     let finishStream: (text: string) => void;
 
     beforeEach(() => {
       vi.stubEnv("VITE_AI_TURN_STREAM", "true");
       mockStreamOpponentTurn.mockImplementation(
-        (_id: string, body: { turn_index: number }, handlers: OpponentTurnStreamHandlers) =>
+        (_id: string, body: { turn_index: number }) =>
           new Promise((resolve) => {
-            streamHandlers = handlers;
             finishStream = (text) =>
               resolve({ turn_index: body.turn_index, round_type: "opening", mode: "opening_first", speech_text: text });
           })
@@ -420,43 +422,36 @@ describe("the preparation before Round 1 and the round announcements", () => {
 
     const OPENING = "Kính thưa ban giám khảo. Mình ủng hộ kiến nghị.";
 
-    it("asks for the opening once, shows it once, and never clears the text that is streaming", async () => {
+    it("writes the opening ahead during the preparation, then records and shows it once the minute is over (no second /turns)", async () => {
       await renderRoom("CON"); // the learner is CON: the AI (PRO) speaks first
-      await advance(60_000); // the preparation ends: isPreparing true -> false
-      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
-
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1); // written ahead, while the learner prepares
       await act(async () => {
-        streamHandlers.onAttempt?.(1, null);
-        streamHandlers.onDelta?.("Kính thưa ban giám khảo. ");
+        finishStream(OPENING);
       });
-      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
+      await flush();
+      expect(screen.queryByText(OPENING)).not.toBeInTheDocument(); // nothing is shown during the preparation
+      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+      expect(mockSubmitAiArgument).not.toHaveBeenCalled();
 
-      // The session is read again three times while the stream is not done: each one is a new sessionDetails object
+      await advance(60_000); // the preparation ends
+      expect(mockSubmitAiArgument).toHaveBeenCalledTimes(1);
+      expect(screen.getAllByText(OPENING)).toHaveLength(1);
+
+      // The session is read again and polled: the opening is neither asked for nor recorded again
       for (let i = 0; i < 3; i++) {
         await act(async () => {
           hubCallbacks.onSessionStarted?.({});
         });
         await flush();
-        expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
       }
-      await advance(3_000); // and the regular polling too
+      await advance(3_000);
       expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
-      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Kính thưa ban giám khảo.");
-
-      await act(async () => {
-        streamHandlers.onDelta?.("Mình ủng hộ kiến nghị.");
-        finishStream(OPENING);
-      });
-      await flush();
-
-      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
-      expect(screen.getAllByText(OPENING)).toHaveLength(1); // the opening is on screen once
-      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+      expect(mockSubmitAiArgument).toHaveBeenCalledTimes(1);
+      expect(screen.getAllByText(OPENING)).toHaveLength(1);
     });
 
     it("a failed opening can be asked for again with the retry button", async () => {
       await renderRoom("CON");
-      await advance(60_000);
       expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1);
 
       // The AI answers with no text: the opening fails
@@ -470,14 +465,22 @@ describe("the preparation before Round 1 and the round announcements", () => {
       expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(2);
     });
 
-    it("RoundStarted during the AI's opening waits until the AI has finished writing", async () => {
+    it("RoundStarted while the AI's opening is being recorded waits until the AI is done", async () => {
       await renderRoom("CON");
-      await advance(60_000);
-      await advance(3_000); // the Round 1 banner is gone
       await act(async () => {
-        streamHandlers.onAttempt?.(1, null);
-        streamHandlers.onDelta?.("Kính thưa ban giám khảo. ");
+        finishStream(OPENING); // written ahead
       });
+      await flush();
+      let release!: () => void;
+      mockSubmitAiArgument.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = () =>
+              resolve({ success: true, data: { turnIndex: 0, alreadyRecorded: false, argument: {}, session: sessionNow() } });
+          })
+      );
+      await advance(60_000); // the minute ends: the opening is recorded (slowly)
+      await advance(3_000); // the Round 1 banner is gone
 
       await act(async () => {
         hubCallbacks.onRoundStarted?.({
@@ -489,11 +492,11 @@ describe("the preparation before Round 1 and the round announcements", () => {
           currentTurnSide: "CON",
         });
       });
-      expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument(); // the AI is still writing
-      expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 2/3 – Phản biện"); // the label follows at once
+      expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument(); // the AI is still busy
+      expect(screen.getByTestId("round-label")).toHaveTextContent("Vòng 2/3 · Phản biện"); // the label follows at once
 
       await act(async () => {
-        finishStream(OPENING);
+        release();
       });
       await flush();
       expect(screen.getAllByTestId("round-banner")).toHaveLength(1);

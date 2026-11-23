@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Clock, Loader2, AlertTriangle, CheckCircle2, Mic } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle, CheckCircle2, Mic } from "lucide-react";
 import { DebateRoomMode, DebateRoleInRoom } from "../../../types";
 
 export interface DebateHeaderProps {
@@ -7,13 +7,7 @@ export interface DebateHeaderProps {
   mode: DebateRoomMode;
   userRoleInRoom?: DebateRoleInRoom;
   debaterSide: "pro" | "con";
-  currentRound: number;
-  /** Total rounds (3). */
-  totalRounds?: number;
-  /** "Mở đầu" | "Phản biện" | "Kết luận"; the header falls back to its own names. */
-  roundLabel?: string;
-  /** Before Round 1: the header says "Chuẩn bị" instead of a round. */
-  isPreparing?: boolean;
+  /** The seconds left of the learner's turn: only decides the "time is up" badge (the clock itself is in RoundStatusBar). */
   secondsRemaining: number;
   canSpeak?: boolean;
   isTurnExpired?: boolean;
@@ -32,10 +26,6 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
   mode,
   userRoleInRoom = "Debater",
   debaterSide,
-  currentRound,
-  totalRounds = 3,
-  roundLabel,
-  isPreparing = false,
   secondsRemaining,
   canSpeak = false,
   isTurnExpired = false,
@@ -48,30 +38,11 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
   onExit,
   onSubmitDebate,
 }) => {
-  const formatTimer = (seconds: number) => {
-    const safeSeconds = Math.max(0, seconds);
-    const mins = Math.floor(safeSeconds / 60);
-    const secs = safeSeconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const getRoundShortName = (round: number) => {
-    if (round === 1) return "Mở đầu";
-    if (round === 2) return "Phản biện";
-    return "Kết luận";
-  };
-
   const userSideLabel = debaterSide === "pro" ? "Ủng hộ (PRO)" : "Phản đối (CON)";
   const opponentSideLabel = debaterSide === "pro" ? "Phản đối (CON)" : "Ủng hộ (PRO)";
   const opponentLabel = mode === "ai" ? "AI" : "Đối thủ";
 
   const isOpponentActive = isAiGenerating || isSubmitting || isWaitingForOpponent;
-  const isLowTime =
-    !isDebateCompleted &&
-    !isTurnExpired &&
-    !isOpponentActive &&
-    secondsRemaining > 0 &&
-    secondsRemaining <= 30;
   const isZeroOrExpired =
     !isDebateCompleted &&
     (isTurnExpired || (secondsRemaining <= 0 && !isOpponentActive));
@@ -189,43 +160,8 @@ const DebateHeader: React.FC<DebateHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Current Round + Remaining Time + Submit Action (only when debate completion conditions are satisfied) */}
+        {/* Right: Submit Action (only when debate completion conditions are satisfied) */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          <div
-            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs transition-colors ${
-              isZeroOrExpired
-                ? "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/70"
-                : isLowTime
-                ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70"
-                : "bg-slate-100/90 dark:bg-[#13261E] border-slate-200/70 dark:border-slate-800"
-            }`}
-          >
-            <span data-testid="round-label" className="font-semibold text-slate-700 dark:text-slate-200">
-              {isPreparing
-                ? "Chuẩn bị"
-                : `Vòng ${currentRound}/${totalRounds} – ${roundLabel || getRoundShortName(currentRound)}`}
-            </span>
-            <span className="text-slate-300 dark:text-slate-700">|</span>
-            <span
-              data-testid="debate-countdown-timer"
-              className={`inline-flex items-center gap-1 font-mono font-semibold ${
-                isZeroOrExpired
-                  ? "text-rose-600 dark:text-rose-400"
-                  : isLowTime
-                  ? "text-amber-600 dark:text-amber-400 animate-pulse"
-                  : "text-[#008A64] dark:text-[#34D399]"
-              }`}
-              title={
-                isZeroOrExpired
-                  ? "Đã hết thời gian phát biểu"
-                  : "Thời gian còn lại của lượt phát biểu"
-              }
-            >
-              <Clock size={13} />
-              <span>{formatTimer(secondsRemaining)}</span>
-            </span>
-          </div>
-
           {(isDebateCompleted || userRoleInRoom === "Judge") && (
             <button
               type="button"

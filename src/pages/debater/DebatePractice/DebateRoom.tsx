@@ -12,7 +12,6 @@ import {
   Loader2,
   ArrowRight,
   Volume2,
-  SkipForward,
   VolumeX,
 } from "lucide-react";
 import DebateHeader from "../../../components/debate/DebateHeader";
@@ -41,7 +40,9 @@ import {
 import { debateHubService } from "../../../services/debateHub";
 import type { RoundStartedEvent } from "../../../types/debate.types";
 import PreparationPanel from "../../../components/debate/room/PreparationPanel";
-import RoundBanner from "../../../components/debate/room/RoundBanner";
+import RoomLoadingPanel from "../../../components/debate/room/RoomLoadingPanel";
+import { useSharedDeviceStream } from "./useSharedDeviceStream";
+import RoundStatusBar from "../../../components/debate/room/RoundStatusBar";
 import {
   DEFAULT_TOTAL_ROUNDS,
   hasShownRoundBanner,
@@ -57,7 +58,6 @@ import {
   RealtimeSttStatus,
   resolveTurnSpeechInput,
 } from "../../../services/realtimeStt";
-import { cameraConstraints, micConstraints, readStoredMediaChoice } from "../../../services/mediaDevices";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
 import {
@@ -112,6 +112,7 @@ import {
   getLocalOpponentSessionId,
   getOpponentErrorMessage,
   isLearnerSpeechMismatch,
+  opponentTurnErrorMessage,
   isPlanningConflict,
   isSessionDataConflict,
   normalizeMotion,
@@ -119,6 +120,15 @@ import {
   waitUntilOpponentReady,
   parseDifficulty,
 } from "../../../utils/opponentReadiness";
+
+/** The AI turn a reader speaks: `turn` is the marker object of that request, `stage` 1-3 (opening, rebuttal, closing). */
+interface ReaderMeta {
+  turn: object;
+  turnIndex: number | null;
+  stage: number;
+}
+
+const STAGE_NAMES = ["", "Mở đầu", "Phản biện", "Kết luận"];
 
 /** One AI turn of a chain that follows a learner turn (see getAiTurnsAfterLearnerTurn). */
 interface AiTurnContext {
@@ -336,9 +346,28 @@ const DebateRoom: React.FC = () => {
   const currentAiTurnRef = useRef<object | null>(null);
   const speakerRef = useRef<SentenceQueue | null>(null);
   // Every reader still speaking (an AI turn read out while the next AI turn already streams), to stop them all at once
-  const activeReadersRef = useRef<Set<SentenceQueue>>(new Set());
+  // (a Map: insertion order is reading order; each reader knows which AI turn it reads)
+  const activeReadersRef = useRef<Map<SentenceQueue, ReaderMeta>>(new Map());
+  // The turn the reader being heard belongs to (its stage names the "skip" button)
+  const [readingStage, setReadingStage] = useState<number | null>(null);
+  // Which AI turn owns the live text (and so the reader a late-started or re-enabled voice creates)
+  const liveTurnMetaRef = useRef<ReaderMeta | null>(null);
   // The AI is reading a turn aloud: the learner's clock waits, and starts afresh once the reading is over
   const [isAiReadingAloud, setIsAiReadingAloud] = useState(false);
+  // Why the AI reading last stopped: only a reading that ends by itself, or that the learner skips, restarts the
+  // preparation clock (a learner who starts recording, or turns read-aloud off, did not wait for the AI)
+  const stopReasonRef = useRef<"recording" | "skip" | "toggle" | null>(null);
+  // The AI just ended a round: the preparation minute restarts once its speech has been read (or skipped)
+  const [restartCandidate, setRestartCandidate] = useState<{ key: string } | null>(null);
+  const restartedKeysRef = useRef<Set<string>>(new Set());
+  // The restart-preparation request is in flight: the clock shows again once it answers
+  const [isRestartingPreparation, setIsRestartingPreparation] = useState(false);
+  // The AI's record was refused while the preparation runs (older Backend): it is sent again after the minute
+  const [isWaitingToRecordAi, setIsWaitingToRecordAi] = useState(false);
+  const recordWaitedKeysRef = useRef<Set<string>>(new Set());
+  const recordRetryTimerRef = useRef<number | null>(null);
+  const preparationEndsAtRef = useRef<string | null>(null);
+  const isAiPresentingRef = useRef(false);
   // Text of the AI turn streaming right now (null: none), so read-aloud turned on mid-turn can catch up
   const liveAiSpeechRef = useRef<string | null>(null);
   // The turn that owns the live text on screen: an older turn that ends late must not touch the newer turn's text
@@ -372,28 +401,53 @@ const DebateRoom: React.FC = () => {
 
   /** Stops every AI reading: the current turn and any earlier turn still being read out. */
   function stopAllReading() {
-    for (const reader of activeReadersRef.current) reader.abort();
+    for (const reader of activeReadersRef.current.keys()) reader.abort();
     activeReadersRef.current.clear();
     speakerRef.current = null;
     setIsAiReadingAloud(false);
+    setReadingStage(null);
+  }
+
+  /** Mirrors the reader list into state: is the AI being heard, and which part. */
+  function syncReadingState() {
+    if (unmountedRef.current) return;
+    const first = activeReadersRef.current.values().next().value as ReaderMeta | undefined;
+    setIsAiReadingAloud(Boolean(first));
+    setReadingStage(first ? first.stage : null);
   }
 
   /**
-   * The learner has read the AI turn already: stop the reading now, so their clock starts without waiting for the
-   * voice. Dropping the current turn marker keeps a voice that is not ready yet from starting to read it afterwards.
+   * The learner has read the part the AI is reading: skip only that part. The next one (the closing after the
+   * rebuttal) is held by its own reader and starts at once, because aborting a reader settles its whenDone().
    */
   const skipAiReading = useCallback(() => {
-    currentAiTurnRef.current = null;
-    stopAllReading();
+    const first = activeReadersRef.current.entries().next().value as [SentenceQueue, ReaderMeta] | undefined;
+    if (!first) {
+      // No voice yet (still loading): drop the turn marker so it does not start to read afterwards
+      stopReasonRef.current = "skip";
+      currentAiTurnRef.current = null;
+      stopAllReading();
+      return;
+    }
+    const [reader, meta] = first;
+    reader.abort();
+    activeReadersRef.current.delete(reader);
+    if (speakerRef.current === reader) speakerRef.current = null;
+    // The marker of a turn that is still being written (the closing) must stay: its voice is still to come
+    if (currentAiTurnRef.current === meta.turn) currentAiTurnRef.current = null;
+    // Only when nothing is left to read or write is this "the learner skipped it all"
+    if (activeReadersRef.current.size === 0 && !isAiGeneratingRef.current) stopReasonRef.current = "skip";
+    syncReadingState();
   }, []);
 
   /** Remembers a reader until it is done, so stopAllReading can reach it, and so the clock waits for it. */
-  function trackReader(reader: SentenceQueue) {
-    activeReadersRef.current.add(reader);
-    setIsAiReadingAloud(true);
+  function trackReader(reader: SentenceQueue, meta: ReaderMeta) {
+    activeReadersRef.current.set(reader, meta);
+    stopReasonRef.current = null;
+    syncReadingState();
     void reader.whenDone().then(() => {
-      activeReadersRef.current.delete(reader);
-      if (activeReadersRef.current.size === 0 && !unmountedRef.current) setIsAiReadingAloud(false);
+      if (!activeReadersRef.current.delete(reader)) return;
+      syncReadingState();
     });
   }
 
@@ -410,25 +464,42 @@ const DebateRoom: React.FC = () => {
     return browser;
   }, []);
 
+  /** Reads a speech that is already complete (the opening written ahead) after the voices are known. */
+  const readPreparedSpeech = useCallback(
+    async (text: string, meta: ReaderMeta) => {
+      if (!readAloudRef.current) return;
+      await voicesReadyRef.current;
+      if (!readAloudRef.current || unmountedRef.current) return;
+      const speaker = makeSpeaker();
+      if (!speaker) return;
+      speaker.push(text);
+      speaker.finish(text);
+      speakerRef.current = speaker;
+      trackReader(speaker, meta);
+    },
+    [makeSpeaker]
+  );
+
   const toggleReadAloud = useCallback(() => {
     const next = !readAloudRef.current;
     readAloudRef.current = next;
     setReadAloud(next);
     storeReadAloud(next);
     if (!next) {
+      stopReasonRef.current = "toggle";
       stopAllReading();
       return;
     }
     // Turned on while the AI is speaking: read this turn too, from what is already written, after any reading left
     const speaker = liveAiSpeechRef.current !== null ? makeSpeaker() : null;
     if (speaker && liveAiSpeechRef.current !== null) {
-      const stillReading = [...activeReadersRef.current];
+      const stillReading = [...activeReadersRef.current.keys()];
       if (stillReading.length > 0) {
         speaker.startAfter(Promise.all(stillReading.map((r) => r.whenDone())).then(() => undefined));
       }
       speaker.push(liveAiSpeechRef.current);
       speakerRef.current = speaker;
-      trackReader(speaker);
+      trackReader(speaker, liveTurnMetaRef.current ?? { turn: {}, turnIndex: null, stage: 1 });
     }
   }, [makeSpeaker]);
 
@@ -437,16 +508,29 @@ const DebateRoom: React.FC = () => {
    * Vietnamese voice and read-aloud on, is spoken sentence by sentence. A new attempt replaces the text so far.
    */
   const requestOpponentTurn = useCallback(
-    async (opponentId: string, request: CreateTurnRequest): Promise<TurnResponse> => {
+    async (
+      opponentId: string,
+      request: CreateTurnRequest,
+      opts?: { silent?: boolean }
+    ): Promise<TurnResponse> => {
       if (!isAiTurnStreamEnabled()) {
         return aiApi.generateOpponentTurn(opponentId, request);
       }
+      // Written ahead of its time (the opening, while the room loads): nothing is shown or read until it is recorded
+      if (opts?.silent) return aiApi.streamOpponentTurn(opponentId, request, {});
       // Read through a function: the reader changes while the turn streams (voices known, toggle)
       const reader = (): SentenceQueue | null => speakerRef.current;
       // The previous AI turn (rebuttal right before the closing) keeps reading; this turn's voice starts after it
       const previousDone = speakerRef.current?.whenDone() ?? Promise.resolve();
       speakerRef.current = null;
       const turn = {};
+      // The opponent turn index is 1-based: turns 1-2 are the opening, 3-4 the rebuttal, 5-6 the closing
+      const meta: ReaderMeta = {
+        turn,
+        turnIndex: request.turn_index,
+        stage: Math.min(3, Math.max(1, Math.ceil(request.turn_index / 2))),
+      };
+      liveTurnMetaRef.current = meta;
       currentAiTurnRef.current = turn;
       // speakerRef (not a local): created once the voices are known, and the read-aloud toggle may drop or create it
       void voicesReadyRef.current.then(() => {
@@ -457,7 +541,7 @@ const DebateRoom: React.FC = () => {
         speaker.startAfter(previousDone);
         if (liveAiSpeechRef.current) speaker.push(liveAiSpeechRef.current);
         speakerRef.current = speaker;
-        trackReader(speaker);
+        trackReader(speaker, meta);
       });
       // Only the turn that owns the live text may change it (a slow older turn ends after the newer one began)
       liveTurnRef.current = turn;
@@ -524,7 +608,7 @@ const DebateRoom: React.FC = () => {
   const [pendingAiTurn, setPendingAiTurn] = useState<AiTurnContext | null>(null);
 
   // Microservice & Assistant Panel states
-  const [, setAiOpponentStatus] = useState<string>("init");
+  const [aiOpponentStatus, setAiOpponentStatus] = useState<string>("init");
   const [opponentError, setOpponentError] = useState<string | null>(null);
   const [evaluatorError, setEvaluatorError] = useState<string | null>(null);
   const [casePlan, setCasePlan] = useState<CaseFileResponse | null>(null);
@@ -652,6 +736,20 @@ const DebateRoom: React.FC = () => {
   // The init effect only needs to know the session has loaded, not to run again on every poll of it
   const hasSessionDetails = Boolean(sessionDetails);
   const preparationEndsAt = sessionDetails?.preparationEndsAt ?? null;
+  preparationEndsAtRef.current = preparationEndsAt;
+  // AI practice, between rounds: while the AI is still writing or reading (also a second AI turn that follows at once)
+  // the minute has not started, so the room shows "AI đang trình bày…", has no clock and does not read the session
+  // (the old end of the minute passing must not start the next round). It shows again when restart-preparation answers.
+  const isAiPresenting =
+    isAiSession &&
+    isPreparing &&
+    (isAiGenerating ||
+      isAiReadingAloud ||
+      liveAiSpeech !== null ||
+      restartCandidate !== null ||
+      isRestartingPreparation ||
+      isWaitingToRecordAi);
+  isAiPresentingRef.current = isAiPresenting;
   // The round shown in the header: this side's round, or the one the server announced if that is further on
   const totalRounds = sessionDetails?.totalRounds ?? lastRoundEvent?.totalRounds ?? DEFAULT_TOTAL_ROUNDS;
   const displayRound = Math.min(Math.max(currentRound, lastRoundEvent?.round ?? 0), totalRounds);
@@ -933,9 +1031,29 @@ const DebateRoom: React.FC = () => {
     }
   }, []);
 
+  // One microphone/camera stream for the whole room: opened on entry, reused by every round, stopped on leaving
+  const devices = useSharedDeviceStream(isBackendSession);
+  // Read by loadBackendSession (a ref, so the callback and the effects built on it do not change with the devices)
+  // The AI speaks first (it is PRO): its opening is written while the room loads, and recorded when the minute ends
+  const [openingPrep, setOpeningPrep] = useState<"idle" | "writing" | "ready" | "error">("idle");
+  const preGeneratedOpeningRef = useRef<{ sessionId: string; text: string } | null>(null);
+  const preOpeningRequestedRef = useRef<string | null>(null);
+  const aiNeedsPreparedOpening = isAiSession && aiSide === "pro";
+  // The room is ready when the microphone is (or was skipped), the AI opponent has its plan and, if it speaks first,
+  // its opening is written: only then does the session (and its preparation minute) start
+  const roomReady = devices.devicesReady && opponentReady && (!aiNeedsPreparedOpening || openingPrep === "ready");
+  const roomReadyRef = useRef(false);
+  roomReadyRef.current = roomReady;
+
+  // Raised when the preparation clock is restarted: a session read started before then must not overwrite it
+  const sessionClockEpochRef = useRef(0);
+
   const loadBackendSession = useCallback(async (numId: number): Promise<DebateSessionResponse | null> => {
     try {
+      const epochAtRequest = sessionClockEpochRef.current;
       const res = await debateApi.getSessionDetails(numId);
+      // The preparation clock was restarted while this request was in flight: its answer is older, drop it
+      if (epochAtRequest !== sessionClockEpochRef.current) return null;
       if (res?.success && res.data) {
         setIsReconnecting(false);
         syncServerClock(res.data);
@@ -952,6 +1070,8 @@ const DebateRoom: React.FC = () => {
         if (
           serverHasAi &&
           (res.data.status === 1 || String(res.data.status) === "Waiting") &&
+          // The server's preparation clock runs from the start: begin only once the room is ready
+          roomReadyRef.current &&
           startRequestedSessionRef.current !== numId
         ) {
           startRequestedSessionRef.current = numId;
@@ -993,6 +1113,18 @@ const DebateRoom: React.FC = () => {
       return null;
     }
   }, [isP2pOr2v2, syncServerClock]);
+
+  // The devices became ready (or the learner chose to go on without a microphone): the session may start now
+  // (a load that finds the session already started by an earlier one does nothing, so this never starts it twice)
+  const isAiAwaitingStart =
+    isBackendSession &&
+    Boolean(sessionDetails?.participants?.some((p) => p.isAI)) &&
+    (sessionDetails?.status === 1 || String(sessionDetails?.status) === "Waiting");
+  useEffect(() => {
+    if (roomReady && isAiAwaitingStart) void loadBackendSession(numSessionId);
+  }, [roomReady, isAiAwaitingStart, numSessionId, loadBackendSession]);
+  const isAiAwaitingStartRef = useRef(false);
+  isAiAwaitingStartRef.current = isAiAwaitingStart;
 
   // Resolves to the loaded speeches, or null when the transcript could not be read.
   const loadBackendTranscript = useCallback(
@@ -1168,6 +1300,13 @@ const DebateRoom: React.FC = () => {
     (isLoadingBackendSession ||
       sessionDetails?.status === 1 ||
       String(sessionDetails?.status) === "Waiting");
+
+  // AI practice not started yet: the room first opens the microphone and camera, then starts the session
+  const isAiDeviceSetup =
+    isBackendSession &&
+    Boolean(sessionDetails) &&
+    isAiSession &&
+    (sessionDetails?.status === 1 || String(sessionDetails?.status) === "Waiting");
 
   const isTerminalBackendStatus =
     sessionDetails?.status === 3 ||
@@ -1395,6 +1534,7 @@ const DebateRoom: React.FC = () => {
     if (isTerminalBackendStatus || EffectiveDebateCompleted) return;
 
     const interval = setInterval(() => {
+      if (isAiPresentingRef.current) return;
       loadBackendSession(numSessionId);
       if (!isP2pOr2v2) return;
 
@@ -1480,9 +1620,41 @@ const DebateRoom: React.FC = () => {
     if (currentRound > previous && !isPreparing) announceRound(currentRound);
   }, [currentRound, isPreparing, announceRound]);
 
+  // The reading is over (by itself, or skipped), or there is none: ask the server to count the minute from now.
+  // A reading stopped by the learner recording, or by turning read-aloud off, does not restart it.
+  useEffect(() => {
+    if (!restartCandidate || isAiReadingAloud || isAiGenerating) return;
+    const { key } = restartCandidate;
+    setRestartCandidate(null);
+    const reason = stopReasonRef.current;
+    stopReasonRef.current = null;
+    if (reason === "recording" || reason === "toggle") return;
+    if (restartedKeysRef.current.has(key) || !isBackendSession || unmountedRef.current) return;
+    restartedKeysRef.current.add(key);
+    setIsRestartingPreparation(true);
+    void (async () => {
+      try {
+        // A request that never answers must not hide the clock for ever
+        const res = await Promise.race([
+          debateApi.restartPreparation(numSessionId),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("restart-preparation timed out")), 10_000)),
+        ]);
+        if (unmountedRef.current || !res?.success || !res.data) return;
+        sessionClockEpochRef.current += 1;
+        syncServerClock(res.data);
+        setSessionDetails(res.data);
+      } catch (restartErr) {
+        // The clock simply stays as the server last reported it
+        console.warn("Could not restart the preparation clock:", restartErr);
+      } finally {
+        if (!unmountedRef.current) setIsRestartingPreparation(false);
+      }
+    })();
+  }, [restartCandidate, isAiReadingAloud, isAiGenerating, isBackendSession, numSessionId, syncServerClock]);
+
   // ── Preparation before Round 1, counted on the server clock ──
   useEffect(() => {
-    if (!isPreparing || !preparationEndsAt) {
+    if (!isPreparing || !preparationEndsAt || isAiPresenting) {
       setPrepClockExpired(false);
       return;
     }
@@ -1494,7 +1666,7 @@ const DebateRoom: React.FC = () => {
     tick();
     const intervalId = setInterval(tick, 250);
     return () => clearInterval(intervalId);
-  }, [isPreparing, preparationEndsAt]);
+  }, [isPreparing, preparationEndsAt, isAiPresenting]);
 
   // The countdown is over: read the session again (it now has the Active turn) and keep asking until the server
   // says Round 1 has begun, even when this machine's clock runs ahead of the server's
@@ -1675,6 +1847,7 @@ const DebateRoom: React.FC = () => {
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
+      if (recordRetryTimerRef.current !== null) window.clearTimeout(recordRetryTimerRef.current);
       // The room's effects can still save state between the clear on leaving and this unmount
       if (clearedOnLeaveRef.current) {
         clearDebateRoomStorage(sessionId);
@@ -1773,6 +1946,43 @@ const DebateRoom: React.FC = () => {
 
         // After a reload the AI may already have spoken its opening: never ask for it again
         const aiAlreadyOpened = messagesRef.current.some((m) => m.speaker === "AI" && m.roundNumber === 1);
+        // The AI speaks first: while the session has not started, or the learner prepares, the opening is only
+        // written (kept in preGeneratedOpeningRef); it is recorded and shown once the minute is over
+        if (
+          aiSide === "pro" &&
+          isMounted &&
+          !aiAlreadyOpened &&
+          (isPreparing || isAiAwaitingStartRef.current) &&
+          preOpeningRequestedRef.current !== opponentSessionId &&
+          preGeneratedOpeningRef.current?.sessionId !== opponentSessionId
+        ) {
+          preOpeningRequestedRef.current = opponentSessionId;
+          setOpeningPrep("writing");
+          try {
+            const writtenRes = await retryWhilePlanning(
+              () =>
+                requestOpponentTurn(
+                  opponentSessionId,
+                  { turn_index: toOpponentTurnIndex(0), new_learner_speeches: [] },
+                  { silent: true }
+                ),
+              { isCancelled: () => unmountedRef.current }
+            );
+            const written = writtenRes?.speech_text?.trim();
+            if (!written) throw new Error("Đối thủ AI không trả về nội dung phản hồi hợp lệ.");
+            preGeneratedOpeningRef.current = { sessionId: opponentSessionId, text: written };
+            if (!unmountedRef.current) setOpeningPrep("ready");
+            // The minute may have ended while it was being written (a reload in the middle of the preparation):
+            // run the effect again so the opening is recorded now
+            if (!unmountedRef.current && !isAiAwaitingStartRef.current) setOpponentInitNonce((n) => n + 1);
+          } catch (writeErr) {
+            if (preOpeningRequestedRef.current === opponentSessionId) preOpeningRequestedRef.current = null;
+            if (!unmountedRef.current) setOpeningPrep("error");
+            openingFailed = true;
+            throw writeErr;
+          }
+          return;
+        }
         // ...and not while the learner prepares (the Backend refuses a speech before Round 1 with 409)
         // ...and not twice: this effect runs again whenever the session is read, while the first request still streams
         if (
@@ -1780,6 +1990,7 @@ const DebateRoom: React.FC = () => {
           isMounted &&
           !aiAlreadyOpened &&
           !isPreparing &&
+          !isAiAwaitingStartRef.current &&
           openingRequestedRef.current !== opponentSessionId &&
           !isAiGeneratingRef.current
         ) {
@@ -1790,14 +2001,21 @@ const DebateRoom: React.FC = () => {
           // result is shown unless the room is gone or another opponent session took over
           const stillThisOpening = () => !unmountedRef.current && openingRequestedRef.current === opponentSessionId;
           try {
-            const firstTurnRes = await retryWhilePlanning(
-              () =>
-                requestOpponentTurn(opponentSessionId, {
-                  turn_index: toOpponentTurnIndex(0),
-                  new_learner_speeches: [],
-                }),
-              { isCancelled: () => unmountedRef.current }
-            );
+            // Written ahead while the room loaded: use it, /turns is not called again
+            const written =
+              preGeneratedOpeningRef.current?.sessionId === opponentSessionId
+                ? preGeneratedOpeningRef.current.text
+                : null;
+            const firstTurnRes = written
+              ? { speech_text: written }
+              : await retryWhilePlanning(
+                  () =>
+                    requestOpponentTurn(opponentSessionId, {
+                      turn_index: toOpponentTurnIndex(0),
+                      new_learner_speeches: [],
+                    }),
+                  { isCancelled: () => unmountedRef.current }
+                );
             const speechText = firstTurnRes?.speech_text?.trim();
             if (!speechText) {
               throw new Error("Đối thủ AI không trả về nội dung phản hồi hợp lệ.");
@@ -1825,6 +2043,7 @@ const DebateRoom: React.FC = () => {
               setMessages((prev) =>
                 prev.some((m) => m.speaker === "AI" && m.roundNumber === 1) ? prev : prev.length === 0 ? [aiFirstMsg] : prev
               );
+              if (written) void readPreparedSpeech(speechText, { turn: {}, turnIndex: 1, stage: 1 });
             }
           } catch (openingErr) {
             if (openingRequestedRef.current === opponentSessionId) openingRequestedRef.current = null;
@@ -1844,7 +2063,11 @@ const DebateRoom: React.FC = () => {
           } else {
             setOpponentInitFailed(true);
           }
-          setOpponentError(getOpponentErrorMessage(initErr));
+          setOpponentError(
+            openingFailed
+              ? opponentTurnErrorMessage(initErr, getOpponentErrorMessage(initErr))
+              : getOpponentErrorMessage(initErr)
+          );
         }
       }
     };
@@ -2019,6 +2242,7 @@ const DebateRoom: React.FC = () => {
 
       inFlightTurnIndexRef.current = ctx.aiTurnIndex;
       isAiGeneratingRef.current = true;
+      stopReasonRef.current = null;
       setIsAiGenerating(true);
       setOpponentError(null);
 
@@ -2057,9 +2281,7 @@ const DebateRoom: React.FC = () => {
             // Keep session in waiting-for-opponent state on error/timeout — do NOT mark round or debate complete
             // and never substitute a simulated opponent speech.
             setPendingAiTurn(ctx);
-            setOpponentError(
-              "Không nhận được phản hồi từ Đối thủ AI (lỗi kết nối hoặc quá thời gian chờ). Vui lòng thử lại."
-            );
+            setOpponentError(opponentTurnErrorMessage(turnErr));
             return;
           }
         }
@@ -2072,6 +2294,26 @@ const DebateRoom: React.FC = () => {
             text: speechText,
           });
         } catch (recordErr) {
+          // Older Backend: the AI's turn is refused while the preparation runs. Not an error: wait for the end of the
+          // minute (server clock + 1 s) and record again, once
+          const waitKey = `${numSessionId}:${ctx.aiTurnIndex}`;
+          if (isPreparationInProgressError(recordErr) && !recordWaitedKeysRef.current.has(waitKey)) {
+            recordWaitedKeysRef.current.add(waitKey);
+            const endsAt = preparationEndsAtRef.current;
+            const waitMs =
+              (endsAt ? Math.max(0, secondsUntilServerTime(endsAt, serverOffsetRef.current)) * 1000 : 0) + 1000;
+            setPendingAiTurn(null);
+            setPendingAiRecord({ ctx, speechText });
+            setIsWaitingToRecordAi(true);
+            if (recordRetryTimerRef.current !== null) window.clearTimeout(recordRetryTimerRef.current);
+            recordRetryTimerRef.current = window.setTimeout(() => {
+              recordRetryTimerRef.current = null;
+              if (unmountedRef.current) return;
+              setIsWaitingToRecordAi(false);
+              void runAiTurn(ctx, speechText);
+            }, waitMs);
+            return;
+          }
           console.error("Error recording AI turn:", recordErr);
           // The speech is already generated: retry ONLY this step, never /turns again
           setPendingAiTurn(null);
@@ -2104,6 +2346,10 @@ const DebateRoom: React.FC = () => {
           };
         } else {
           advanceToNextRoundOrComplete(ctx.learnerRound);
+          // A round ended with this AI speech (not the whole debate): its minute of preparation starts after the reading
+          if (isBackendSession && ctx.learnerRound < 3) {
+            setRestartCandidate({ key: `${numSessionId}:${ctx.aiTurnIndex}` });
+          }
         }
       } finally {
         inFlightTurnIndexRef.current = null;
@@ -2142,10 +2388,8 @@ const DebateRoom: React.FC = () => {
       void audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
     }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
+    // The tracks belong to the shared device stream (useSharedDeviceStream): only this recording lets go of them
+    mediaStreamRef.current = null;
     if (realtimeSttRef.current) {
       realtimeSttRef.current.disconnectImmediate();
       realtimeSttRef.current = null;
@@ -2163,6 +2407,22 @@ const DebateRoom: React.FC = () => {
       stopMediaCaptureResources();
     };
   }, [stopMediaCaptureResources]);
+
+  // The debate is over: give the microphone and camera back
+  const releaseDevices = devices.release;
+  useEffect(() => {
+    if (EffectiveDebateCompleted) releaseDevices();
+  }, [EffectiveDebateCompleted, releaseDevices]);
+
+  // A device vanished mid-debate (unplugged, permission revoked): the next recording opens it again
+  useEffect(() => {
+    if (devices.deviceLost) {
+      setRoomFeedback({
+        text: "Micro hoặc camera vừa bị ngắt. Lần ghi âm tiếp theo sẽ mở lại thiết bị.",
+        type: "warning",
+      });
+    }
+  }, [devices.deviceLost]);
 
   const captureAndAnalyzeWebcamFrame = useCallback(async () => {
     const video = videoPreviewRef.current;
@@ -2316,33 +2576,13 @@ const DebateRoom: React.FC = () => {
 
     // Start recording (Webcam + Microphone, fallback to Microphone-only if camera unavailable)
     // The AI must not keep talking into the learner's microphone
+    stopReasonRef.current = "recording";
     stopAllReading();
     try {
-      let stream: MediaStream;
-      let hasVideo = false;
-      // The devices picked on the device check before the room (browser default when none)
-      const media = readStoredMediaChoice();
-      const audio = micConstraints(media.micDeviceId);
-      try {
-        if (!media.cameraEnabled) throw new Error("camera switched off on the device check");
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: cameraConstraints(media.cameraDeviceId),
-          audio,
-        });
-        hasVideo = stream.getVideoTracks().length > 0;
-      } catch (firstErr) {
-        try {
-          if (!media.cameraEnabled) throw firstErr;
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: cameraConstraints(media.cameraDeviceId, false),
-            audio,
-          });
-          hasVideo = stream.getVideoTracks().length > 0;
-        } catch (camErr) {
-          if (media.cameraEnabled) console.warn("Camera unavailable, falling back to microphone-only:", camErr);
-          stream = await navigator.mediaDevices.getUserMedia({ audio });
-          hasVideo = false;
-        }
+      // The shared stream opened on entering the room; opened again only when it is missing or its tracks ended
+      const { stream, hasVideo, reopened } = await devices.acquire();
+      if (reopened) {
+        setRoomFeedback({ text: "Micro hoặc camera đã được mở lại cho lần ghi âm này.", type: "warning" });
       }
 
       mediaStreamRef.current = stream;
@@ -2479,7 +2719,7 @@ const DebateRoom: React.FC = () => {
         setIsAnalyzingMultimodal(false);
       }
     }
-  }, [captureAndAnalyzeWebcamFrame, isRecording, stopMediaCaptureResources]);
+  }, [captureAndAnalyzeWebcamFrame, devices.acquire, isRecording, stopMediaCaptureResources]);
 
   const handleRunSampleMultimodal = useCallback(async () => {
     stopMediaCaptureResources();
@@ -2997,10 +3237,6 @@ const DebateRoom: React.FC = () => {
         mode={roomMode}
         userRoleInRoom={userRoleInRoom}
         debaterSide={debaterSide}
-        currentRound={displayRound}
-        totalRounds={totalRounds}
-        roundLabel={displayRoundLabel}
-        isPreparing={isPreparing}
         secondsRemaining={secondsRemaining}
         canSpeak={canSpeak}
         isTurnExpired={EffectiveExpired}
@@ -3018,7 +3254,31 @@ const DebateRoom: React.FC = () => {
         onSubmitDebate={handleFinishDebate}
       />
 
-      <RoundBanner text={roundBanner ? `Vòng ${roundBanner.round} – ${roundBanner.label}` : null} />
+      {!isAiDeviceSetup && !isWaitingInLobby && !isLoadingBackendSession && (
+        <RoundStatusBar
+          round={displayRound}
+          totalRounds={totalRounds}
+          roundLabel={displayRoundLabel}
+          isPreparing={isPreparing}
+          isPrepStarting={prepClockExpired}
+          prepSecondsLeft={prepSecondsLeft}
+          secondsRemaining={secondsRemaining}
+          isAiWriting={!isP2pOr2v2 && (isAiGenerating || isWaitingForAiFirstTurn || liveAiSpeech !== null)}
+          isAiPresenting={isAiPresenting}
+          canSpeak={canSpeak}
+          isExpired={EffectiveExpired}
+          isCompleted={EffectiveDebateCompleted}
+          isWaitingForOpponent={isP2pOr2v2 ? !isMyP2pTurn : isWaitingForOpponentInAiMode}
+          canSkipPreparation={Boolean(sessionDetails?.canSkipPreparation) && userRoleInRoom === "Debater"}
+          isSkippingPreparation={isSkippingPreparation}
+          onSkipPreparation={() => void handleSkipPreparation()}
+          readingPartName={
+            !isP2pOr2v2 && isAiReadingAloud ? (readingStage ? STAGE_NAMES[readingStage] : "AI đọc") : null
+          }
+          onSkipReading={skipAiReading}
+          announcedRound={roundBanner}
+        />
+      )}
 
       {/* Reconnecting Indicator */}
       {isReconnecting && isDebateActivelyInProgress && (
@@ -3437,15 +3697,44 @@ const DebateRoom: React.FC = () => {
               </div>
             )}
 
+            {isAiDeviceSetup && (
+              <RoomLoadingPanel
+                phase={devices.phase}
+                stream={devices.stream}
+                hasVideo={devices.hasVideo}
+                micError={devices.micError}
+                cameraError={devices.cameraError}
+                softTimedOut={devices.softTimedOut}
+                onRetryDevices={devices.retry}
+                onContinueWithoutMic={devices.skip}
+                opponentState={
+                  opponentReady
+                    ? "done"
+                    : aiOpponentStatus === "error"
+                    ? "error"
+                    : aiOpponentStatus === "planning"
+                    ? "loading"
+                    : "waiting"
+                }
+                openingState={
+                  !aiNeedsPreparedOpening
+                    ? null
+                    : openingPrep === "ready"
+                    ? "done"
+                    : openingPrep === "error"
+                    ? "error"
+                    : openingPrep === "writing"
+                    ? "loading"
+                    : "waiting"
+                }
+                onRetryOpponent={() => setOpponentInitNonce((n) => n + 1)}
+              />
+            )}
+
             {isPreparing && (
               <PreparationPanel
-                secondsLeft={prepSecondsLeft}
-                isStarting={prepClockExpired}
                 motion={motionText}
                 side={userRoleInRoom === "Debater" && isParticipant ? debaterSide : null}
-                canSkip={Boolean(sessionDetails?.canSkipPreparation) && userRoleInRoom === "Debater"}
-                isSkipping={isSkippingPreparation}
-                onSkip={() => void handleSkipPreparation()}
               />
             )}
 
@@ -3456,18 +3745,6 @@ const DebateRoom: React.FC = () => {
                   <span data-testid="ai-voice-current" className="text-xs text-slate-500 dark:text-slate-400">
                     Giọng: {currentVoiceLabel}
                   </span>
-                )}
-                {isAiReadingAloud && (
-                  <button
-                    type="button"
-                    onClick={skipAiReading}
-                    data-testid="skip-ai-reading-btn"
-                    title="Bạn đã đọc xong lập luận của AI: bỏ qua phần đọc to và sang lượt của bạn ngay"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#008A64] bg-[#ECFDF5] hover:bg-[#D1FAE5] dark:bg-emerald-950/30 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
-                  >
-                    <SkipForward size={14} aria-hidden="true" />
-                    Bỏ qua phần AI đọc
-                  </button>
                 )}
                 <button
                   type="button"

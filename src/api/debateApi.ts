@@ -157,6 +157,16 @@ const debateApi = {
   ): Promise<ApiResponse<DebateSessionResponse>> =>
     axiosClient.post(`/debate/${sessionId}/skip-preparation`),
 
+  /**
+   * POST /api/Debate/{sessionId}/restart-preparation [Authorized]
+   * AI practice: counts the preparation between rounds from now (the AI has finished reading), once per AI turn.
+   * The server changes nothing when the AI has not just ended a round, or the minute is still whole.
+   */
+  restartPreparation: (
+    sessionId: number | string
+  ): Promise<ApiResponse<DebateSessionResponse>> =>
+    axiosClient.post(`/debate/${sessionId}/restart-preparation`),
+
   // Alias for getSessionDetails
   getSessionById: (
     id: number | string

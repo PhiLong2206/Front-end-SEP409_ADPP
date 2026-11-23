@@ -85,3 +85,41 @@ export function mediaErrorMessage(err: unknown, device: "mic" | "camera"): strin
     return `${what === "micro" ? "Micro" : "Camera"} đang bị ứng dụng khác dùng (Zoom, Meet, ...). Hãy tắt ứng dụng đó rồi thử lại.`;
   return `Không mở được ${what}.`;
 }
+
+export interface OpenedMedia {
+  stream: MediaStream;
+  hasVideo: boolean;
+  /** Why the camera could not be used (undefined: it works, or the learner switched it off). */
+  cameraError?: unknown;
+}
+
+/**
+ * Opens the devices picked on the device check: microphone + camera, then microphone only when the camera is off or
+ * unavailable. Rejects only when not even the microphone can be opened.
+ */
+export async function openMediaStream(): Promise<OpenedMedia> {
+  const devices = navigator.mediaDevices;
+  if (!devices?.getUserMedia) throw Object.assign(new Error("getUserMedia is not available"), { name: "NotFoundError" });
+  const media = readStoredMediaChoice();
+  const audio = micConstraints(media.micDeviceId);
+  let cameraError: unknown;
+  if (media.cameraEnabled) {
+    for (const small of [true, false]) {
+      try {
+        const stream = await devices.getUserMedia({ video: cameraConstraints(media.cameraDeviceId, small), audio });
+        return { stream, hasVideo: stream.getVideoTracks().length > 0 };
+      } catch (err) {
+        cameraError = err;
+      }
+    }
+    console.warn("Camera unavailable, falling back to microphone-only:", cameraError);
+  }
+  const stream = await devices.getUserMedia({ audio });
+  return { stream, hasVideo: false, cameraError };
+}
+
+/** A track that can still deliver media (tolerates track objects without a readyState). */
+export const isTrackLive = (track: MediaStreamTrack): boolean => track.readyState !== "ended";
+
+export const hasLiveAudio = (stream: MediaStream | null | undefined): boolean =>
+  Boolean(stream && stream.getAudioTracks().some(isTrackLive));

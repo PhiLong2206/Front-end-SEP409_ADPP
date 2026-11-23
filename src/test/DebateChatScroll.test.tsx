@@ -110,3 +110,22 @@ describe("DebateChat auto-scroll", () => {
     expect(scrollSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("DebateChat live AI speech", () => {
+  it("scrolls without any state update while the speech streams in", () => {
+    window.HTMLElement.prototype.scrollIntoView = scrollSpy;
+    const messages = [message("m1", "Debater")];
+    const { rerender } = render(<DebateChat {...baseProps} messages={messages} liveAiSpeech="Xin" />);
+    setScrollPosition(0);
+    scrollSpy.mockClear();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    for (let i = 0; i < 60; i++) {
+      rerender(<DebateChat {...baseProps} messages={messages} liveAiSpeech={"Xin chào ".repeat(i + 1)} />);
+    }
+
+    expect(scrollSpy).toHaveBeenCalledTimes(60);
+    expect(errorSpy.mock.calls.flat().join(" ")).not.toMatch(/Maximum update depth/);
+    errorSpy.mockRestore();
+  });
+});

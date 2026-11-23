@@ -122,6 +122,26 @@ describe("DebateRoom: the AI opponent's turn streams in and is read aloud", () =
     expect(spoken).toEqual(["Kính thưa ban giám khảo.", "Mình ủng hộ kiến nghị."]);
   });
 
+  it("tells the learner the AI wrote for the wrong side when the service reports side_flip", async () => {
+    await renderRoom();
+    await act(async () => {
+      handlers.onAttempt?.(1, null);
+      finishTurn("Mở màn.");
+    });
+    mockStreamOpponentTurn.mockRejectedValueOnce({ status: 502, code: "side_flip", detail: "side flip" });
+
+    fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: "Mình phản đối." } });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Đối thủ AI viết lệch phe nhiều lần");
+    expect(screen.getByTestId("retry-ai-turn-btn")).toBeInTheDocument();
+  });
+
   it("a turn that starts once the voices are known is read aloud too (the learner's reply, then the AI)", async () => {
     await renderRoom();
     await act(async () => {

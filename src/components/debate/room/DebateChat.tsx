@@ -69,6 +69,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
   const handleScroll = useCallback(() => {
     const nearBottom = checkIfNearBottom();
     isNearBottomRef.current = nearBottom;
+    // Same value → React skips the render, so a scroll burst never piles up updates
     setIsNearBottom(nearBottom);
     if (nearBottom) {
       setHasUnreadBelow(false);
@@ -130,10 +131,11 @@ const DebateChat: React.FC<DebateChatProps> = ({
 
   // The streamed speech grows the bubble: keep following it the same way
   useEffect(() => {
+    // Only the scroll itself: no setState per streamed chunk (the scroll event updates the flags when they change)
     if (liveAiSpeech && isNearBottomRef.current) {
-      scrollToBottom("auto");
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
     }
-  }, [liveAiSpeech, scrollToBottom]);
+  }, [liveAiSpeech]);
 
   const round1Messages = messages.filter((m) => m.roundNumber === 1);
   const round2Messages = messages.filter((m) => m.roundNumber === 2);
