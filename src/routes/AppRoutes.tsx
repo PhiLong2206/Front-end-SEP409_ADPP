@@ -33,6 +33,7 @@ import ReportManagement from "../pages/admin/ReportManagement/ReportManagement";
 import AdminEventManagement from "../pages/admin/EventManagement/EventManagement";
 import AdminCompetitionManagement from "../pages/admin/CompetitionManagement/CompetitionManagement";
 import SystemManagement from "../pages/admin/SystemManagement/SystemManagement";
+import KnowledgeBaseManagement from "../pages/shared/KnowledgeBase/KnowledgeBaseManagement";
 import DebaterProfile from "../pages/debater/Profile/Profile";
 import DebaterSettings from "../pages/debater/Settings/Settings";
 
@@ -126,6 +127,7 @@ const AppRoutes: React.FC = () => {
         <Route path="users" element={<UserManagement />} />
         <Route path="roles" element={<RoleManagement />} />
         <Route path="topics" element={<AdminTopicManagement />} />
+        <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
         <Route path="payments" element={<PaymentManagement />} />
 
         {/* Reusable Profile & Settings for Admin */}

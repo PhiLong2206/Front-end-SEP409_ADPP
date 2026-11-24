@@ -17,6 +17,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Database,
   LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             { label: "Bảng điều khiển", path: "/admin/dashboard", icon: LayoutDashboard },
             { label: "Quản lý người dùng", path: "/admin/users", icon: Users },
             { label: "Quản lý chủ đề", path: "/admin/topics", icon: BookOpen },
+            { label: "Kho tri thức & Dẫn chứng", path: "/admin/knowledge-base", icon: Database },
           ],
         },
         {
@@ -76,6 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           items: [
             { label: "Bảng điều khiển", path: "/organizer/dashboard", icon: LayoutDashboard },
             { label: "Quản lý chủ đề", path: "/organizer/topics", icon: BookOpen },
+            { label: "Kho tri thức & Dẫn chứng", path: "/organizer/knowledge-base", icon: Database },
             { label: "Sự kiện & Hội thảo", path: "/organizer/events", icon: Calendar },
             { label: "Cuộc thi & Giải đấu", path: "/organizer/competitions", icon: Trophy },
           ],

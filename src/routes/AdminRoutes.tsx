@@ -10,6 +10,7 @@ import AdminEventManagement from "../pages/admin/EventManagement/EventManagement
 import AdminCompetitionManagement from "../pages/admin/CompetitionManagement/CompetitionManagement";
 import PaymentManagement from "../pages/admin/PaymentManagement/PaymentManagement";
 import SystemManagement from "../pages/admin/SystemManagement/SystemManagement";
+import KnowledgeBaseManagement from "../pages/shared/KnowledgeBase/KnowledgeBaseManagement";
 import DebaterProfile from "../pages/debater/Profile/Profile";
 import DebaterSettings from "../pages/debater/Settings/Settings";
 
@@ -20,6 +21,7 @@ const AdminRoutes: React.FC = () => {
       <Route path="users" element={<UserManagement />} />
       <Route path="roles" element={<RoleManagement />} />
       <Route path="topics" element={<AdminTopicManagement />} />
+      <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
       <Route path="payments" element={<PaymentManagement />} />
       <Route path="profile" element={<DebaterProfile />} />
       <Route path="settings" element={<DebaterSettings />} />

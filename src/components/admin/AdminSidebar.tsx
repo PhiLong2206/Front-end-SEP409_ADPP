@@ -10,6 +10,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Database,
   LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       title: "CHỦ ĐỀ & TÀI CHÍNH",
       items: [
         { label: "Quản lý chủ đề", path: "/admin/topics", icon: BookOpen },
+        { label: "Kho tri thức & Dẫn chứng", path: "/admin/knowledge-base", icon: Database },
         { label: "Quản lý gói Credit", path: "/admin/payments", icon: CreditCard },
       ],
     },
