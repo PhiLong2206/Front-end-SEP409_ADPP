@@ -169,7 +169,7 @@ describe("AudioSentenceSpeaker (server voice)", () => {
   });
 
   it("a sentence that cannot be fetched sends it and the rest to the browser voice, in order", async () => {
-    const fallback = { push: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
+    const fallback = { push: vi.fn(), setProgressListener: vi.fn(), setRate: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
     const { speaker, requests } = setup(fallback);
     speaker.push("Một. Hai. ");
     requests[0].d.reject(new Error("TTS HTTP 429"));
@@ -182,7 +182,7 @@ describe("AudioSentenceSpeaker (server voice)", () => {
   });
 
   it("autoplay refused: the browser voice takes over", async () => {
-    const fallback = { push: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
+    const fallback = { push: vi.fn(), setProgressListener: vi.fn(), setRate: vi.fn(), cancel: vi.fn(), finish: vi.fn(), abort: vi.fn(), whenDone: () => Promise.resolve() };
     const { speaker, requests } = setup(fallback);
     FakeAudio.refuse = true;
     try {

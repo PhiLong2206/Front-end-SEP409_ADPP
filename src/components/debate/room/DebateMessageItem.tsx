@@ -1,6 +1,7 @@
 import React from "react";
 import { Bot, User as UserIcon } from "lucide-react";
 import type { DeliveryAnalytics } from "../../../types";
+import ReadAlongText from "./ReadAlongText";
 
 export interface DebateMessageData {
   id: string;
@@ -21,9 +22,11 @@ export interface DebateMessageData {
 
 export interface DebateMessageItemProps {
   message: DebateMessageData;
+  /** The AI is reading this message aloud: the characters read so far (null: not being read, all in the main colour). */
+  spokenChars?: number | null;
 }
 
-const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message }) => {
+const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenChars = null }) => {
   const isUser =
     message.isCurrentUser ??
     (message.speaker === "Debater" || message.speaker === "Learner");
@@ -100,7 +103,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message }) => {
 
         {/* Message Body */}
         <p className="text-[15px] leading-[1.65] whitespace-pre-line break-words">
-          {message.content}
+          {isAI && spokenChars !== null ? <ReadAlongText text={message.content} spokenChars={spokenChars} /> : message.content}
         </p>
 
         {/* Multimodal Delivery Analytics & Speech Metrics Badges */}

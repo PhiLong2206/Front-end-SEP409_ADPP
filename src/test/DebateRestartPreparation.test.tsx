@@ -514,6 +514,32 @@ describe("the preparation between rounds is counted from the end of the AI's rea
       expect(screen.getByTestId("preparation-countdown")).toHaveTextContent("01:00");
     });
 
+    it("skipping the reading while the text is still streaming turns the streamed text to the main colour", async () => {
+      await reachTurnFourStreaming();
+      await act(async () => {
+        streams[1].handlers.onAttempt?.(1, null);
+        streams[1].handlers.onDelta?.("Mở đầu kết luận. ");
+      });
+      await flush();
+      await advance(50);
+      expect(screen.getByTestId("ai-live-speech")).toBeInTheDocument();
+      expect(screen.queryAllByTestId("read-unspoken").length).toBeGreaterThan(0); // grey: the voice is not there yet
+
+      await act(async () => {
+        fireEvent.click(skipButton()); // the rebuttal
+      });
+      await act(async () => {
+        fireEvent.click(skipButton()); // the closing, which is still being written
+      });
+      await advance(50);
+      await act(async () => {
+        streams[1].handlers.onDelta?.("Thêm một câu nữa. ");
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Mở đầu kết luận. Thêm một câu nữa.");
+    });
+
     it("skipping while the closing is still being written stops the rebuttal, and the closing is read when it is ready", async () => {
       await reachTurnFourStreaming();
       await act(async () => {
@@ -629,5 +655,77 @@ describe("the preparation between rounds is counted from the end of the AI's rea
     expect(mockSubmitAiArgument).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("debate-feedback-banner")).not.toBeInTheDocument();
     expect(screen.getByText(/Phản bác dài của AI/)).toBeInTheDocument();
+  });
+
+  describe("the AI text follows the voice, and the reading speed", () => {
+    const spokenText = () => screen.queryAllByTestId("read-spoken").map((el) => el.textContent ?? "").join("");
+
+    it("lights the text up as the voice reaches it, and everything turns to the main colour when the reading is skipped", async () => {
+      await playRoundOneUntilAiHasWritten();
+      await advance(50);
+      // The reading of the AI speech has begun: the whole message is grey so far
+      expect(screen.queryByTestId("read-unspoken")).toBeInTheDocument();
+      expect(spokenText()).toBe("");
+
+      await act(async () => {
+        (queuedUtterances[0] as unknown as { onboundary?: (e: { charIndex: number; charLength: number }) => void })
+          .onboundary?.({ charIndex: 16, charLength: 4 });
+      });
+      await advance(50); // shown at most once a frame
+      expect(spokenText().length).toBe(20);
+      expect(screen.getByTestId("read-unspoken")).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("skip-ai-reading-btn"));
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument(); // the whole speech is in the main colour
+      expect(screen.getByText(/Phản bác dài của AI/)).toBeInTheDocument();
+    });
+
+    it("turning read-aloud off puts the text in the main colour at once", async () => {
+      await playRoundOneUntilAiHasWritten();
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("ai-read-aloud-toggle"));
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+    });
+
+    it("without read-aloud the AI text is never greyed", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+    });
+
+    it("the speed buttons change the speed and remember it", async () => {
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1×");
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveAttribute("aria-label", "Tốc độ đọc của AI: 1×");
+
+      fireEvent.click(screen.getByTestId("ai-read-rate-btn"));
+      expect(screen.getAllByRole("menuitemradio").map((el) => el.textContent)).toEqual(["0.5×", "0.75×", "1×", "1.25×", "1.5×"]);
+      fireEvent.click(screen.getByTestId("ai-read-rate-option-1.5"));
+
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1.5×");
+      expect(localStorage.getItem("adpp.aiReadRate")).toBe("1.5");
+      expect(screen.queryByTestId("ai-read-rate-menu")).not.toBeInTheDocument();
+    });
+
+    it("a remembered speed is read back, and a value outside 0.5 - 1.5 is clamped", async () => {
+      localStorage.setItem("adpp.aiReadRate", "9");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1.5×");
+      // the first sentence of the AI was said at 1.05 x 1.5
+      expect(queuedUtterances[0].rate).toBeCloseTo(1.05 * 1.5);
+    });
+
+    it("a stored speed that is not a number falls back to 1", async () => {
+      localStorage.setItem("adpp.aiReadRate", "abc");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1×");
+    });
   });
 });

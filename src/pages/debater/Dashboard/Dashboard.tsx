@@ -8,7 +8,6 @@ import competitionApi from "../../../api/competitionApi";
 import { debateApi } from "../../../api";
 import { CompetitionListItem } from "../../../types";
 import { formatDate } from "../../../utils/formatDate";
-import { isDebateLeaveEnabled } from "../../../utils/debateLeave";
 import { countCompletedDebates } from "../../../utils/debateStats";
 
 import natureBg from "../../../assets/images/nature-bg.jpg";
@@ -39,7 +38,7 @@ const DebaterDashboard: React.FC = () => {
       try {
         const historyRes = await debateApi.getUserHistory();
         if (historyRes.success && Array.isArray(historyRes.data)) {
-          setDebateCount(isDebateLeaveEnabled() ? countCompletedDebates(historyRes.data) : historyRes.data.length);
+          setDebateCount(countCompletedDebates(historyRes.data));
 
           // Compute consecutive practice days streak from history dates
           const uniqueDays = Array.from(
@@ -130,7 +129,7 @@ const DebaterDashboard: React.FC = () => {
               {debateCount}
             </div>
             <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1 inline-block">
-              {isDebateLeaveEnabled() ? "Phiên tranh biện đã hoàn thành" : "Phiên tranh biện đã tham gia"}
+              Phiên tranh biện đã hoàn thành
             </span>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 text-[#008A64] dark:text-emerald-400 flex items-center justify-center shadow-xs">

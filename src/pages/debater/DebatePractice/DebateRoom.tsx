@@ -29,11 +29,15 @@ import {
   loadVietnameseVoice,
   makeServerAudioFetcher,
   pickServerVoice,
+  clampReadRate,
+  READ_RATE_CHOICES,
   readStoredReadAloud,
+  readStoredReadRate,
   readStoredVoice,
   SentenceQueue,
   SentenceSpeaker,
   storeReadAloud,
+  storeReadRate,
   type ServerVoiceOption,
   voiceOptionLabel,
 } from "../../../services/speechOut";
@@ -128,6 +132,7 @@ interface ReaderMeta {
   stage: number;
 }
 
+const READ_PROGRESS_DONE = -1;
 const STAGE_NAMES = ["", "Mở đầu", "Phản biện", "Kết luận"];
 
 /** One AI turn of a chain that follows a learner turn (see getAiTurnsAfterLearnerTurn). */
@@ -338,6 +343,17 @@ const DebateRoom: React.FC = () => {
   const currentVoiceLabel = currentVoice ? voiceOptionLabel(currentVoice) : aiVoice || "mặc định";
   const [readAloud, setReadAloud] = useState<boolean>(() => readStoredReadAloud());
   const readAloudRef = useRef(readAloud);
+  // Reading speed 0.5x - 1.5x: kept in a ref too, so a reader made later starts at the speed picked
+  const [readRate, setReadRate] = useState<number>(() => readStoredReadRate());
+  const readRateRef = useRef(readRate);
+  const [isRateMenuOpen, setIsRateMenuOpen] = useState(false);
+  // Characters read aloud so far, by round (stage) of the AI turn being read: absent = not being read
+  const [readProgress, setReadProgress] = useState<Record<number, number>>({});
+  const readProgressRef = useRef<Record<number, number>>({});
+  const stageReaderRef = useRef<Record<number, SentenceQueue>>({});
+  const readProgressFrameRef = useRef<number | null>(null);
+  // The stage of the AI turn whose text is streaming now
+  const [liveTurnStage, setLiveTurnStage] = useState<number | null>(null);
   const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const hasServerVoiceRef = useRef(false);
   // Settles once both voices are known (browser voice list, multimodal /tts/config): a turn that starts earlier
@@ -395,6 +411,11 @@ const DebateRoom: React.FC = () => {
     return () => {
       alive = false;
       stopAllReading(); // only touches refs
+      if (readProgressFrameRef.current !== null) {
+        if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(readProgressFrameRef.current);
+        clearTimeout(readProgressFrameRef.current);
+        readProgressFrameRef.current = null;
+      }
       getSpeechSynthesis()?.cancel();
     };
   }, []);
@@ -407,6 +428,39 @@ const DebateRoom: React.FC = () => {
     setIsAiReadingAloud(false);
     setReadingStage(null);
   }
+
+  /**
+   * The voice moved on in the text of the turn of `stage`: kept in a ref and shown at most once a frame (the voice can
+   * report many times a frame). A finished or aborted reader takes its entry away: the whole text is read.
+   */
+  function reportReadProgress(stage: number, spokenChars: number, isDone: boolean) {
+    // -1 = this turn was read out (or skipped): all in the main colour, also the text that streams in afterwards
+    readProgressRef.current[stage] = isDone ? READ_PROGRESS_DONE : spokenChars;
+    if (unmountedRef.current) return;
+    if (isDone) {
+      // Not deferred to a frame: a hidden tab does not run them, and the text must not stay grey
+      setReadProgress({ ...readProgressRef.current });
+      return;
+    }
+    if (readProgressFrameRef.current !== null) return;
+    const flush = () => {
+      readProgressFrameRef.current = null;
+      if (!unmountedRef.current) setReadProgress({ ...readProgressRef.current });
+    };
+    readProgressFrameRef.current =
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame(flush)
+        : (setTimeout(flush, 16) as unknown as number);
+  }
+
+  const changeReadRate = useCallback((rate: number) => {
+    const next = clampReadRate(rate);
+    readRateRef.current = next;
+    setReadRate(next);
+    storeReadRate(next);
+    // Every reader still working changes speed now (the one being heard too), later readers start at it
+    for (const reader of activeReadersRef.current.keys()) reader.setRate(next);
+  }, []);
 
   /** Mirrors the reader list into state: is the AI being heard, and which part. */
   function syncReadingState() {
@@ -444,6 +498,13 @@ const DebateRoom: React.FC = () => {
   function trackReader(reader: SentenceQueue, meta: ReaderMeta) {
     activeReadersRef.current.set(reader, meta);
     stopReasonRef.current = null;
+    reader.setRate(readRateRef.current);
+    stageReaderRef.current[meta.stage] = reader;
+    reportReadProgress(meta.stage, 0, false);
+    reader.setProgressListener((spoken, isDone) => {
+      // A reader that was replaced (a retry of the same turn) must not touch the newer reader's progress
+      if (stageReaderRef.current[meta.stage] === reader) reportReadProgress(meta.stage, spoken, isDone);
+    });
     syncReadingState();
     void reader.whenDone().then(() => {
       if (!activeReadersRef.current.delete(reader)) return;
@@ -455,13 +516,11 @@ const DebateRoom: React.FC = () => {
   const makeSpeaker = useCallback((): SentenceQueue | null => {
     const synth = getSpeechSynthesis();
     const browser = synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
-    if (hasServerVoiceRef.current) {
-      return new AudioSentenceSpeaker(
-        makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => aiVoiceRef.current),
-        browser
-      );
-    }
-    return browser;
+    const speaker = hasServerVoiceRef.current
+      ? new AudioSentenceSpeaker(makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => aiVoiceRef.current), browser)
+      : browser;
+    speaker?.setRate(readRateRef.current);
+    return speaker;
   }, []);
 
   /** Reads a speech that is already complete (the opening written ahead) after the voices are known. */
@@ -552,6 +611,7 @@ const DebateRoom: React.FC = () => {
         setLiveAiSpeech(text);
       };
       showLive("");
+      if (isCurrent()) setLiveTurnStage(meta.stage);
       setIsAiRewriting(false);
       try {
         const res = await aiApi.streamOpponentTurn(opponentId, request, {
@@ -579,6 +639,7 @@ const DebateRoom: React.FC = () => {
       } finally {
         if (isCurrent()) {
           showLive(null);
+          setLiveTurnStage(null);
           setIsAiRewriting(false);
           liveTurnRef.current = null;
         }
@@ -3746,6 +3807,52 @@ const DebateRoom: React.FC = () => {
                     Giọng: {currentVoiceLabel}
                   </span>
                 )}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsRateMenuOpen((open) => !open)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setIsRateMenuOpen(false);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={isRateMenuOpen}
+                    aria-label={`Tốc độ đọc của AI: ${readRate}×`}
+                    data-testid="ai-read-rate-btn"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                  >
+                    Tốc độ: {readRate}×
+                  </button>
+                  {isRateMenuOpen && (
+                    <div
+                      role="menu"
+                      aria-label="Chọn tốc độ đọc"
+                      data-testid="ai-read-rate-menu"
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setIsRateMenuOpen(false);
+                      }}
+                      className="absolute right-0 z-30 mt-1 min-w-[7rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12231C] shadow-lg py-1"
+                    >
+                      {READ_RATE_CHOICES.map((choice) => (
+                        <button
+                          key={choice}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={choice === readRate}
+                          data-testid={`ai-read-rate-option-${choice}`}
+                          onClick={() => {
+                            changeReadRate(choice);
+                            setIsRateMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                            choice === readRate ? "font-bold text-[#008A64] dark:text-emerald-400" : "text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          {choice}×
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={toggleReadAloud}
@@ -3768,6 +3875,19 @@ const DebateRoom: React.FC = () => {
               isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
               liveAiSpeech={liveAiSpeech}
               isAiRewriting={isAiRewriting}
+              readProgressByRound={Object.fromEntries(
+                Object.entries(readProgress).filter(([, chars]) => chars !== READ_PROGRESS_DONE)
+              )}
+              liveReadProgress={
+                liveTurnStage !== null && readProgress[liveTurnStage] === READ_PROGRESS_DONE
+                  ? null
+                  : liveTurnStage !== null && readProgress[liveTurnStage] !== undefined
+                  ? readProgress[liveTurnStage]
+                  : // Voice not made yet (it starts a moment after the first words): grey until it speaks
+                  liveTurnStage !== null && readAloud && (hasServerVoice || viVoice)
+                  ? 0
+                  : null
+              }
               aiSide={aiSide}
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}

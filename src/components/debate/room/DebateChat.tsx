@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { Bot, ArrowDown, Clock, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import DebateMessageItem, { DebateMessageData } from "./DebateMessageItem";
+import ReadAlongText from "./ReadAlongText";
 import { DebateRoomMode } from "../../../types";
 
 export interface DebateChatProps {
@@ -13,6 +14,10 @@ export interface DebateChatProps {
   liveAiSpeech?: string | null;
   /** A new attempt of the AI turn is being written: the old text shows dimmed until the first words of the new one. */
   isAiRewriting?: boolean;
+  /** Characters read aloud so far of each AI message being read, by round (absent: not being read). */
+  readProgressByRound?: Record<number, number>;
+  /** Characters read so far of the speech that is streaming; null: it is not being read, so all in the main colour. */
+  liveReadProgress?: number | null;
   aiSide?: "pro" | "con";
   timedOutRounds?: number[];
   isTurnExpired?: boolean;
@@ -34,6 +39,8 @@ const DebateChat: React.FC<DebateChatProps> = ({
   isAiGenerating = false,
   liveAiSpeech = null,
   isAiRewriting = false,
+  readProgressByRound,
+  liveReadProgress = null,
   aiSide = "con",
   timedOutRounds = [],
   isTurnExpired = false,
@@ -198,7 +205,10 @@ const DebateChat: React.FC<DebateChatProps> = ({
         {/* Messages in this round */}
         {roundMsgs.map((msg) => (
           <React.Fragment key={msg.id}>
-            <DebateMessageItem message={msg} />
+            <DebateMessageItem
+              message={msg}
+              spokenChars={msg.speaker === "AI" ? readProgressByRound?.[msg.roundNumber] ?? null : null}
+            />
             {msg.id === evaluatingMessageId && (
               <div
                 data-testid="turn-evaluating-indicator"
@@ -311,7 +321,11 @@ const DebateChat: React.FC<DebateChatProps> = ({
                     isAiRewriting ? "opacity-50" : ""
                   }`}
                 >
-                  {liveAiSpeech}
+                  {liveReadProgress !== null ? (
+                    <ReadAlongText text={liveAiSpeech} spokenChars={liveReadProgress} />
+                  ) : (
+                    liveAiSpeech
+                  )}
                 </p>
               )}
             </div>
