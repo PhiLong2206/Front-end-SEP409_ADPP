@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { isTeamDebateSession } from "../../../utils/debateRoomMode";
 import { useNavigate } from "react-router-dom";
 import Button from "../../../components/common/Button";
 import Modal from "../../../components/common/Modal";
@@ -721,7 +722,11 @@ const Debate1v1: React.FC = () => {
                         <div className="text-slate-400 text-[11px]">#{item.sessionId}</div>
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap font-medium text-slate-700">
-                        {item.title?.toLowerCase().includes("2v2") || item.title?.toLowerCase().includes("2 vs 2")
+                        {isTeamDebateSession({
+                          isTeamDebate: item.isTeamDebate,
+                          maxParticipants: item.maxParticipants,
+                          title: item.title,
+                        })
                           ? "Đồng đội 2v2"
                           : item.debateType === 3
                             ? "Thách đấu 1v1"

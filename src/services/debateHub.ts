@@ -70,6 +70,31 @@ export interface SessionStatusEvent {
   timestamp?: string;
 }
 
+export type TeamCallSignalType = "offer" | "answer" | "ice" | "hangup";
+
+/** A signal of the teammate voice call (only the teammate receives it). */
+export interface TeamCallSignalEvent {
+  sessionId: number;
+  fromUserId: number;
+  fromName?: string;
+  type: TeamCallSignalType;
+  payload: string;
+  timestamp?: string;
+}
+
+/** The server closed the call: the preparation minute is over. */
+export interface TeamCallEndedEvent {
+  sessionId: number;
+  roundNumber?: number;
+  endedAt?: string;
+}
+
+/** Answer of the TeamCallSignal hub method. `code`: NO_TEAMMATE, TEAM_CALL_CLOSED, NOT_PARTICIPANT, ... */
+export interface TeamCallSignalResult {
+  ok: boolean;
+  code: string | null;
+}
+
 export type { RoundStartedEvent } from "../types/debate.types";
 
 export interface DebateHubCallbacks {
@@ -81,6 +106,8 @@ export interface DebateHubCallbacks {
   onSessionStarted?: (data: unknown) => void;
   onRoundStarted?: (data: RoundStartedEvent) => void;
   onSessionStatusChanged?: (data: SessionStatusEvent) => void;
+  onTeamCallSignal?: (data: TeamCallSignalEvent) => void;
+  onTeamCallEnded?: (data: TeamCallEndedEvent) => void;
 }
 
 export class DebateHubService {
@@ -134,6 +161,25 @@ export class DebateHubService {
       } catch (err) {
         console.warn("Failed to send speaking status via SignalR", err);
       }
+    }
+  }
+
+  /** Sends a signal of the teammate call; never throws (a lost connection answers `SEND_FAILED`). */
+  public async sendTeamCallSignal(type: TeamCallSignalType, payload: string): Promise<TeamCallSignalResult> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected || !this.currentSessionId) {
+      return { ok: false, code: "SEND_FAILED" };
+    }
+    try {
+      const result = await this.connection.invoke<TeamCallSignalResult | undefined>(
+        "TeamCallSignal",
+        this.currentSessionId,
+        type,
+        payload
+      );
+      return result ?? { ok: true, code: null };
+    } catch (err) {
+      console.warn("Failed to send a team call signal via SignalR", err);
+      return { ok: false, code: "SEND_FAILED" };
     }
   }
 
@@ -216,6 +262,14 @@ export class DebateHubService {
 
     this.connection.on("SessionStatusChanged", (data: SessionStatusEvent) => {
       this.callbacks.onSessionStatusChanged?.(data);
+    });
+
+    this.connection.on("TeamCallSignal", (data: TeamCallSignalEvent) => {
+      this.callbacks.onTeamCallSignal?.(data);
+    });
+
+    this.connection.on("TeamCallEnded", (data: TeamCallEndedEvent) => {
+      this.callbacks.onTeamCallEnded?.(data);
     });
   }
 }

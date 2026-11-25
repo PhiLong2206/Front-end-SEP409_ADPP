@@ -249,6 +249,10 @@ export interface DebateSessionResponse {
   startedAt?: string;
   endedAt?: string;
   participants: ParticipantDto[];
+  /** Seats of the room: 1v1 and AI practice 2, 2v2 4. Older Backends do not send it. */
+  maxParticipants?: number;
+  /** True for a team (2v2) debate. Older Backends do not send it: the room then guesses from the title. */
+  isTeamDebate?: boolean;
   currentTurn?: TurnDto;
   /** Preparation before Round 1 (every mode): 60 s. */
   preparationSeconds?: number;
@@ -306,6 +310,8 @@ export interface DebateHistoryItemDto {
   userSide: SystemDebateSide | number;
   createdAt: string;
   endedAt?: string;
+  maxParticipants?: number;
+  isTeamDebate?: boolean;
 }
 
 // ── Debate Challenge DTOs ──────────────────────────────────
@@ -452,4 +458,17 @@ export interface SingleArgumentEvaluationResponse {
   weaknesses: string[];
   suggestions: string[];
   deliveryAnalytics?: DeliveryAnalytics | null;
+}
+
+
+/** One STUN/TURN server of GET /debate/{id}/ice-servers (the shape RTCPeerConnection takes). */
+export interface IceServerDto {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface IceServersResponse {
+  iceServers: IceServerDto[];
+  ttlSeconds: number;
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Bot, Hourglass, Loader2, Mic, Play, SkipForward } from "lucide-react";
+import { Bot, Hourglass, Loader2, Mic, NotebookPen, Play, SkipForward } from "lucide-react";
 import { formatMinutesSeconds } from "../../../utils/debatePreparation";
 
 export type RoundClockMode = "prep" | "turn" | "ai";
@@ -48,6 +48,8 @@ interface RoundStatusBarProps {
   onSkipReading: () => void;
   /** The round whose start was just announced: the bar glows for a second. */
   announcedRound: { round: number; label: string } | null;
+  /** The notes button (debaters only): `undefined` = no button (a judge or a spectator has no notes). */
+  notes?: { open: boolean; hasNotes: boolean; onToggle: () => void };
 }
 
 /**
@@ -74,6 +76,7 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
   readingPartName,
   onSkipReading,
   announcedRound,
+  notes,
 }) => {
   // A new round was announced: glow for about a second (the text itself is read out through the live region)
   const [glow, setGlow] = useState(false);
@@ -167,6 +170,31 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap shrink-0">
+        {notes && (
+          <button
+            type="button"
+            data-testid="notes-toggle-btn"
+            aria-label="Ghi chú (Alt+N)"
+            aria-pressed={notes.open}
+            title="Ghi chú (Alt+N)"
+            onClick={notes.onToggle}
+            className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+              notes.open
+                ? "bg-[#ECFDF5] dark:bg-emerald-950/40 border-[#008A64]/40 text-[#008A64] dark:text-emerald-400"
+                : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <NotebookPen size={14} aria-hidden="true" />
+            Ghi chú
+            {!notes.open && notes.hasNotes && (
+              <span
+                data-testid="notes-dot"
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#0E1D17]"
+              />
+            )}
+          </button>
+        )}
         {readingPartName && (
           <button
             type="button"

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Dashboard from "../pages/debater/Dashboard/Dashboard";
@@ -34,24 +34,11 @@ describe("Dashboard: debate count", () => {
     mockGetUserHistory.mockResolvedValue({ success: true, data: history });
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("counts only completed sessions once the Backend can cancel them", async () => {
-    vi.stubEnv("VITE_DEBATE_LEAVE_ENABLED", "true");
+  it("counts only completed sessions, not the ones still waiting, running or cancelled", async () => {
     renderDashboard();
 
     const label = await screen.findByText("Phiên tranh biện đã hoàn thành");
 
     await vi.waitFor(() => expect(label.previousElementSibling).toHaveTextContent(/^2$/));
-  });
-
-  it("keeps the old count and label until then", async () => {
-    renderDashboard();
-
-    const label = await screen.findByText("Phiên tranh biện đã tham gia");
-
-    await vi.waitFor(() => expect(label.previousElementSibling).toHaveTextContent(/^5$/));
   });
 });

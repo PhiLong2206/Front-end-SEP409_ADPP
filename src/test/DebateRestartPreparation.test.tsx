@@ -211,6 +211,7 @@ describe("the preparation between rounds is counted from the end of the AI's rea
             resolve({ turn_index: body.turn_index, round_type: "opening", mode: "reply", speech_text: text });
         })
     );
+    mockSubmitAiArgument.mockReset(); // a one-time answer left by an earlier test must not leak into this one
     mockRestartPreparation.mockImplementation(async () => {
       prepEndsAtMs = now() + 60_000; // the Backend counts the minute from now
       return { success: true, data: session() };
@@ -514,6 +515,45 @@ describe("the preparation between rounds is counted from the end of the AI's rea
       expect(screen.getByTestId("preparation-countdown")).toHaveTextContent("01:00");
     });
 
+    it("skipping the reading while the text is still streaming turns the streamed text to the main colour", async () => {
+      await reachTurnFourStreaming();
+      await act(async () => {
+        streams[1].handlers.onAttempt?.(1, null);
+        streams[1].handlers.onDelta?.("Mở đầu kết luận. ");
+      });
+      await flush();
+      await advance(50);
+      expect(screen.getByTestId("ai-live-speech")).toBeInTheDocument();
+      expect(screen.queryAllByTestId("read-unspoken").length).toBeGreaterThan(0); // grey: the voice is not there yet
+
+      await act(async () => {
+        fireEvent.click(skipButton()); // the rebuttal
+      });
+      await act(async () => {
+        fireEvent.click(skipButton()); // the closing, which is still being written
+      });
+      await advance(50);
+      await act(async () => {
+        streams[1].handlers.onDelta?.("Thêm một câu nữa. ");
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+      expect(screen.getByTestId("ai-live-speech")).toHaveTextContent("Mở đầu kết luận. Thêm một câu nữa.");
+    });
+
+    it("two AI turns in a row (rebuttal, then closing): two messages, one per turn, none twice", async () => {
+      await reachTurnFourStreaming();
+      await finishTurnFour();
+      await advance(50);
+
+      const aiMessages = screen.getAllByTestId("message-item").filter((el) => el.getAttribute("data-speaker") === "AI");
+      // Round 1's answer, the rebuttal (turn 3) and the closing (turn 4)
+      expect(aiMessages).toHaveLength(3);
+      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
+      expect(screen.getByText(/Kết luận của AI/, { selector: "p, span" })).toBeInTheDocument();
+    });
+
     it("skipping while the closing is still being written stops the rebuttal, and the closing is read when it is ready", async () => {
       await reachTurnFourStreaming();
       await act(async () => {
@@ -629,5 +669,303 @@ describe("the preparation between rounds is counted from the end of the AI's rea
     expect(mockSubmitAiArgument).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId("debate-feedback-banner")).not.toBeInTheDocument();
     expect(screen.getByText(/Phản bác dài của AI/)).toBeInTheDocument();
+  });
+
+  describe("the AI text follows the voice, and the reading speed", () => {
+    const spokenText = () => screen.queryAllByTestId("read-spoken").map((el) => el.textContent ?? "").join("");
+
+    it("lights the text up as the voice reaches it, and everything turns to the main colour when the reading is skipped", async () => {
+      await playRoundOneUntilAiHasWritten();
+      await advance(50);
+      // The reading of the AI speech has begun: the whole message is grey so far
+      expect(screen.queryByTestId("read-unspoken")).toBeInTheDocument();
+      expect(spokenText()).toBe("");
+
+      await act(async () => {
+        (queuedUtterances[0] as unknown as { onboundary?: (e: { charIndex: number; charLength: number }) => void })
+          .onboundary?.({ charIndex: 16, charLength: 4 });
+      });
+      await advance(50); // shown at most once a frame
+      expect(spokenText().length).toBe(20);
+      expect(screen.getByTestId("read-unspoken")).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("skip-ai-reading-btn"));
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument(); // the whole speech is in the main colour
+      expect(screen.getByText(/Phản bác dài của AI/)).toBeInTheDocument();
+    });
+
+    it("turning read-aloud off puts the text in the main colour at once", async () => {
+      await playRoundOneUntilAiHasWritten();
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("ai-read-aloud-toggle"));
+      });
+      await advance(50);
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+    });
+
+    it("without read-aloud the AI text is never greyed", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.queryByTestId("read-unspoken")).not.toBeInTheDocument();
+    });
+
+    it("the speed buttons change the speed and remember it", async () => {
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1×");
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveAttribute("aria-label", "Tốc độ đọc của AI: 1×");
+
+      fireEvent.click(screen.getByTestId("ai-read-rate-btn"));
+      expect(screen.getAllByRole("menuitemradio").map((el) => el.textContent)).toEqual(["0.5×", "0.75×", "1×", "1.25×", "1.5×"]);
+      fireEvent.click(screen.getByTestId("ai-read-rate-option-1.5"));
+
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1.5×");
+      expect(localStorage.getItem("adpp.aiReadRate")).toBe("1.5");
+      expect(screen.queryByTestId("ai-read-rate-menu")).not.toBeInTheDocument();
+    });
+
+    it("a remembered speed is read back, and a value outside 0.5 - 1.5 is clamped", async () => {
+      localStorage.setItem("adpp.aiReadRate", "9");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1.5×");
+      // the first sentence of the AI was said at 1.05 x 1.5
+      expect(queuedUtterances[0].rate).toBeCloseTo(1.05 * 1.5);
+    });
+
+    it("a stored speed that is not a number falls back to 1", async () => {
+      localStorage.setItem("adpp.aiReadRate", "abc");
+      await playRoundOneUntilAiHasWritten();
+      expect(screen.getByTestId("ai-read-rate-btn")).toHaveTextContent("Tốc độ: 1×");
+    });
+  });
+
+  describe("the AI speech never disappears between the end of the stream and the Backend record", () => {
+    // Every AI bubble on screen: the streaming one and the messages
+    const bubbles = () =>
+      screen.queryAllByTestId("ai-live-speech").length +
+      screen.queryAllByTestId("message-item").filter((el) => el.getAttribute("data-speaker") === "AI").length;
+    const speechOnScreen = () => document.body.textContent?.includes("Phản bác dài của AI") ?? false;
+
+    /** Counts the AI bubbles after every change of the page, while `fn` runs. */
+    const watchBubbles = async (fn: () => Promise<void>) => {
+      const counts: number[] = [];
+      const observer = new MutationObserver(() => counts.push(bubbles()));
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      try {
+        await fn();
+      } finally {
+        counts.push(...(observer.takeRecords().length ? [bubbles()] : []));
+        observer.disconnect();
+      }
+      return counts;
+    };
+
+    /** The learner sends turn 1, the AI streams its answer; the record of the AI turn answers when the test says. */
+    const startWithSlowRecord = async () => {
+      let answerRecord!: (value: unknown) => void;
+      let failRecord!: (error: unknown) => void;
+      mockSubmitAiArgument.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            answerRecord = resolve;
+            failRecord = reject;
+          })
+      );
+      render(
+        <MemoryRouter initialEntries={["/debater/debate/123?role=PRO"]}>
+          <Routes>
+            <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await flush();
+      await advance(60_000);
+      mockSubmitArgument.mockImplementation(async () => {
+        nextTurnIndex = 1;
+        return { success: true, data: session() };
+      });
+      fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: "Luận điểm của mình." } });
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+      });
+      await flush();
+      await act(async () => {
+        streamHandlers.onAttempt?.(1, null);
+        streamHandlers.onDelta?.(`${LONG_SPEECH} `);
+      });
+      await flush();
+      const recorded = () => {
+        nextTurnIndex = 2;
+        prepEndsAtMs = now() + 60_000;
+        return { success: true, data: { turnIndex: 1, alreadyRecorded: false, argument: {}, session: session() } };
+      };
+      return { answerRecord: () => answerRecord(recorded()), failRecord: (e: unknown) => failRecord(e) };
+    };
+
+    it("from the end of the stream to the answer of the record there is always exactly one bubble with the whole speech", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      const { answerRecord } = await startWithSlowRecord();
+      expect(bubbles()).toBe(1); // streaming
+
+      const counts = await watchBubbles(async () => {
+        await act(async () => {
+          finishStream(LONG_SPEECH);
+        });
+        await flush();
+        await advance(2_000); // the record is slow
+        expect(speechOnScreen()).toBe(true);
+        expect(bubbles()).toBe(1);
+        await act(async () => {
+          answerRecord();
+        });
+        await flush();
+      });
+
+      expect(bubbles()).toBe(1);
+      expect(speechOnScreen()).toBe(true);
+      expect(counts.length).toBeGreaterThan(0);
+      expect(counts.every((n) => n === 1)).toBe(true); // never 0, never 2
+      expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
+    });
+
+    it("a record that fails keeps the speech on screen, says it is not recorded, and a retry keeps one message", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      const { failRecord } = await startWithSlowRecord();
+      await act(async () => {
+        finishStream(LONG_SPEECH);
+      });
+      await flush();
+      await act(async () => {
+        failRecord(new Error("network down"));
+      });
+      await flush();
+
+      expect(bubbles()).toBe(1);
+      expect(speechOnScreen()).toBe(true);
+      expect(screen.getByTestId("message-pending-label")).toHaveTextContent("Chưa ghi lên máy chủ");
+      expect(screen.getByTestId("retry-ai-record-btn")).toBeInTheDocument();
+
+      mockSubmitAiArgument.mockImplementationOnce(async () => {
+        nextTurnIndex = 2;
+        prepEndsAtMs = now() + 60_000;
+        return { success: true, data: { turnIndex: 1, alreadyRecorded: false, argument: {}, session: session() } };
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("retry-ai-record-btn"));
+      });
+      await flush();
+
+      expect(bubbles()).toBe(1); // still one message, not two
+      expect(speechOnScreen()).toBe(true);
+      expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
+      expect(mockStreamOpponentTurn).toHaveBeenCalledTimes(1); // /turns was not asked again
+    });
+
+    it("a record refused with PREPARATION_IN_PROGRESS: the speech shows while it waits, then is recorded", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      prepAfterLearnerTurnMs = 30_000;
+      const { failRecord } = await startWithSlowRecord();
+      await act(async () => {
+        finishStream(LONG_SPEECH);
+      });
+      await flush();
+      await act(async () => {
+        failRecord({ success: false, errors: { code: "PREPARATION_IN_PROGRESS" }, status: 409 });
+      });
+      await flush();
+
+      expect(bubbles()).toBe(1);
+      expect(speechOnScreen()).toBe(true);
+      expect(screen.getByTestId("message-pending-label")).toHaveTextContent("Đang chờ ghi…");
+      expect(screen.queryByTestId("debate-feedback-banner")).not.toBeInTheDocument();
+
+      mockSubmitAiArgument.mockImplementationOnce(async () => {
+        nextTurnIndex = 2;
+        return { success: true, data: { turnIndex: 1, alreadyRecorded: false, argument: {}, session: session() } };
+      });
+      await advance(2_000); // the minute is over (on the clock the room knows): the record is sent again
+      await flush();
+      expect(mockSubmitAiArgument).toHaveBeenCalledTimes(2);
+      expect(bubbles()).toBe(1);
+      expect(speechOnScreen()).toBe(true);
+      expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
+    });
+
+    it("the lit-up part of the text is not reset when the streaming bubble becomes the message", async () => {
+      const { answerRecord } = await startWithSlowRecord();
+      await advance(50);
+      await act(async () => {
+        (queuedUtterances[0] as unknown as { onboundary?: (e: { charIndex: number; charLength: number }) => void })
+          .onboundary?.({ charIndex: 16, charLength: 4 });
+      });
+      await advance(50);
+      const spoken = () => screen.queryAllByTestId("read-spoken").map((el) => el.textContent ?? "").join("");
+      expect(spoken()).toHaveLength(20);
+
+      await act(async () => {
+        finishStream(LONG_SPEECH);
+      });
+      await flush();
+      await advance(50);
+      // Now a message (the record has not answered): the reading goes on from the same place
+      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+      expect(spoken()).toHaveLength(20);
+      expect(screen.queryAllByTestId("read-unspoken").length).toBeGreaterThan(0);
+
+      await act(async () => {
+        answerRecord();
+      });
+      await flush();
+      await advance(50);
+      expect(spoken()).toHaveLength(20);
+      expect(queuedUtterances.length).toBeGreaterThan(0); // the reader was not cut
+    });
+
+    it("a stream that breaks halfway is not kept on screen", async () => {
+      localStorage.setItem("adpp.aiReadAloud", "off");
+      render(
+        <MemoryRouter initialEntries={["/debater/debate/123?role=PRO"]}>
+          <Routes>
+            <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await flush();
+      await advance(60_000);
+      let failStream!: (error: unknown) => void;
+      mockStreamOpponentTurn.mockImplementationOnce(
+        (_id: string, _body: unknown, handlers: OpponentTurnStreamHandlers) =>
+          new Promise((_resolve, reject) => {
+            streamHandlers = handlers;
+            failStream = reject;
+          })
+      );
+      mockSubmitArgument.mockImplementation(async () => {
+        nextTurnIndex = 1;
+        return { success: true, data: session() };
+      });
+      fireEvent.change(screen.getByLabelText("Lập luận của bạn"), { target: { value: "Luận điểm của mình." } });
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+      });
+      await flush();
+      await act(async () => {
+        streamHandlers.onAttempt?.(1, null);
+        streamHandlers.onDelta?.("Bài nói dở dang. ");
+      });
+      expect(screen.getByTestId("ai-live-speech")).toBeInTheDocument();
+
+      await act(async () => {
+        failStream({ status: 504, detail: "timeout" });
+      });
+      await flush();
+      expect(screen.queryByTestId("ai-live-speech")).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toContain("Bài nói dở dang");
+      expect(screen.queryAllByTestId("message-item").filter((el) => el.getAttribute("data-speaker") === "AI")).toHaveLength(0);
+    });
   });
 });

@@ -249,7 +249,9 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Không ghi được lượt của Đối thủ AI");
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("không đúng thứ tự");
     expect(screen.getByTestId("debate-feedback-banner")).not.toHaveTextContent("raw backend text");
-    expect(screen.queryByText("Lượt AI số 1")).not.toBeInTheDocument();
+    // The speech stays on screen (not recorded yet)
+    expect(screen.getAllByText("Lượt AI số 1")).toHaveLength(1);
+    expect(screen.getByTestId("message-pending-label")).toHaveTextContent("Chưa ghi lên máy chủ");
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("retry-ai-record-btn"));
@@ -259,7 +261,8 @@ describe("AI practice against a simulated Backend: the Backend decides whose tur
     expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(1); // /turns is not called again
     expect(mockSubmitArgument).toHaveBeenCalledTimes(1); // nor the user's /arguments
     expect(calls).toEqual(["user:0", "ai:1"]);
-    expect(screen.getByText("Lượt AI số 1")).toBeInTheDocument();
+    expect(screen.getAllByText("Lượt AI số 1")).toHaveLength(1);
+    expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
     expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
   });
 });

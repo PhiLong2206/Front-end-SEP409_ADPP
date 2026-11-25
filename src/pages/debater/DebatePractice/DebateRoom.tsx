@@ -29,20 +29,29 @@ import {
   loadVietnameseVoice,
   makeServerAudioFetcher,
   pickServerVoice,
+  clampReadRate,
+  READ_RATE_CHOICES,
   readStoredReadAloud,
+  readStoredReadRate,
   readStoredVoice,
   SentenceQueue,
   SentenceSpeaker,
   storeReadAloud,
+  storeReadRate,
   type ServerVoiceOption,
   voiceOptionLabel,
 } from "../../../services/speechOut";
-import { debateHubService } from "../../../services/debateHub";
+import { debateHubService, type TeamCallEndedEvent, type TeamCallSignalEvent } from "../../../services/debateHub";
 import type { RoundStartedEvent } from "../../../types/debate.types";
 import PreparationPanel from "../../../components/debate/room/PreparationPanel";
 import RoomLoadingPanel from "../../../components/debate/room/RoomLoadingPanel";
 import { useSharedDeviceStream } from "./useSharedDeviceStream";
+import { isTeamDebateSession, roomSeatCount } from "../../../utils/debateRoomMode";
 import RoundStatusBar from "../../../components/debate/room/RoundStatusBar";
+import TeamCallPanel from "../../../components/debate/room/TeamCallPanel";
+import DebateNotesPanel from "../../../components/debate/room/DebateNotesPanel";
+import { useDebateNotes } from "../../../hooks/useDebateNotes";
+import { useTeamCall } from "./useTeamCall";
 import {
   DEFAULT_TOTAL_ROUNDS,
   hasShownRoundBanner,
@@ -128,6 +137,10 @@ interface ReaderMeta {
   stage: number;
 }
 
+const READ_PROGRESS_DONE = -1;
+/** What requestOpponentTurn returns: the turn, and the marker of the live text it left on screen (see clearLive). */
+type OpponentTurnResult = TurnResponse & { liveTurn?: object | null };
+
 const STAGE_NAMES = ["", "Mở đầu", "Phản biện", "Kết luận"];
 
 /** One AI turn of a chain that follows a learner turn (see getAiTurnsAfterLearnerTurn). */
@@ -191,6 +204,12 @@ export interface DebateRoomMessage {
   wordCount?: number | null;
   durationSeconds?: number | null;
   deliveryAnalytics?: DeliveryAnalytics | null;
+  /** The AI turn this message is (its Backend turn index): a retry or a second run of the same turn finds it again. */
+  aiTurnIndex?: number;
+  /** The AI wrote it and it is on screen, but the Backend has not recorded it yet. */
+  pending?: boolean;
+  /** Why it is not recorded yet (computed for the chat, never stored). */
+  pendingLabel?: string;
 }
 
 const normalizeDeliveryAnalytics = (raw?: DeliveryAnalytics | null): DeliveryAnalytics | undefined => {
@@ -338,6 +357,24 @@ const DebateRoom: React.FC = () => {
   const currentVoiceLabel = currentVoice ? voiceOptionLabel(currentVoice) : aiVoice || "mặc định";
   const [readAloud, setReadAloud] = useState<boolean>(() => readStoredReadAloud());
   const readAloudRef = useRef(readAloud);
+  // Reading speed 0.5x - 1.5x: kept in a ref too, so a reader made later starts at the speed picked
+  const [readRate, setReadRate] = useState<number>(() => readStoredReadRate());
+  const readRateRef = useRef(readRate);
+  const [isRateMenuOpen, setIsRateMenuOpen] = useState(false);
+  // Characters read aloud so far, by round (stage) of the AI turn being read: absent = not being read
+  const [readProgress, setReadProgress] = useState<Record<number, number>>({});
+  const readProgressRef = useRef<Record<number, number>>({});
+  const stageReaderRef = useRef<Record<number, SentenceQueue>>({});
+  // The teammate voice call (hook below): the hub callbacks are set once, so they reach it through this ref
+  const teamCallHandlersRef = useRef<{
+    handleSignal: (e: TeamCallSignalEvent) => void;
+    handleEnded: (e: TeamCallEndedEvent) => void;
+  }>({ handleSignal: () => {}, handleEnded: () => {} });
+  // While the call carries voice, the live transcript and the speaking status are not sent to the room
+  const teamCallBusyRef = useRef(false);
+  const readProgressFrameRef = useRef<number | null>(null);
+  // The stage of the AI turn whose text is streaming now
+  const [liveTurnStage, setLiveTurnStage] = useState<number | null>(null);
   const viVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const hasServerVoiceRef = useRef(false);
   // Settles once both voices are known (browser voice list, multimodal /tts/config): a turn that starts earlier
@@ -395,6 +432,11 @@ const DebateRoom: React.FC = () => {
     return () => {
       alive = false;
       stopAllReading(); // only touches refs
+      if (readProgressFrameRef.current !== null) {
+        if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(readProgressFrameRef.current);
+        clearTimeout(readProgressFrameRef.current);
+        readProgressFrameRef.current = null;
+      }
       getSpeechSynthesis()?.cancel();
     };
   }, []);
@@ -407,6 +449,39 @@ const DebateRoom: React.FC = () => {
     setIsAiReadingAloud(false);
     setReadingStage(null);
   }
+
+  /**
+   * The voice moved on in the text of the turn of `stage`: kept in a ref and shown at most once a frame (the voice can
+   * report many times a frame). A finished or aborted reader takes its entry away: the whole text is read.
+   */
+  function reportReadProgress(stage: number, spokenChars: number, isDone: boolean) {
+    // -1 = this turn was read out (or skipped): all in the main colour, also the text that streams in afterwards
+    readProgressRef.current[stage] = isDone ? READ_PROGRESS_DONE : spokenChars;
+    if (unmountedRef.current) return;
+    if (isDone) {
+      // Not deferred to a frame: a hidden tab does not run them, and the text must not stay grey
+      setReadProgress({ ...readProgressRef.current });
+      return;
+    }
+    if (readProgressFrameRef.current !== null) return;
+    const flush = () => {
+      readProgressFrameRef.current = null;
+      if (!unmountedRef.current) setReadProgress({ ...readProgressRef.current });
+    };
+    readProgressFrameRef.current =
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame(flush)
+        : (setTimeout(flush, 16) as unknown as number);
+  }
+
+  const changeReadRate = useCallback((rate: number) => {
+    const next = clampReadRate(rate);
+    readRateRef.current = next;
+    setReadRate(next);
+    storeReadRate(next);
+    // Every reader still working changes speed now (the one being heard too), later readers start at it
+    for (const reader of activeReadersRef.current.keys()) reader.setRate(next);
+  }, []);
 
   /** Mirrors the reader list into state: is the AI being heard, and which part. */
   function syncReadingState() {
@@ -444,6 +519,13 @@ const DebateRoom: React.FC = () => {
   function trackReader(reader: SentenceQueue, meta: ReaderMeta) {
     activeReadersRef.current.set(reader, meta);
     stopReasonRef.current = null;
+    reader.setRate(readRateRef.current);
+    stageReaderRef.current[meta.stage] = reader;
+    reportReadProgress(meta.stage, 0, false);
+    reader.setProgressListener((spoken, isDone) => {
+      // A reader that was replaced (a retry of the same turn) must not touch the newer reader's progress
+      if (stageReaderRef.current[meta.stage] === reader) reportReadProgress(meta.stage, spoken, isDone);
+    });
     syncReadingState();
     void reader.whenDone().then(() => {
       if (!activeReadersRef.current.delete(reader)) return;
@@ -455,13 +537,11 @@ const DebateRoom: React.FC = () => {
   const makeSpeaker = useCallback((): SentenceQueue | null => {
     const synth = getSpeechSynthesis();
     const browser = synth && viVoiceRef.current ? new SentenceSpeaker(synth, viVoiceRef.current) : null;
-    if (hasServerVoiceRef.current) {
-      return new AudioSentenceSpeaker(
-        makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => aiVoiceRef.current),
-        browser
-      );
-    }
-    return browser;
+    const speaker = hasServerVoiceRef.current
+      ? new AudioSentenceSpeaker(makeServerAudioFetcher(AI_MULTIMODAL_BASE_URL, fetch, () => aiVoiceRef.current), browser)
+      : browser;
+    speaker?.setRate(readRateRef.current);
+    return speaker;
   }, []);
 
   /** Reads a speech that is already complete (the opening written ahead) after the voices are known. */
@@ -504,6 +584,19 @@ const DebateRoom: React.FC = () => {
   }, [makeSpeaker]);
 
   /**
+   * Takes the streamed text off the screen. Only the turn that owns it may (`turn`). The caller does it in the same state update that adds the message, so no frame is left without the speech.
+   */
+  const clearLive = useCallback((turn: object | null | undefined) => {
+    // No owner (the stream was off: there was no live text), or a newer turn owns it now: leave it alone
+    if (!turn || liveTurnRef.current !== turn) return;
+    liveAiSpeechRef.current = null;
+    setLiveAiSpeech(null);
+    setLiveTurnStage(null);
+    setIsAiRewriting(false);
+    liveTurnRef.current = null;
+  }, []);
+
+  /**
    * Asks the AI opponent for a turn. Streaming (default): the speech shows up as it is written and, with a
    * Vietnamese voice and read-aloud on, is spoken sentence by sentence. A new attempt replaces the text so far.
    */
@@ -512,7 +605,7 @@ const DebateRoom: React.FC = () => {
       opponentId: string,
       request: CreateTurnRequest,
       opts?: { silent?: boolean }
-    ): Promise<TurnResponse> => {
+    ): Promise<OpponentTurnResult> => {
       if (!isAiTurnStreamEnabled()) {
         return aiApi.generateOpponentTurn(opponentId, request);
       }
@@ -552,6 +645,7 @@ const DebateRoom: React.FC = () => {
         setLiveAiSpeech(text);
       };
       showLive("");
+      if (isCurrent()) setLiveTurnStage(meta.stage);
       setIsAiRewriting(false);
       try {
         const res = await aiApi.streamOpponentTurn(opponentId, request, {
@@ -571,20 +665,19 @@ const DebateRoom: React.FC = () => {
           },
         });
         reader()?.finish(res?.speech_text ?? "");
-        return res;
+        if (isCurrent()) setIsAiRewriting(false);
+        // The text STAYS on screen: the caller turns it into the AI message in one update (clearLive(liveTurn)),
+        // after which the speech is never missing, also while the Backend records it
+        return { ...res, liveTurn: turn };
       } catch (err) {
         // A failed turn is never "read out": stop its reader for good so a retry or the next turn does not wait for it
         reader()?.abort();
+        // ... and a broken speech is not kept on screen
+        clearLive(turn);
         throw err;
-      } finally {
-        if (isCurrent()) {
-          showLive(null);
-          setIsAiRewriting(false);
-          liveTurnRef.current = null;
-        }
       }
     },
-    [makeSpeaker]
+    [makeSpeaker, clearLive]
   );
   const handledTimeoutKeyRef = useRef<string | null>(null);
   const submittedRoundsRef = useRef<Set<number>>(new Set());
@@ -726,11 +819,20 @@ const DebateRoom: React.FC = () => {
   const is2v2 = Boolean(
     sessionDetails &&
       !hasAiParticipant &&
-      (sessionDetails.participants.length > 2 ||
-        (sessionDetails.title &&
-          (sessionDetails.title.toLowerCase().includes("2 vs 2") ||
-            sessionDetails.title.toLowerCase().includes("2v2"))))
+      isTeamDebateSession({
+        isTeamDebate: sessionDetails.isTeamDebate,
+        maxParticipants: sessionDetails.maxParticipants,
+        title: sessionDetails.title,
+        participantCount: sessionDetails.participants.length,
+      })
   );
+  const seatCount = sessionDetails
+    ? roomSeatCount({
+        isTeamDebate: is2v2 ? true : sessionDetails.isTeamDebate,
+        maxParticipants: sessionDetails.maxParticipants,
+      })
+    : 2;
+  const seatsPerSide = Math.max(1, Math.floor(seatCount / 2));
   // The server says whether Round 1 has begun: the room stays locked until a response says so, not by its own clock
   const isPreparing = Boolean(sessionDetails?.isPreparing);
   // The init effect only needs to know the session has loaded, not to run again on every poll of it
@@ -792,9 +894,7 @@ const DebateRoom: React.FC = () => {
     sessionDetails?.participants.filter((p) => p.side === 2 || String(p.side) === "CON") || [];
   const canHostStart = Boolean(
     sessionDetails &&
-      (is2v2
-        ? proParticipants.length >= 2 && conParticipants.length >= 2
-        : proParticipants.length >= 1 && conParticipants.length >= 1)
+      proParticipants.length >= seatsPerSide && conParticipants.length >= seatsPerSide
   );
 
   const mySide = myParticipant?.side;
@@ -865,6 +965,7 @@ const DebateRoom: React.FC = () => {
       messages.some(
         (m) =>
           m.roundNumber === round &&
+          !m.pending && // an AI speech the Backend has not recorded yet does not end the turn
           Boolean(m.content?.trim()) &&
           (!m.isCurrentUser ||
             m.speaker === "AI" ||
@@ -878,7 +979,7 @@ const DebateRoom: React.FC = () => {
 
   const hasBothSidesSpokenInRound = useCallback(
     (round: number) => {
-      const roundMsgs = messages.filter((m) => m.roundNumber === round && Boolean(m.content?.trim()));
+      const roundMsgs = messages.filter((m) => m.roundNumber === round && !m.pending && Boolean(m.content?.trim()));
       if (roundMsgs.length >= 2) return true;
       const proSpoke = roundMsgs.some((m) => m.side === "Ủng hộ" || m.side === "PRO");
       const conSpoke = roundMsgs.some((m) => m.side === "Phản đối" || m.side === "CON");
@@ -1165,7 +1266,15 @@ const DebateRoom: React.FC = () => {
               deliveryAnalytics: normalizeDeliveryAnalytics(arg.deliveryAnalytics) ?? null,
             };
           });
-          setMessages(loadedMsgs);
+          // An AI speech still waiting to be recorded is not in the transcript yet: it stays on screen
+          setMessages((prev) => {
+            const waiting = prev.filter(
+              (m) =>
+                m.pending &&
+                !loadedMsgs.some((l) => l.speaker === "AI" && l.roundNumber === m.roundNumber)
+            );
+            return waiting.length > 0 ? [...loadedMsgs, ...waiting] : loadedMsgs;
+          });
           return loadedMsgs;
         }
         return [];
@@ -1340,6 +1449,52 @@ const DebateRoom: React.FC = () => {
     onBeforeLeave: async () => {
       clearedOnLeaveRef.current = await leaveDebateRoom(sessionId, isBackendSession ? numSessionId : null);
     },
+  });
+
+  // Voice call with the teammate (2v2 and team competition rooms) while the preparation minute runs
+  const myCallParticipant = sessionDetails?.participants?.find((p) => isSameUserId(p.userId, currentUserId));
+  const callTeammate =
+    myCallParticipant && !myCallParticipant.isAI
+      ? sessionDetails?.participants?.find(
+          (p) =>
+            !p.isAI &&
+            p.userId !== null &&
+            p.userId !== undefined &&
+            !isSameUserId(p.userId, currentUserId) &&
+            p.side !== null &&
+            p.side !== undefined &&
+            p.side === myCallParticipant.side
+        )
+      : undefined;
+  const teamCall = useTeamCall({
+    eligible: isBackendSession && userRoleInRoom === "Debater" && Boolean(callTeammate),
+    isPreparing,
+    sessionEnded: EffectiveDebateCompleted || isTerminalBackendStatus,
+    sessionId: numSessionId,
+    myUserId: currentUserId === null || currentUserId === undefined ? null : Number(currentUserId),
+    teammate: callTeammate ? { userId: Number(callTeammate.userId), name: callTeammate.speakerName || "" } : null,
+    preparationEndsAt,
+    serverOffsetRef,
+    acquireStream: async () => (await devices.acquire()).stream,
+    fetchIceServers: (id) => debateApi.getIceServers(id),
+    sendSignal: (type, payload) => debateHubService.sendTeamCallSignal(type, payload),
+  });
+  teamCallHandlersRef.current = { handleSignal: teamCall.handleSignal, handleEnded: teamCall.handleEnded };
+  teamCallBusyRef.current = teamCall.isBusy;
+  // When the call ends, tell the room the real speaking state again (it was not sent while the call was on)
+  useEffect(() => {
+    if (isBackendSession && !teamCall.isBusy) debateHubService.sendSpeakingStatus(isRecording);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamCall.isBusy]);
+
+  // Notes card: only for a debater, in every kind of room. After the debate ends, leaving the room deletes the notes.
+  const isNotesDebater = userRoleInRoom === "Debater";
+  const notes = useDebateNotes({
+    sessionId,
+    userId: currentUserId,
+    enabled: isNotesDebater,
+    ended: EffectiveDebateCompleted || isTerminalBackendStatus,
+    roundLabel: displayRoundLabel,
   });
 
   const isSessionCancelled = sessionDetails?.status === 4 || String(sessionDetails?.status) === "Cancelled";
@@ -1783,6 +1938,8 @@ const DebateRoom: React.FC = () => {
           });
         }
       },
+      onTeamCallSignal: (data) => teamCallHandlersRef.current.handleSignal(data),
+      onTeamCallEnded: (data) => teamCallHandlersRef.current.handleEnded(data),
       onSessionStarted: () => {
         loadBackendSession(numSessionId);
         setRoomFeedback({
@@ -1817,7 +1974,7 @@ const DebateRoom: React.FC = () => {
 
   // Broadcast current user's live speaking status to other debaters in real-time
   useEffect(() => {
-    if (isBackendSession) {
+    if (isBackendSession && !teamCallBusyRef.current) {
       debateHubService.sendSpeakingStatus(isRecording);
     }
   }, [isRecording, isBackendSession]);
@@ -1945,7 +2102,10 @@ const DebateRoom: React.FC = () => {
         }
 
         // After a reload the AI may already have spoken its opening: never ask for it again
-        const aiAlreadyOpened = messagesRef.current.some((m) => m.speaker === "AI" && m.roundNumber === 1);
+        // (a message that is only pending is not "opened" yet: it still has to be recorded)
+        const aiAlreadyOpened = messagesRef.current.some(
+          (m) => m.speaker === "AI" && m.roundNumber === 1 && !m.pending
+        );
         // The AI speaks first: while the session has not started, or the learner prepares, the opening is only
         // written (kept in preGeneratedOpeningRef); it is recorded and shown once the minute is over
         if (
@@ -2006,7 +2166,7 @@ const DebateRoom: React.FC = () => {
               preGeneratedOpeningRef.current?.sessionId === opponentSessionId
                 ? preGeneratedOpeningRef.current.text
                 : null;
-            const firstTurnRes = written
+            const firstTurnRes: { speech_text?: string; liveTurn?: object | null } = written
               ? { speech_text: written }
               : await retryWhilePlanning(
                   () =>
@@ -2018,8 +2178,12 @@ const DebateRoom: React.FC = () => {
                 );
             const speechText = firstTurnRes?.speech_text?.trim();
             if (!speechText) {
+              clearLive(firstTurnRes?.liveTurn);
               throw new Error("Đối thủ AI không trả về nội dung phản hồi hợp lệ.");
             }
+            // On screen at once (pending until recorded): the streaming text turns into the message in one update
+            if (stillThisOpening()) appendOpponentMessage(0, speechText, true);
+            clearLive(firstTurnRes?.liveTurn);
 
             // A failure here fails the init (retry regenerates turn 1, which the service treats as idempotent)
             await recordAiArgument({
@@ -2029,20 +2193,7 @@ const DebateRoom: React.FC = () => {
             });
 
             if (stillThisOpening()) {
-              const aiFirstMsg: DebateRoomMessage = {
-                id: `msg-${Date.now()}`,
-                speaker: "AI",
-                speakerName: "Đối thủ AI",
-                side: "Ủng hộ",
-                stage: "Mở đầu",
-                roundNumber: 1,
-                timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-                content: speechText,
-                isCurrentUser: false,
-              };
-              setMessages((prev) =>
-                prev.some((m) => m.speaker === "AI" && m.roundNumber === 1) ? prev : prev.length === 0 ? [aiFirstMsg] : prev
-              );
+              appendOpponentMessage(0, speechText, false);
               if (written) void readPreparedSpeech(speechText, { turn: {}, turnIndex: 1, stage: 1 });
             }
           } catch (openingErr) {
@@ -2205,11 +2356,18 @@ const DebateRoom: React.FC = () => {
     [debaterSide, sessionId]
   );
 
+  /**
+   * Adds the AI's message of a turn, or updates it: the same turn index finds its message again (`pending` while the
+   * Backend has not recorded it, the same message once it has). A speech the transcript brought for that round, with no
+   * turn index, is the same turn recorded: nothing is added.
+   */
   const appendOpponentMessage = useCallback(
-    (aiTurnIndex: number, speechText: string) => {
+    (aiTurnIndex: number, speechText: string, pending = false) => {
       const { round } = getTurnEntry(aiTurnIndex);
       const aiResponseMsg: DebateRoomMessage = {
-        id: `msg-ai-t${aiTurnIndex}-${Date.now()}`,
+        id: `msg-ai-t${aiTurnIndex}`,
+        aiTurnIndex,
+        pending,
         speaker: "AI",
         speakerName: "Đối thủ AI",
         side: aiSide === "pro" ? "Ủng hộ" : "Phản đối",
@@ -2221,10 +2379,22 @@ const DebateRoom: React.FC = () => {
       };
 
       setMessages((prev) => {
-        const alreadyRecorded = prev.some(
-          (m) => m.roundNumber === round && m.speaker === "AI" && Boolean(m.content?.trim())
+        const index = prev.findIndex((m) => m.speaker === "AI" && m.aiTurnIndex === aiTurnIndex);
+        if (index >= 0) {
+          const current = prev[index];
+          if (Boolean(current.pending) === pending && current.content === speechText) return prev;
+          const next = [...prev];
+          next[index] = { ...current, content: speechText, pending };
+          return next;
+        }
+        const recordedBefore = prev.some(
+          (m) =>
+            m.speaker === "AI" &&
+            m.aiTurnIndex === undefined &&
+            m.roundNumber === round &&
+            Boolean(m.content?.trim())
         );
-        return alreadyRecorded ? prev : [...prev, aiResponseMsg];
+        return recordedBefore ? prev : [...prev, aiResponseMsg];
       });
     },
     [aiSide]
@@ -2266,8 +2436,13 @@ const DebateRoom: React.FC = () => {
             );
             speechText = turnRes?.speech_text?.trim();
             if (!speechText) {
+              clearLive(turnRes?.liveTurn);
               throw new Error("Đối thủ AI không trả về nội dung phản hồi hợp lệ.");
             }
+            // The speech is here: the streaming text becomes the AI message in this same update (pending until the
+            // Backend has recorded it), so the speech is on screen in every frame
+            appendOpponentMessage(ctx.aiTurnIndex, speechText, true);
+            clearLive(turnRes?.liveTurn);
           } catch (turnErr) {
             console.error("Error generating AI Opponent turn:", turnErr);
             setPendingAiRecord(null);
@@ -2285,6 +2460,9 @@ const DebateRoom: React.FC = () => {
             return;
           }
         }
+
+        // A record retried (the speech was generated before): its message is still on screen, this only makes sure
+        if (generatedSpeech !== undefined) appendOpponentMessage(ctx.aiTurnIndex, speechText, true);
 
         let recorded: Awaited<ReturnType<typeof recordAiArgument>>;
         try {
@@ -2326,7 +2504,7 @@ const DebateRoom: React.FC = () => {
 
         setPendingAiTurn(null);
         setPendingAiRecord(null);
-        appendOpponentMessage(ctx.aiTurnIndex, speechText);
+        appendOpponentMessage(ctx.aiTurnIndex, speechText, false);
         // The Backend session after this turn (as for the learner's own turn): its status says when the debate ended
         if (recorded?.session) {
           setSessionDetails(recorded.session);
@@ -2367,6 +2545,7 @@ const DebateRoom: React.FC = () => {
       advanceToNextRoundOrComplete,
       aiSide,
       appendOpponentMessage,
+      clearLive,
       isBackendSession,
       numSessionId,
       opponentSessionId,
@@ -2616,7 +2795,7 @@ const DebateRoom: React.FC = () => {
               setArgumentText((prev) => (prev.trim() ? `${prev.trim()} ${cleanText}` : cleanText));
               if (isBackendSession) {
                 liveSeqRef.current += 1;
-                void debateHubService.sendLiveTranscript(cleanText, true, speechFinal, liveSeqRef.current);
+                if (!teamCallBusyRef.current) void debateHubService.sendLiveTranscript(cleanText, true, speechFinal, liveSeqRef.current);
               }
             }
           } else {
@@ -2626,7 +2805,7 @@ const DebateRoom: React.FC = () => {
               if (now - lastInterimBroadcastRef.current >= 250) {
                 lastInterimBroadcastRef.current = now;
                 liveSeqRef.current += 1;
-                void debateHubService.sendLiveTranscript(transcript, false, false, liveSeqRef.current);
+                if (!teamCallBusyRef.current) void debateHubService.sendLiveTranscript(transcript, false, false, liveSeqRef.current);
               }
             }
           }
@@ -3220,6 +3399,17 @@ const DebateRoom: React.FC = () => {
           ],
   };
 
+  // An AI speech on screen that the Backend has not recorded yet says why (waiting for the minute, or the record failed)
+  const messagesForChat = messages.map((m) => {
+    if (!m.pending) return m;
+    const pendingLabel = isWaitingToRecordAi
+      ? "Đang chờ ghi…"
+      : !isAiGenerating && (opponentError || opponentInitFailed)
+      ? "Chưa ghi lên máy chủ"
+      : undefined;
+    return pendingLabel ? { ...m, pendingLabel } : m;
+  });
+
   // Blocking failures keep a banner on screen even after the transient message was dismissed
   const bannerText =
     roomFeedback?.text ||
@@ -3277,8 +3467,11 @@ const DebateRoom: React.FC = () => {
           }
           onSkipReading={skipAiReading}
           announcedRound={roundBanner}
+          notes={isNotesDebater ? { open: notes.open, hasNotes: notes.hasNotes, onToggle: notes.toggleOpen } : undefined}
         />
       )}
+
+      {isNotesDebater && notes.open && <DebateNotesPanel notes={notes} roundLabel={displayRoundLabel} />}
 
       {/* Reconnecting Indicator */}
       {isReconnecting && isDebateActivelyInProgress && (
@@ -3529,7 +3722,7 @@ const DebateRoom: React.FC = () => {
                   <span>Phe Ủng Hộ (PRO)</span>
                 </div>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                  {proParticipants.length}/{is2v2 ? 2 : 1}
+                  {proParticipants.length}/{seatsPerSide}
                 </span>
               </div>
               <div className="space-y-2">
@@ -3564,7 +3757,7 @@ const DebateRoom: React.FC = () => {
                     )}
                   </div>
                 ))}
-                {proParticipants.length < (is2v2 ? 2 : 1) && (
+                {proParticipants.length < seatsPerSide && (
                   <div className="p-3 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-emerald-700/70 py-4">
                     Đang chờ Debater tham gia slot PRO...
                   </div>
@@ -3579,7 +3772,7 @@ const DebateRoom: React.FC = () => {
                   <span>Phe Phản Đối (CON)</span>
                 </div>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300">
-                  {conParticipants.length}/{is2v2 ? 2 : 1}
+                  {conParticipants.length}/{seatsPerSide}
                 </span>
               </div>
               <div className="space-y-2">
@@ -3614,7 +3807,7 @@ const DebateRoom: React.FC = () => {
                     )}
                   </div>
                 ))}
-                {conParticipants.length < (is2v2 ? 2 : 1) && (
+                {conParticipants.length < seatsPerSide && (
                   <div className="p-3 rounded-xl border border-dashed border-rose-300 text-center text-xs text-rose-700/70 py-4">
                     Đang chờ Debater tham gia slot CON...
                   </div>
@@ -3649,7 +3842,7 @@ const DebateRoom: React.FC = () => {
                   <span>
                     {canHostStart
                       ? "Bắt đầu trận tranh biện ngay"
-                      : `Chờ đủ người (${sessionDetails.participants.length}/${is2v2 ? 4 : 2})`}
+                      : `Chờ đủ người (${sessionDetails.participants.length}/${seatCount})`}
                   </span>
                 </button>
               ) : (
@@ -3738,6 +3931,19 @@ const DebateRoom: React.FC = () => {
               />
             )}
 
+            {isPreparing && teamCall.isActive && (
+              <TeamCallPanel
+                teammateName={teamCall.teammateName}
+                status={teamCall.status}
+                muted={teamCall.muted}
+                audioBlocked={teamCall.audioBlocked}
+                remoteStream={teamCall.remoteStream}
+                onToggleMute={teamCall.toggleMute}
+                onRetry={teamCall.retry}
+                onEnableAudio={teamCall.enableAudio}
+              />
+            )}
+
             {!isP2pOr2v2 && (hasServerVoice || viVoice) && isAiTurnStreamEnabled() && (
               <div className="mx-4 mt-2 flex flex-wrap items-center justify-end gap-2">
                 {hasServerVoice && aiVoice !== null && (
@@ -3746,6 +3952,52 @@ const DebateRoom: React.FC = () => {
                     Giọng: {currentVoiceLabel}
                   </span>
                 )}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsRateMenuOpen((open) => !open)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setIsRateMenuOpen(false);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={isRateMenuOpen}
+                    aria-label={`Tốc độ đọc của AI: ${readRate}×`}
+                    data-testid="ai-read-rate-btn"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                  >
+                    Tốc độ: {readRate}×
+                  </button>
+                  {isRateMenuOpen && (
+                    <div
+                      role="menu"
+                      aria-label="Chọn tốc độ đọc"
+                      data-testid="ai-read-rate-menu"
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setIsRateMenuOpen(false);
+                      }}
+                      className="absolute right-0 z-30 mt-1 min-w-[7rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12231C] shadow-lg py-1"
+                    >
+                      {READ_RATE_CHOICES.map((choice) => (
+                        <button
+                          key={choice}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={choice === readRate}
+                          data-testid={`ai-read-rate-option-${choice}`}
+                          onClick={() => {
+                            changeReadRate(choice);
+                            setIsRateMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                            choice === readRate ? "font-bold text-[#008A64] dark:text-emerald-400" : "text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          {choice}×
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={toggleReadAloud}
@@ -3761,13 +4013,26 @@ const DebateRoom: React.FC = () => {
             )}
 
             <DebateChat
-              messages={messages}
+              messages={messagesForChat}
               mode={roomMode}
               debaterSide={debaterSide}
               currentRound={currentRound}
               isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
               liveAiSpeech={liveAiSpeech}
               isAiRewriting={isAiRewriting}
+              readProgressByRound={Object.fromEntries(
+                Object.entries(readProgress).filter(([, chars]) => chars !== READ_PROGRESS_DONE)
+              )}
+              liveReadProgress={
+                liveTurnStage !== null && readProgress[liveTurnStage] === READ_PROGRESS_DONE
+                  ? null
+                  : liveTurnStage !== null && readProgress[liveTurnStage] !== undefined
+                  ? readProgress[liveTurnStage]
+                  : // Voice not made yet (it starts a moment after the first words): grey until it speaks
+                  liveTurnStage !== null && readAloud && (hasServerVoice || viVoice)
+                  ? 0
+                  : null
+              }
               aiSide={aiSide}
               timedOutRounds={timedOutRounds}
               isTurnExpired={EffectiveExpired}

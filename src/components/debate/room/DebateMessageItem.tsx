@@ -1,6 +1,7 @@
 import React from "react";
 import { Bot, User as UserIcon } from "lucide-react";
 import type { DeliveryAnalytics } from "../../../types";
+import ReadAlongText from "./ReadAlongText";
 
 export interface DebateMessageData {
   id: string;
@@ -17,13 +18,18 @@ export interface DebateMessageData {
   wordCount?: number | null;
   durationSeconds?: number | null;
   deliveryAnalytics?: DeliveryAnalytics | null;
+  /** The AI speech is on screen but the server has not recorded it: a small label says why (set by the room). */
+  pending?: boolean;
+  pendingLabel?: string;
 }
 
 export interface DebateMessageItemProps {
   message: DebateMessageData;
+  /** The AI is reading this message aloud: the characters read so far (null: not being read, all in the main colour). */
+  spokenChars?: number | null;
 }
 
-const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message }) => {
+const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenChars = null }) => {
   const isUser =
     message.isCurrentUser ??
     (message.speaker === "Debater" || message.speaker === "Learner");
@@ -42,6 +48,8 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message }) => {
 
   return (
     <div
+      data-testid="message-item"
+      data-speaker={isAI ? "AI" : "user"}
       className={`flex items-start gap-3 w-full ${
         isUser ? "justify-end" : "justify-start"
       }`}
@@ -100,8 +108,14 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message }) => {
 
         {/* Message Body */}
         <p className="text-[15px] leading-[1.65] whitespace-pre-line break-words">
-          {message.content}
+          {isAI && spokenChars !== null ? <ReadAlongText text={message.content} spokenChars={spokenChars} /> : message.content}
         </p>
+
+        {message.pendingLabel && (
+          <p data-testid="message-pending-label" role="status" className="mt-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+            {message.pendingLabel}
+          </p>
+        )}
 
         {/* Multimodal Delivery Analytics & Speech Metrics Badges */}
         {hasDeliveryBadges && (
