@@ -401,7 +401,8 @@ describe("DebateRoom waits for the AI opponent case plan and retries only the fa
     });
 
     expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(2);
-    expect(screen.getByText("Phản hồi từ Đối thủ AI.")).toBeInTheDocument();
+    expect(screen.getAllByText("Phản hồi từ Đối thủ AI.")).toHaveLength(1); // still one message
+    expect(screen.queryByTestId("message-pending-label")).not.toBeInTheDocument();
     expect(screen.getByText(/Vòng 2\/3/)).toBeInTheDocument();
   });
 
@@ -565,7 +566,9 @@ describe("DebateRoom recording the AI turn in the Backend (hook for a future end
 
     expect(screen.getByTestId("debate-feedback-banner")).toHaveTextContent("Không ghi được lượt của Đối thủ AI");
     expect(screen.queryByTestId("retry-ai-turn-btn")).not.toBeInTheDocument();
-    expect(screen.queryByText("Phản hồi từ Đối thủ AI.")).not.toBeInTheDocument();
+    // The speech is not lost: it stays on screen, marked as not recorded yet
+    expect(screen.getAllByText("Phản hồi từ Đối thủ AI.")).toHaveLength(1);
+    expect(screen.getByTestId("message-pending-label")).toHaveTextContent("Chưa ghi lên máy chủ");
     expect(screen.getByText(/Vòng 1\/3/)).toBeInTheDocument();
 
     await act(async () => {

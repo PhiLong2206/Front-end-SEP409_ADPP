@@ -286,7 +286,8 @@ const DebateChat: React.FC<DebateChatProps> = ({
         {renderRoundSection(3, round3Messages, "Kết luận")}
 
         {/* Typing Indicator while AI Responds */}
-        {isAiGenerating && (
+        {/* (not while the AI speech is already on screen as a message that only waits to be recorded) */}
+        {isAiGenerating && (Boolean(liveAiSpeech) || !messages.some((m) => m.pending)) && (
           <div
             data-testid="ai-typing-indicator"
             className="flex items-start gap-3 justify-start animate-fade-in"

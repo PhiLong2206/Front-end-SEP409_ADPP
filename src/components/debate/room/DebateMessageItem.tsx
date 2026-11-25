@@ -18,6 +18,9 @@ export interface DebateMessageData {
   wordCount?: number | null;
   durationSeconds?: number | null;
   deliveryAnalytics?: DeliveryAnalytics | null;
+  /** The AI speech is on screen but the server has not recorded it: a small label says why (set by the room). */
+  pending?: boolean;
+  pendingLabel?: string;
 }
 
 export interface DebateMessageItemProps {
@@ -45,6 +48,8 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
 
   return (
     <div
+      data-testid="message-item"
+      data-speaker={isAI ? "AI" : "user"}
       className={`flex items-start gap-3 w-full ${
         isUser ? "justify-end" : "justify-start"
       }`}
@@ -105,6 +110,12 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
         <p className="text-[15px] leading-[1.65] whitespace-pre-line break-words">
           {isAI && spokenChars !== null ? <ReadAlongText text={message.content} spokenChars={spokenChars} /> : message.content}
         </p>
+
+        {message.pendingLabel && (
+          <p data-testid="message-pending-label" role="status" className="mt-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+            {message.pendingLabel}
+          </p>
+        )}
 
         {/* Multimodal Delivery Analytics & Speech Metrics Badges */}
         {hasDeliveryBadges && (
