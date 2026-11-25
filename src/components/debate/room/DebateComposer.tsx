@@ -24,6 +24,7 @@ export interface DebateComposerProps {
   activeSidebarTab?: string | null;
   hasNewEvaluation?: boolean;
   latestScore?: number | null;
+  hideRecordingBanner?: boolean;
   onArgumentChange: (text: string) => void;
   onSend: () => void;
   onToggleRecording: () => void;
@@ -53,6 +54,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   activeSidebarTab = null,
   hasNewEvaluation = false,
   latestScore = null,
+  hideRecordingBanner = false,
   onArgumentChange,
   onSend,
   onToggleRecording,
@@ -87,8 +89,8 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   return (
     <div className="sticky bottom-0 z-20 px-3 sm:px-6 py-2.5 bg-white/95 dark:bg-[#0D1D17]/95 backdrop-blur-md border-t border-slate-200/70 dark:border-slate-800 shrink-0">
       <div className="max-w-[880px] mx-auto w-full space-y-2">
-        {/* Live Multimodal Webcam + Audio Recording Banner */}
-        {(isRecording || isAnalyzingMultimodal) && (
+        {/* Live Multimodal Webcam + Audio Recording Banner (hidden when AiCameraPanel renders the left split) */}
+        {!hideRecordingBanner && (isRecording || isAnalyzingMultimodal) && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/95 text-white border border-emerald-500/30 shadow-md">
             <div className="flex items-center gap-3">
               {/* Live Webcam Feed + Bounding Box Overlay */}

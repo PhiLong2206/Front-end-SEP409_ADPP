@@ -17,6 +17,7 @@ import {
 import DebateHeader from "../../../components/debate/DebateHeader";
 import DebateChat from "../../../components/debate/DebateChat";
 import DebateComposer from "../../../components/debate/DebateComposer";
+import AiCameraPanel from "../../../components/debate/room/AiCameraPanel";
 import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
 import LeaveDebateConfirmModal from "../../../components/debate/LeaveDebateConfirmModal";
@@ -3871,9 +3872,30 @@ const DebateRoom: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* ── MAIN CONVERSATION + COLLAPSIBLE AI ASSISTANCE PANEL ── */
-        <div className="flex-1 flex min-h-0 relative overflow-hidden">
-          {/* Primary Centered Chat Column */}
+        /* ── MAIN CONVERSATION + LEFT CAMERA SPLIT (AI) + COLLAPSIBLE AI ASSISTANCE PANEL ── */
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0 relative overflow-hidden">
+          {!isP2pOr2v2 && (
+            <AiCameraPanel
+              isRecording={isRecording}
+              isAnalyzingMultimodal={isAnalyzingMultimodal}
+              hasActiveCamera={hasActiveCamera}
+              canSpeak={canSpeak && !isSessionCancelled}
+              isAiGenerating={isAiGenerating || isWaitingForAiFirstTurn}
+              isTurnExpired={EffectiveExpired}
+              isDebateCompleted={EffectiveDebateCompleted}
+              liveFrameAnalysis={liveFrameAnalysis}
+              liveInterimTranscript={liveInterimTranscript}
+              liveSttStatus={liveSttStatus}
+              micLevel={micLevel}
+              micLabel={micLabel}
+              videoPreviewRef={videoPreviewRef}
+              overlayCanvasRef={overlayCanvasRef}
+              onToggleRecording={handleToggleRecording}
+              onRunSampleMultimodal={handleRunSampleMultimodal}
+            />
+          )}
+
+          {/* Primary Chat Column */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {(remoteSpeakingUser || remoteLiveTranscript) && (
               <div className="mx-4 mt-2 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-1 text-xs text-purple-700 dark:text-purple-300">
@@ -4083,6 +4105,7 @@ const DebateRoom: React.FC = () => {
               activeSidebarTab={isSidebarOpen ? sidebarTab : null}
               hasNewEvaluation={hasNewEvaluation}
               latestScore={evaluationResult?.overall_score ?? null}
+              hideRecordingBanner={!isP2pOr2v2}
               onArgumentChange={setArgumentText}
               onSend={handleSendArgument}
               onPassTurn={handlePassTurn}
