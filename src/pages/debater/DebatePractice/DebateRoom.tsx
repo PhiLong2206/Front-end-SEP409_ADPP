@@ -49,6 +49,8 @@ import { useSharedDeviceStream } from "./useSharedDeviceStream";
 import { isTeamDebateSession, roomSeatCount } from "../../../utils/debateRoomMode";
 import RoundStatusBar from "../../../components/debate/room/RoundStatusBar";
 import TeamCallPanel from "../../../components/debate/room/TeamCallPanel";
+import DebateNotesPanel from "../../../components/debate/room/DebateNotesPanel";
+import { useDebateNotes } from "../../../hooks/useDebateNotes";
 import { useTeamCall } from "./useTeamCall";
 import {
   DEFAULT_TOTAL_ROUNDS,
@@ -1455,6 +1457,16 @@ const DebateRoom: React.FC = () => {
     if (isBackendSession && !teamCall.isBusy) debateHubService.sendSpeakingStatus(isRecording);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamCall.isBusy]);
+
+  // Notes card: only for a debater, in every kind of room. After the debate ends, leaving the room deletes the notes.
+  const isNotesDebater = userRoleInRoom === "Debater";
+  const notes = useDebateNotes({
+    sessionId,
+    userId: currentUserId,
+    enabled: isNotesDebater,
+    ended: EffectiveDebateCompleted || isTerminalBackendStatus,
+    roundLabel: displayRoundLabel,
+  });
 
   const isSessionCancelled = sessionDetails?.status === 4 || String(sessionDetails?.status) === "Cancelled";
 
@@ -3393,8 +3405,11 @@ const DebateRoom: React.FC = () => {
           }
           onSkipReading={skipAiReading}
           announcedRound={roundBanner}
+          notes={isNotesDebater ? { open: notes.open, hasNotes: notes.hasNotes, onToggle: notes.toggleOpen } : undefined}
         />
       )}
+
+      {isNotesDebater && notes.open && <DebateNotesPanel notes={notes} roundLabel={displayRoundLabel} />}
 
       {/* Reconnecting Indicator */}
       {isReconnecting && isDebateActivelyInProgress && (

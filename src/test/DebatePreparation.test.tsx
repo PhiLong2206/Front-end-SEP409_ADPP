@@ -152,6 +152,7 @@ describe("the preparation before Round 1 and the round announcements", () => {
     vi.useFakeTimers();
     vi.setSystemTime(SERVER_T0);
     sessionStorage.clear();
+    localStorage.clear();
     machineOffsetMs = 0;
     prepEndsAtMs = SERVER_T0 + 60_000;
     mode = "ai";
@@ -227,6 +228,31 @@ describe("the preparation before Round 1 and the round announcements", () => {
 
     await advance(3_000);
     expect(screen.queryByTestId("round-banner")).not.toBeInTheDocument(); // the banner lasts about 3 seconds
+  });
+
+  it("a debater has the notes button in the status bar: the card opens beside the room and a dot marks notes", async () => {
+    await renderRoom("PRO");
+
+    fireEvent.click(screen.getByTestId("notes-toggle-btn"));
+    expect(screen.getByRole("dialog", { name: "Ghi chú" })).toBeInTheDocument();
+    expect(screen.getByTestId("preparation-countdown")).toBeInTheDocument(); // the room goes on beside it
+    fireEvent.change(screen.getByTestId("notes-textarea"), { target: { value: "Ý chính" } });
+    fireEvent.click(screen.getByTestId("notes-close"));
+    expect(screen.queryByRole("dialog", { name: "Ghi chú" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("notes-dot")).toBeInTheDocument();
+    expect(localStorage.getItem("adpp.debateNotes.123.1")).toBeNull(); // saved 300 ms later
+    await advance(400);
+    expect(localStorage.getItem("adpp.debateNotes.123.1")).toContain("Ý chính");
+  });
+
+  it("someone who only watches has no notes button, and Alt+N does nothing", async () => {
+    mode = "p2p";
+    userInRoom = false;
+    await renderRoom("PRO");
+
+    expect(screen.queryByTestId("notes-toggle-btn")).not.toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: "n", code: "KeyN", altKey: true });
+    expect(screen.queryByRole("dialog", { name: "Ghi chú" })).not.toBeInTheDocument();
   });
 
   it("AI practice: 'Bắt đầu ngay' skips the preparation through the API and starts Round 1", async () => {
