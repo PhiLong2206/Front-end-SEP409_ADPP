@@ -25,6 +25,7 @@ import {
   DebateAiEvaluationResponse,
   DebateEvaluationResponse,
   SingleArgumentEvaluationResponse,
+  IceServersResponse,
 } from "../types";
 
 /**
@@ -166,6 +167,13 @@ const debateApi = {
     sessionId: number | string
   ): Promise<ApiResponse<DebateSessionResponse>> =>
     axiosClient.post(`/debate/${sessionId}/restart-preparation`),
+
+  /**
+   * GET /api/Debate/{sessionId}/ice-servers [Authorized]
+   * STUN/TURN servers for the voice call between two teammates (403 when the caller has no teammate).
+   */
+  getIceServers: (sessionId: number | string): Promise<ApiResponse<IceServersResponse>> =>
+    axiosClient.get(`/debate/${sessionId}/ice-servers`),
 
   // Alias for getSessionDetails
   getSessionById: (

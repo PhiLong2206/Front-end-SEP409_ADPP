@@ -41,12 +41,15 @@ import {
   type ServerVoiceOption,
   voiceOptionLabel,
 } from "../../../services/speechOut";
-import { debateHubService } from "../../../services/debateHub";
+import { debateHubService, type TeamCallEndedEvent, type TeamCallSignalEvent } from "../../../services/debateHub";
 import type { RoundStartedEvent } from "../../../types/debate.types";
 import PreparationPanel from "../../../components/debate/room/PreparationPanel";
 import RoomLoadingPanel from "../../../components/debate/room/RoomLoadingPanel";
 import { useSharedDeviceStream } from "./useSharedDeviceStream";
+import { isTeamDebateSession, roomSeatCount } from "../../../utils/debateRoomMode";
 import RoundStatusBar from "../../../components/debate/room/RoundStatusBar";
+import TeamCallPanel from "../../../components/debate/room/TeamCallPanel";
+import { useTeamCall } from "./useTeamCall";
 import {
   DEFAULT_TOTAL_ROUNDS,
   hasShownRoundBanner,
@@ -351,6 +354,13 @@ const DebateRoom: React.FC = () => {
   const [readProgress, setReadProgress] = useState<Record<number, number>>({});
   const readProgressRef = useRef<Record<number, number>>({});
   const stageReaderRef = useRef<Record<number, SentenceQueue>>({});
+  // The teammate voice call (hook below): the hub callbacks are set once, so they reach it through this ref
+  const teamCallHandlersRef = useRef<{
+    handleSignal: (e: TeamCallSignalEvent) => void;
+    handleEnded: (e: TeamCallEndedEvent) => void;
+  }>({ handleSignal: () => {}, handleEnded: () => {} });
+  // While the call carries voice, the live transcript and the speaking status are not sent to the room
+  const teamCallBusyRef = useRef(false);
   const readProgressFrameRef = useRef<number | null>(null);
   // The stage of the AI turn whose text is streaming now
   const [liveTurnStage, setLiveTurnStage] = useState<number | null>(null);
@@ -787,11 +797,20 @@ const DebateRoom: React.FC = () => {
   const is2v2 = Boolean(
     sessionDetails &&
       !hasAiParticipant &&
-      (sessionDetails.participants.length > 2 ||
-        (sessionDetails.title &&
-          (sessionDetails.title.toLowerCase().includes("2 vs 2") ||
-            sessionDetails.title.toLowerCase().includes("2v2"))))
+      isTeamDebateSession({
+        isTeamDebate: sessionDetails.isTeamDebate,
+        maxParticipants: sessionDetails.maxParticipants,
+        title: sessionDetails.title,
+        participantCount: sessionDetails.participants.length,
+      })
   );
+  const seatCount = sessionDetails
+    ? roomSeatCount({
+        isTeamDebate: is2v2 ? true : sessionDetails.isTeamDebate,
+        maxParticipants: sessionDetails.maxParticipants,
+      })
+    : 2;
+  const seatsPerSide = Math.max(1, Math.floor(seatCount / 2));
   // The server says whether Round 1 has begun: the room stays locked until a response says so, not by its own clock
   const isPreparing = Boolean(sessionDetails?.isPreparing);
   // The init effect only needs to know the session has loaded, not to run again on every poll of it
@@ -853,9 +872,7 @@ const DebateRoom: React.FC = () => {
     sessionDetails?.participants.filter((p) => p.side === 2 || String(p.side) === "CON") || [];
   const canHostStart = Boolean(
     sessionDetails &&
-      (is2v2
-        ? proParticipants.length >= 2 && conParticipants.length >= 2
-        : proParticipants.length >= 1 && conParticipants.length >= 1)
+      proParticipants.length >= seatsPerSide && conParticipants.length >= seatsPerSide
   );
 
   const mySide = myParticipant?.side;
@@ -1403,6 +1420,42 @@ const DebateRoom: React.FC = () => {
     },
   });
 
+  // Voice call with the teammate (2v2 and team competition rooms) while the preparation minute runs
+  const myCallParticipant = sessionDetails?.participants?.find((p) => isSameUserId(p.userId, currentUserId));
+  const callTeammate =
+    myCallParticipant && !myCallParticipant.isAI
+      ? sessionDetails?.participants?.find(
+          (p) =>
+            !p.isAI &&
+            p.userId !== null &&
+            p.userId !== undefined &&
+            !isSameUserId(p.userId, currentUserId) &&
+            p.side !== null &&
+            p.side !== undefined &&
+            p.side === myCallParticipant.side
+        )
+      : undefined;
+  const teamCall = useTeamCall({
+    eligible: isBackendSession && userRoleInRoom === "Debater" && Boolean(callTeammate),
+    isPreparing,
+    sessionEnded: EffectiveDebateCompleted || isTerminalBackendStatus,
+    sessionId: numSessionId,
+    myUserId: currentUserId === null || currentUserId === undefined ? null : Number(currentUserId),
+    teammate: callTeammate ? { userId: Number(callTeammate.userId), name: callTeammate.speakerName || "" } : null,
+    preparationEndsAt,
+    serverOffsetRef,
+    acquireStream: async () => (await devices.acquire()).stream,
+    fetchIceServers: (id) => debateApi.getIceServers(id),
+    sendSignal: (type, payload) => debateHubService.sendTeamCallSignal(type, payload),
+  });
+  teamCallHandlersRef.current = { handleSignal: teamCall.handleSignal, handleEnded: teamCall.handleEnded };
+  teamCallBusyRef.current = teamCall.isBusy;
+  // When the call ends, tell the room the real speaking state again (it was not sent while the call was on)
+  useEffect(() => {
+    if (isBackendSession && !teamCall.isBusy) debateHubService.sendSpeakingStatus(isRecording);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamCall.isBusy]);
+
   const isSessionCancelled = sessionDetails?.status === 4 || String(sessionDetails?.status) === "Cancelled";
 
   // Persist active session metadata for recovery after refresh/reconnect; clear when terminal
@@ -1844,6 +1897,8 @@ const DebateRoom: React.FC = () => {
           });
         }
       },
+      onTeamCallSignal: (data) => teamCallHandlersRef.current.handleSignal(data),
+      onTeamCallEnded: (data) => teamCallHandlersRef.current.handleEnded(data),
       onSessionStarted: () => {
         loadBackendSession(numSessionId);
         setRoomFeedback({
@@ -1878,7 +1933,7 @@ const DebateRoom: React.FC = () => {
 
   // Broadcast current user's live speaking status to other debaters in real-time
   useEffect(() => {
-    if (isBackendSession) {
+    if (isBackendSession && !teamCallBusyRef.current) {
       debateHubService.sendSpeakingStatus(isRecording);
     }
   }, [isRecording, isBackendSession]);
@@ -2677,7 +2732,7 @@ const DebateRoom: React.FC = () => {
               setArgumentText((prev) => (prev.trim() ? `${prev.trim()} ${cleanText}` : cleanText));
               if (isBackendSession) {
                 liveSeqRef.current += 1;
-                void debateHubService.sendLiveTranscript(cleanText, true, speechFinal, liveSeqRef.current);
+                if (!teamCallBusyRef.current) void debateHubService.sendLiveTranscript(cleanText, true, speechFinal, liveSeqRef.current);
               }
             }
           } else {
@@ -2687,7 +2742,7 @@ const DebateRoom: React.FC = () => {
               if (now - lastInterimBroadcastRef.current >= 250) {
                 lastInterimBroadcastRef.current = now;
                 liveSeqRef.current += 1;
-                void debateHubService.sendLiveTranscript(transcript, false, false, liveSeqRef.current);
+                if (!teamCallBusyRef.current) void debateHubService.sendLiveTranscript(transcript, false, false, liveSeqRef.current);
               }
             }
           }
@@ -3590,7 +3645,7 @@ const DebateRoom: React.FC = () => {
                   <span>Phe Ủng Hộ (PRO)</span>
                 </div>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                  {proParticipants.length}/{is2v2 ? 2 : 1}
+                  {proParticipants.length}/{seatsPerSide}
                 </span>
               </div>
               <div className="space-y-2">
@@ -3625,7 +3680,7 @@ const DebateRoom: React.FC = () => {
                     )}
                   </div>
                 ))}
-                {proParticipants.length < (is2v2 ? 2 : 1) && (
+                {proParticipants.length < seatsPerSide && (
                   <div className="p-3 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-emerald-700/70 py-4">
                     Đang chờ Debater tham gia slot PRO...
                   </div>
@@ -3640,7 +3695,7 @@ const DebateRoom: React.FC = () => {
                   <span>Phe Phản Đối (CON)</span>
                 </div>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300">
-                  {conParticipants.length}/{is2v2 ? 2 : 1}
+                  {conParticipants.length}/{seatsPerSide}
                 </span>
               </div>
               <div className="space-y-2">
@@ -3675,7 +3730,7 @@ const DebateRoom: React.FC = () => {
                     )}
                   </div>
                 ))}
-                {conParticipants.length < (is2v2 ? 2 : 1) && (
+                {conParticipants.length < seatsPerSide && (
                   <div className="p-3 rounded-xl border border-dashed border-rose-300 text-center text-xs text-rose-700/70 py-4">
                     Đang chờ Debater tham gia slot CON...
                   </div>
@@ -3710,7 +3765,7 @@ const DebateRoom: React.FC = () => {
                   <span>
                     {canHostStart
                       ? "Bắt đầu trận tranh biện ngay"
-                      : `Chờ đủ người (${sessionDetails.participants.length}/${is2v2 ? 4 : 2})`}
+                      : `Chờ đủ người (${sessionDetails.participants.length}/${seatCount})`}
                   </span>
                 </button>
               ) : (
@@ -3796,6 +3851,19 @@ const DebateRoom: React.FC = () => {
               <PreparationPanel
                 motion={motionText}
                 side={userRoleInRoom === "Debater" && isParticipant ? debaterSide : null}
+              />
+            )}
+
+            {isPreparing && teamCall.isActive && (
+              <TeamCallPanel
+                teammateName={teamCall.teammateName}
+                status={teamCall.status}
+                muted={teamCall.muted}
+                audioBlocked={teamCall.audioBlocked}
+                remoteStream={teamCall.remoteStream}
+                onToggleMute={teamCall.toggleMute}
+                onRetry={teamCall.retry}
+                onEnableAudio={teamCall.enableAudio}
               />
             )}
 
