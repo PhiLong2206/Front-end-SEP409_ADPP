@@ -485,7 +485,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                         size="sm"
                         onClick={handleCloseRegistration}
                         disabled={actionLoading}
-                        className="text-xs"
+                        className="text-xs !text-white !bg-amber-600 hover:!bg-amber-700 font-bold shadow-xs"
                       >
                         <DoorClosed size={14} className="mr-1" />
                         Đóng đăng ký

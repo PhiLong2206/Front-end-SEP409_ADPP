@@ -1,6 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, BookOpen, ChevronDown, ChevronUp, History, Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  History,
+  Loader2,
+  PenTool,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { debateApi, topicApi } from "../../../api";
 import { Topic } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
@@ -26,6 +38,41 @@ const BACKEND_DIFFICULTY: Record<AIDifficultyLevel, "Easy" | "Medium" | "Hard"> 
   "Trung bình": "Medium",
   "Khó": "Hard",
 };
+
+interface QuickPrompt {
+  topic: string;
+  category: "technology" | "education" | "society";
+  categoryLabel: "Công nghệ" | "Giáo dục" | "Xã hội";
+}
+
+const QUICK_PROMPTS: QuickPrompt[] = [
+  {
+    topic: "Trí tuệ nhân tạo (AI) nên được kiểm soát chặt chẽ bởi luật pháp quốc tế.",
+    category: "technology",
+    categoryLabel: "Công nghệ",
+  },
+  {
+    topic: "Nên cấm sử dụng điện thoại thông minh trong các trường phổ thông.",
+    category: "education",
+    categoryLabel: "Giáo dục",
+  },
+  {
+    topic: "Năng lượng hạt nhân là giải pháp tất yếu để chống biến đổi khí hậu toàn cầu.",
+    category: "technology",
+    categoryLabel: "Công nghệ",
+  },
+  {
+    topic: "Làm việc từ xa (Remote work) mang lại hiệu quả cao hơn làm việc truyền thống.",
+    category: "society",
+    categoryLabel: "Xã hội",
+  },
+];
+
+const CATEGORY_OPTIONS = [
+  { code: "technology", label: "Công nghệ" },
+  { code: "education", label: "Giáo dục" },
+  { code: "society", label: "Xã hội" },
+] as const;
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -69,7 +116,12 @@ const DebatePractice: React.FC = () => {
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [suggestionCategory, setSuggestionCategory] = useState<string>("all");
 
-  // One start panel at a time: "h:<key>" for a practised topic, "s:<id>" for a suggestion
+  // Custom Topic State
+  const [customMotion, setCustomMotion] = useState("");
+  const [customCategory, setCustomCategory] = useState<string>("technology");
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  // One start panel at a time: "h:<key>" for a practised topic, "s:<id>" for a suggestion, "custom" for custom motion
   const [openId, setOpenId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Read synchronously: two quick clicks must not create two sessions
@@ -130,6 +182,7 @@ const DebatePractice: React.FC = () => {
   const togglePanel = (id: string) => {
     setOpenId((current) => (current === id ? null : id));
     setStartError(null);
+    setCustomError(null);
   };
 
   /** Always a new session, started by the topic's id (the Backend takes its category from it). */
@@ -165,6 +218,58 @@ const DebatePractice: React.FC = () => {
     }
   };
 
+  /** Custom session: started with user-typed motion and chosen category. */
+  const startCustomSession = async (side: PracticeSide, difficulty: AIDifficultyLevel) => {
+    if (submittingRef.current) return;
+    const trimmed = customMotion.trim();
+    if (!trimmed) {
+      setCustomError("Vui lòng nhập chủ đề / kiến nghị tranh biện.");
+      return;
+    }
+    if (trimmed.length < 10) {
+      setCustomError("Chủ đề tranh biện phải có tối thiểu 10 ký tự.");
+      return;
+    }
+    if (trimmed.length > 300) {
+      setCustomError("Chủ đề tranh biện không được vượt quá 300 ký tự.");
+      return;
+    }
+    if (!customCategory) {
+      setCustomError("Vui lòng chọn danh mục cho chủ đề (Giáo dục, Công nghệ hoặc Xã hội).");
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    setCustomError(null);
+    setStartError(null);
+
+    const finalTitle = trimmed.slice(0, 100);
+
+    try {
+      const res = await debateApi.createAiPracticeSession({
+        title: finalTitle,
+        topic: trimmed,
+        category: customCategory,
+        userSide: side === "PRO" ? 1 : 2,
+        isAI: true,
+        difficulty: BACKEND_DIFFICULTY[difficulty],
+        turnTimeLimitSeconds: 180,
+      });
+
+      const sessionId = res?.data?.sessionId;
+      if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
+      navigate(`/debater/debate/${sessionId}?role=${side}&difficulty=${difficulty}&motion=${encodeURIComponent(trimmed)}`);
+    } catch (err: unknown) {
+      const e = err as { message?: string; response?: { data?: { message?: string } } };
+      setCustomError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const isCustomOpen = openId === "custom";
+
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-10">
       <div>
@@ -175,7 +280,7 @@ const DebatePractice: React.FC = () => {
           </span>
         </h1>
         <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1.5">
-          Học lại các chủ đề đã luyện, hoặc chọn nhanh một chủ đề mới để tranh biện cùng AI.
+          Học lại các chủ đề đã luyện, chọn nhanh chủ đề gợi ý hoặc tự do nhập kiến nghị của riêng bạn để tranh biện cùng AI.
         </p>
       </div>
 
@@ -204,6 +309,156 @@ const DebatePractice: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* ── Custom Topic: Free Input & Quick Prompts ── */}
+      <section className="space-y-3" aria-labelledby="custom-topic-title">
+        <div className={cardClass}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h2 id="custom-topic-title" className="text-base font-black text-slate-900 dark:text-[#F8FAFC] flex items-center gap-2">
+                <PenTool size={17} className="text-[#008A64]" />
+                <span>Tự nhập chủ đề & Kiến nghị riêng</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
+                Nhập bất kỳ kiến nghị nào bạn muốn hoặc chọn gợi ý nhanh để bắt đầu luyện tập ngay.
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="toggle-custom-motion-btn"
+              aria-expanded={isCustomOpen}
+              onClick={() => togglePanel("custom")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+            >
+              <span>{isCustomOpen ? "Thu gọn" : "Soạn kiến nghị"}</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
+          {isCustomOpen && (
+            <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="custom-motion-textarea" className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F8FAFC]">
+                    Nội dung kiến nghị / Chủ đề <span className="text-rose-500">*</span>
+                  </label>
+                  <span
+                    className={`text-xs font-mono font-medium ${
+                      customMotion.length > 300
+                        ? "text-rose-500 font-bold"
+                        : customMotion.length >= 10
+                        ? "text-[#008A64] dark:text-emerald-400"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {customMotion.length} / 300 ký tự
+                  </span>
+                </div>
+
+                <textarea
+                  id="custom-motion-textarea"
+                  rows={3}
+                  value={customMotion}
+                  onChange={(e) => {
+                    setCustomMotion(e.target.value);
+                    if (customError) setCustomError(null);
+                  }}
+                  maxLength={350}
+                  placeholder="Ví dụ: Chúng tôi tin rằng trí tuệ nhân tạo (AI) nên được quản lý chặt chẽ bởi luật pháp quốc tế..."
+                  className={`w-full p-3.5 bg-slate-50 dark:bg-[#091713] border rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-[#F8FAFC] focus:outline-none transition-colors resize-none shadow-xs ${
+                    customError
+                      ? "border-rose-300 dark:border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      : "border-slate-200 dark:border-[rgba(148,163,184,0.20)] focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/20"
+                  }`}
+                />
+              </div>
+
+              {/* Category Selector for Custom Topic */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F8FAFC] flex items-center justify-between">
+                  <span>Danh mục chủ đề <span className="text-rose-500">*</span></span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    (Giúp AI Evaluator nạp dữ liệu đối chiếu dẫn chứng)
+                  </span>
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {CATEGORY_OPTIONS.map((cat) => {
+                    const isSelected = customCategory === cat.code;
+                    return (
+                      <button
+                        key={cat.code}
+                        type="button"
+                        onClick={() => {
+                          setCustomCategory(cat.code);
+                          if (customError) setCustomError(null);
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs ${
+                          isSelected
+                            ? "bg-[#ECFDF5]/70 dark:bg-[rgba(16,185,129,0.12)] border-[#008A64] dark:border-[rgba(16,185,129,0.40)] text-[#008A64] dark:text-[#34D399] ring-1 ring-[#008A64]"
+                            : "bg-slate-50 dark:bg-[#091713] border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C]"
+                        }`}
+                      >
+                        <span
+                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "border-[#008A64] bg-[#008A64]"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                        >
+                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                        <span>{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quick Example Prompts */}
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-amber-500" />
+                  <span>Gợi ý chủ đề nhanh (nhấn để chọn):</span>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_PROMPTS.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setCustomMotion(prompt.topic);
+                        setCustomCategory(prompt.category);
+                        if (customError) setCustomError(null);
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-[#10231C] dark:hover:bg-[#153026] text-slate-700 dark:text-slate-300 transition-colors text-left border border-slate-200/60 dark:border-slate-700/40 flex items-center gap-2"
+                    >
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
+                        {prompt.categoryLabel}
+                      </span>
+                      <span>{prompt.topic}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {customError && (
+                <div role="alert" className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-700 dark:text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>{customError}</span>
+                </div>
+              )}
+
+              {/* Start Panel for Custom Topic */}
+              <PracticeStartPanel
+                idPrefix="custom"
+                submitting={submitting}
+                error={startError}
+                onStart={(side, difficulty) => void startCustomSession(side, difficulty)}
+              />
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ── History: the topics already practised with the AI ── */}
       <section className="space-y-3" aria-labelledby="practice-history-title">
@@ -239,7 +494,7 @@ const DebatePractice: React.FC = () => {
           >
             <p className="text-sm font-bold text-slate-800 dark:text-[#F8FAFC]">Bạn chưa luyện chủ đề nào với AI</p>
             <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
-              Chọn một chủ đề gợi ý bên dưới để bắt đầu. Chủ đề đã hoàn thành sẽ xuất hiện ở đây để bạn học lại.
+              Chọn một chủ đề gợi ý bên dưới hoặc tự nhập kiến nghị ở trên để bắt đầu. Chủ đề đã hoàn thành sẽ xuất hiện ở đây để bạn học lại.
             </p>
           </div>
         ) : (

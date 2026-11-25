@@ -82,6 +82,7 @@ const TopicDetail: React.FC = () => {
         topicId: Number.isInteger(topicId) && topicId > 0 ? topicId : undefined,
         title: topic.title,
         topic: motion,
+        category: topic.category || "society",
         userSide: role === "PRO" ? 1 : 2,
         isAI: true,
         difficulty: selectedDifficulty === "Khó" ? "Hard" : selectedDifficulty === "Dễ" ? "Easy" : "Medium",

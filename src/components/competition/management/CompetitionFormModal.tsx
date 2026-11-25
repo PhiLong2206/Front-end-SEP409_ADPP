@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../../common/Modal";
 import Button from "../../common/Button";
 import competitionApi from "../../../api/competitionApi";
+import paymentApi from "../../../api/paymentApi";
 import { CompetitionDetail, CreateCompetitionDto, PatchCompetitionDto, CompetitionType } from "../../../types";
 import { toDateInputString, parseApiDate } from "../../../utils/formatDate";
 
@@ -45,6 +46,32 @@ const CompetitionFormModal: React.FC<Props> = ({
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && !isEditing) {
+      setWalletLoading(true);
+      paymentApi
+        .getMyWallet()
+        .then((res) => {
+          if (res.success && res.data) {
+            setWalletBalance(res.data.balance);
+          }
+        })
+        .catch(() => {
+          setWalletBalance(null);
+        })
+        .finally(() => {
+          setWalletLoading(false);
+        });
+    }
+  }, [isOpen, isEditing]);
+
+  const participantCount = Number(maxParticipants) || 16;
+  const estimatedCredits = participantCount <= 8 ? 500 : participantCount <= 16 ? 1200 : 2500;
+  const isBalanceInsufficient = walletBalance !== null && walletBalance < estimatedCredits;
 
   useEffect(() => {
     if (competitionToEdit) {
@@ -194,6 +221,9 @@ const CompetitionFormModal: React.FC<Props> = ({
 
         const res = await competitionApi.createCompetition(createData);
         if (res.success) {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("wallet_updated"));
+          }
           onSuccess(res.data);
           onClose();
         } else {
@@ -201,10 +231,36 @@ const CompetitionFormModal: React.FC<Props> = ({
         }
       }
     } catch (err: unknown) {
-      const e = err as { message?: string; errors?: Record<string, string[]> | string };
-      if (e.errors && typeof e.errors === "object" && !Array.isArray(e.errors)) {
-        const firstErr = Object.values(e.errors).flat()[0];
-        setServerError((typeof firstErr === "string" ? firstErr : null) || e.message || "Đã xảy ra lỗi khi lưu cuộc thi.");
+      const e = err as {
+        message?: string;
+        code?: string;
+        status?: number;
+        statusCode?: number;
+        errors?: Record<string, string[]> | string | { requiredCredits?: number; currentCredits?: number; missingCredits?: number };
+        data?: { requiredCredits?: number; currentCredits?: number; missingCredits?: number };
+      };
+
+      const httpStatus = e.status || e.statusCode;
+      const isInsufficient =
+        e.code === "INSUFFICIENT_CREDITS" ||
+        Boolean(e.data?.requiredCredits) ||
+        (typeof e.errors === "object" && e.errors !== null && "requiredCredits" in e.errors);
+
+      if (isInsufficient) {
+        const req = e.data?.requiredCredits ?? (e.errors as { requiredCredits?: number })?.requiredCredits;
+        const cur = e.data?.currentCredits ?? (e.errors as { currentCredits?: number })?.currentCredits ?? (walletBalance ?? 0);
+        setServerError(
+          `Số dư Credit không đủ để tạo giải đấu (Cần ${req ? Number(req).toLocaleString() : estimatedCredits.toLocaleString()} Credit, hiện có ${Number(cur).toLocaleString()} Credit). Vui lòng nạp thêm Credit để tiếp tục.`
+        );
+      } else if (httpStatus === 401) {
+        setServerError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.");
+      } else if (httpStatus === 403 || e.errors === "FORBIDDEN" || e.code === "FORBIDDEN") {
+        setServerError("Bạn không có quyền thực hiện thao tác này trên cuộc thi.");
+      } else if (e.errors && typeof e.errors === "object" && !Array.isArray(e.errors)) {
+        const firstErr = Object.values(e.errors)
+          .flat()
+          .find((val) => typeof val === "string");
+        setServerError(firstErr || e.message || "Đã xảy ra lỗi khi lưu cuộc thi.");
       } else if (typeof e.errors === "string" && e.errors.trim()) {
         setServerError(e.message || e.errors || "Đã xảy ra lỗi khi lưu cuộc thi.");
       } else {
@@ -440,6 +496,57 @@ const CompetitionFormModal: React.FC<Props> = ({
             Công khai cuộc thi (Hiển thị cho tất cả thí sinh)
           </label>
         </div>
+
+        {!isEditing && (
+          <div
+            className={`p-3.5 rounded-xl border space-y-2 transition-all ${
+              isBalanceInsufficient
+                ? "bg-rose-50/80 border-rose-200 text-rose-900"
+                : "bg-amber-50/80 border-amber-200 text-amber-900"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-bold flex-wrap gap-2">
+              <span className="flex items-center gap-1.5">
+                <span>💰 Chi phí khởi tạo giải đấu:</span>
+                <span className="text-xs font-extrabold px-2 py-0.5 rounded-lg border bg-amber-100 text-amber-800 border-amber-300">
+                  {estimatedCredits.toLocaleString()} Credit
+                </span>
+              </span>
+              <span className="flex items-center gap-1.5 text-xs font-bold">
+                <span className="text-slate-600">Số dư ví của bạn:</span>
+                <span
+                  className={`font-mono font-extrabold ${
+                    isBalanceInsufficient ? "text-rose-600" : "text-[#008A64]"
+                  }`}
+                >
+                  {walletLoading
+                    ? "Đang tải..."
+                    : walletBalance !== null
+                    ? `${walletBalance.toLocaleString()} Credit`
+                    : "--"}
+                </span>
+              </span>
+            </div>
+
+            <p className="text-[11px] leading-relaxed opacity-90">
+              * Quy mô: {participantCount <= 8 ? "Nhỏ (≤ 8 cá nhân / 4 đội - 500 Credit)" : participantCount <= 16 ? "Vừa (≤ 16 cá nhân / 8 đội - 1.200 Credit)" : "Lớn (≤ 32 cá nhân / 16 đội - 2.500 Credit)"}. Credit sẽ được trừ một lần từ ví của người tạo khi tạo giải thành công. Thí sinh tham gia thi đấu hoàn toàn miễn phí (0 Credit).
+            </p>
+
+            {isBalanceInsufficient && (
+              <div className="flex items-center justify-between pt-1 border-t border-rose-200/80 text-xs flex-wrap gap-2">
+                <span className="font-semibold text-rose-700">
+                  ⚠️ Số dư hiện tại không đủ (thiếu {(estimatedCredits - (walletBalance ?? 0)).toLocaleString()} Credit).
+                </span>
+                <a
+                  href="/debater/payments"
+                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-[11px] transition-colors"
+                >
+                  Nạp thêm Credit →
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {!isEditing && (
           <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
