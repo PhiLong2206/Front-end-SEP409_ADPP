@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Trophy,
   Calendar,
@@ -34,6 +35,7 @@ import { formatDate } from "../../../utils/formatDate";
 // ── Leaderboard empty state ──────────────────────────────────────────
 
 const Competitions: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const currentUserId = user?.userId ? Number(user.userId) : null;
 
@@ -268,15 +270,21 @@ const Competitions: React.FC = () => {
         <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
 
           {/* Button: + Tạo cuộc thi */}
-          {/* Business Rule: Bất kỳ Authenticated user nào cũng có thể tạo cuộc thi (Creator tự động thành Judge). Khi Backend bổ sung Credit Cost API sau này sẽ integrate tiếp. */}
+          {/* Bất kỳ người dùng đã xác thực nào cũng có thể tạo cuộc thi bằng Credit */}
           <button
             type="button"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (!user) {
+                navigate("/login");
+                return;
+              }
+              setShowCreateModal(true);
+            }}
             className="px-4 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all hover:shadow-md cursor-pointer shrink-0"
             title="Khởi tạo cuộc thi mới"
           >
             <Plus size={16} />
-            <span>Tạo cuộc thi</span>
+            <span>+ Tạo cuộc thi</span>
           </button>
         </div>
       </div>

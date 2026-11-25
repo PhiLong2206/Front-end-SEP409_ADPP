@@ -133,6 +133,7 @@ export interface CreateAiPracticeSessionRequest {
   userSide: SystemDebateSide | number;
   isAI?: boolean;
   difficulty?: string;
+  enableRag?: boolean;
   turnTimeLimitSeconds?: number;
 }
 

@@ -155,7 +155,8 @@ const UserManagement: React.FC = () => {
     roleModalUser &&
       currentAdmin &&
       (String(roleModalUser.userId) === String(currentAdmin.userId) ||
-        String(roleModalUser.userId) === String(currentAdmin.id))
+        String(roleModalUser.userId) === String(currentAdmin.id) ||
+        (roleModalUser.email && currentAdmin.email && roleModalUser.email.toLowerCase() === currentAdmin.email.toLowerCase()))
   );
 
   // Submit Assign Roles: PUT /api/admin/users/{id}/roles

@@ -52,6 +52,7 @@ describe("TopicDetail: starting a debate", () => {
       topicId: 7,
       title: "Luật AI",
       topic: topic.motion,
+      category: "Công nghệ",
       userSide: 1,
       isAI: true,
       difficulty: "Medium",
