@@ -1106,6 +1106,15 @@ const DebateRoom: React.FC = () => {
         loadBackendSession(numSessionId);
         if (data.status === "Completed") {
           setIsDebateCompleted(true);
+        } else if (data.status === "Cancelled") {
+          setSecondsRemaining(0);
+          setIsRecording(false);
+          setRemoteSpeakingUser(null);
+          setSessionDetails((prev) => (prev ? { ...prev, status: 4 } : prev));
+          setRoomFeedback({
+            text: "Phiên tranh biện đã bị huỷ vì có người rời trận.",
+            type: "warning",
+          });
         }
       },
     });
@@ -2293,9 +2302,16 @@ const DebateRoom: React.FC = () => {
         <div
           role="status"
           data-testid="debate-cancelled-notice"
-          className="px-4 py-2 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200/80 dark:border-rose-800/50 text-xs font-semibold text-rose-700 dark:text-rose-300"
+          className="px-4 py-2 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200/80 dark:border-rose-800/50 text-xs font-semibold text-rose-700 dark:text-rose-300 flex items-center justify-between gap-3"
         >
-          Phiên tranh biện này đã bị huỷ vì có người rời trận. Không thể tiếp tục.
+          <span>Phiên tranh biện này đã bị huỷ vì có người rời trận. Không thể tiếp tục.</span>
+          <button
+            type="button"
+            onClick={() => navigate("/debater/dashboard")}
+            className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] shrink-0 transition-colors cursor-pointer"
+          >
+            Quay về trang chính
+          </button>
         </div>
       )}
 
