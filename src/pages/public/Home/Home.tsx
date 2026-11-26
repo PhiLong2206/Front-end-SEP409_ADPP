@@ -5,14 +5,16 @@ import {
   Brain,
   BarChart2,
   Globe,
-  Play,
-  Mail,
-  LogIn,
+  Compass,
+  Mic,
+  LineChart,
   UserPlus,
   Sparkles,
   CheckCircle2,
   AlertCircle,
   LogOut,
+  Gavel,
+  Timer,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { ROLES } from "../../../utils/constants";
@@ -21,10 +23,10 @@ import PasswordInput from "../../../components/auth/PasswordInput";
 import PasswordStrength from "../../../components/auth/PasswordStrength";
 import PasswordRequirements from "../../../components/auth/PasswordRequirements";
 import ConfirmPasswordInput from "../../../components/auth/ConfirmPasswordInput";
+import FeaturedLearners from "../../../components/home/FeaturedLearners";
 import authApi from "../../../api/authApi";
 import { getAuthErrorMessage } from "../../../utils/authError";
 
-import natureBg from "../../../assets/images/nature-bg.jpg";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -140,309 +142,286 @@ const Home: React.FC = () => {
     }
   };
 
+  const roleLabel = user?.role === "Administrator" ? "Quản trị viên" : user?.role === "Organizer" ? "Giảng viên" : "Học viên";
+
+  const switchMode = (mode: "login" | "register") => {
+    setAuthMode(mode);
+    setError("");
+    setSuccessMsg("");
+  };
+
+  const fieldClass =
+    "h-12 w-full rounded-ap-md border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-body) text-label placeholder:text-label-tertiary outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-60";
+  const labelClass = "text-(length:--text-caption) font-medium text-label-secondary";
+  const primaryButton =
+    "flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60";
+
+  const errorAlert = error && (
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="flex items-start gap-(--s-3) rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) leading-(--leading-snug) text-label"
+    >
+      <AlertCircle size={18} className="mt-0.5 shrink-0 text-ap-danger" aria-hidden="true" />
+      <span className="break-words">{error}</span>
+    </div>
+  );
+
+  const features = [
+    {
+      icon: Brain,
+      title: "AI đối kháng thông minh",
+      text: "Đối thủ AI phản biện đa chiều, bám sát luận điểm của bạn và đổi chiến thuật theo từng lượt.",
+    },
+    {
+      icon: BarChart2,
+      title: "Chấm điểm Rubric tự động",
+      text: "Đánh giá khách quan theo nhiều tiêu chí, kèm gợi ý cụ thể để bạn sửa ngay ở lượt sau.",
+    },
+    {
+      icon: Globe,
+      title: "Đa dạng chủ đề thực tế",
+      text: "Từ giáo dục, công nghệ đến xã hội: luôn có kiến nghị phù hợp với trình độ của bạn.",
+    },
+  ];
+
+  const featuredTopics = [
+    {
+      category: "Giáo dục",
+      title: "Học sinh nên được sử dụng điện thoại trong lớp học",
+      text: "Cân bằng giữa công cụ học tập số và sự tập trung trong giờ học.",
+      goal: "Luyện lập luận có dẫn chứng và phản biện theo bối cảnh.",
+    },
+    {
+      category: "Công nghệ",
+      title: "Trí tuệ nhân tạo sẽ làm nhiều việc hơn là tạo ra việc làm",
+      text: "Tác động của AI tới thị trường lao động và kỹ năng tương lai.",
+      goal: "Luyện phân tích hai mặt và dùng số liệu thuyết phục.",
+    },
+    {
+      category: "Xã hội",
+      title: "Mạng xã hội gây hại nhiều hơn lợi cho giới trẻ",
+      text: "Kết nối và cơ hội đối lập với áp lực tâm lý và nghiện màn hình.",
+      goal: "Luyện cấu trúc luận điểm rõ ràng và kết luận gọn.",
+    },
+  ];
+
+  const steps = [
+    { icon: Compass, title: "Chọn kiến nghị", text: "Chọn chủ đề và phe của bạn, rồi dành một phút chuẩn bị." },
+    { icon: Mic, title: "Tranh biện với AI", text: "Nói hoặc gõ lập luận theo luật WSDC & BP, từng vòng có đồng hồ riêng." },
+    { icon: LineChart, title: "Nhận phản hồi", text: "Xem điểm Rubric, điểm mạnh, điểm yếu và luyện lại ngay." },
+  ];
+
+  const proofs = [
+    { icon: Gavel, label: "Luật WSDC & BP" },
+    { icon: BarChart2, label: "Rubric đa tiêu chí" },
+    { icon: Timer, label: "Phản hồi thời gian thực" },
+  ];
+
+  const cardShell =
+    "relative z-10 mx-auto w-full max-w-[440px] rounded-ap-xl border border-separator bg-elevated/90 p-(--s-6) shadow-ap-lg backdrop-blur-xl";
+
   return (
-    <div className="min-h-[calc(100vh-80px)] relative overflow-hidden flex flex-col justify-center bg-[#FAF9F4] dark:bg-[#07110E] text-[#101828] dark:text-[#F8FAFC]">
-      {/* Background Nature Image - bright, clear, full sunlight */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
-        style={{
-          backgroundImage: `url(${natureBg})`,
-        }}
-      />
-      {/* Local light warm gradient behind text on the left (matches HÌNH 1) */}
-      <div
-        className="absolute inset-0 pointer-events-none dark:hidden"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(250,249,244,0.88) 0%, rgba(250,249,244,0.60) 35%, rgba(250,249,244,0.15) 60%, rgba(250,249,244,0) 75%)",
-        }}
-      />
-      {/* Extremely subtle overall white veil for maximum readability while keeping sunlight and greenery */}
-      <div className="absolute inset-0 bg-white/[0.08] dark:hidden pointer-events-none" />
+    <div className="page-modern relative isolate overflow-hidden bg-canvas font-apple text-label">
+      {/* Backdrop: two soft lights and a fine grid, nothing else */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div
+          className="absolute -top-40 left-[-10%] h-[620px] w-[620px] rounded-full blur-3xl"
+          style={{ background: "color-mix(in srgb, var(--accent) 22%, transparent)" }}
+        />
+        <div
+          className="absolute top-20 right-[-8%] h-[520px] w-[520px] rounded-full blur-3xl"
+          style={{ background: "color-mix(in srgb, var(--accent-2) 20%, transparent)" }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.35] dark:opacity-[0.25]"
+          style={{
+            backgroundImage:
+              "linear-gradient(var(--separator) 1px, transparent 1px), linear-gradient(90deg, var(--separator) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
+            maskImage: "radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 100%)",
+            WebkitMaskImage: "radial-gradient(70% 60% at 50% 0%, #000 0%, transparent 100%)",
+          }}
+        />
+      </div>
 
-      {/* Dark Forest Overlay ONLY in Dark Mode */}
-      <div
-        className="absolute inset-0 hidden dark:block pointer-events-none"
-        style={{
-          background: "linear-gradient(rgba(4, 15, 11, 0.65), rgba(4, 15, 11, 0.65))",
-        }}
-      />
-
-      {/* Main Container */}
-      <section className="max-w-[1440px] mx-auto px-6 sm:px-12 py-10 sm:py-16 w-full relative z-10 flex-1 flex flex-col justify-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* ================= LEFT HERO COLUMN (col-span-7) ================= */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* 1. Sparkle Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/90 dark:bg-[#12231C]/90 backdrop-blur-md border border-[#D8EADF] dark:border-slate-800 shadow-xs text-[#101828] dark:text-[#F8FAFC]">
-              <Sparkles size={14} className="text-[#00966F] dark:text-[#34D399]" />
-              <span className="text-xs sm:text-sm font-semibold text-[#475467] dark:text-[#CBD5E1]">
-                Nền tảng tranh biện AI thế hệ mới • <span className="text-[#00966F] dark:text-[#34D399] font-bold">Chuẩn Quốc tế</span>
-              </span>
-            </div>
-
-            {/* 2. Main Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-black tracking-tight leading-[1.12] text-[#101828] dark:text-[#F8FAFC]">
-              Lập luận sắc bén. <br />
-              <span className="text-[#00966F] dark:text-[#34D399] font-black">
-                Tranh biện đỉnh cao.
-              </span>
-            </h1>
-
-            {/* 3. Description Subtitle */}
-            <p className="text-sm sm:text-base text-[#475467] dark:text-[#CBD5E1] leading-relaxed font-normal max-w-xl">
-              Nâng tầm tư duy phản biện với trợ lý AI đối kháng thông minh, mô phỏng luật tranh biện WSDC & BP, cùng hệ thống phân tích logic và chấm điểm Rubric đa tiêu chí theo thời gian thực.
-            </p>
-
-            {/* 4. Action Buttons */}
-            <div className="flex flex-wrap items-center gap-4 pt-1">
-              <Link
-                to={isAuthenticated ? "/debater/dashboard" : "/debater/topics"}
-                className="px-8 py-3.5 text-sm sm:text-base font-bold text-white bg-[#00966F] hover:bg-[#007F5F] active:bg-[#006e52] rounded-full shadow-lg shadow-[#00966F]/25 transition-all duration-300 hover:scale-102 inline-flex items-center gap-2.5 group cursor-pointer"
-              >
-                <span>Bắt đầu luyện tập ngay</span>
-                <ArrowRight size={17} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
-
-              <a
-                href="#demo-video"
-                className="px-7 py-3.5 text-sm sm:text-base font-bold text-[#101828] dark:text-[#F8FAFC] bg-white/90 dark:bg-[#101F1A] hover:bg-white dark:hover:bg-[#172C23] rounded-full border border-[#E5E7EB] dark:border-[rgba(148,163,184,0.20)] shadow-xs transition-all inline-flex items-center gap-2.5"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#101828] dark:bg-[#12231C] flex items-center justify-center text-white">
-                  <Play size={10} className="fill-white ml-0.5" />
-                </div>
-                <span>Xem video giới thiệu</span>
-              </a>
-            </div>
-
-            {/* 5. Three Key Feature Cards (matching HÌNH 1) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-4">
-              {/* Feature 1: AI Đối kháng */}
-              <div className="p-4 rounded-2xl bg-[#FFFDF8]/95 dark:bg-[#12231C]/90 backdrop-blur-md border border-[#E5E7EB] dark:border-[rgba(148,163,184,0.18)] shadow-sm flex items-start gap-3 hover:shadow-md transition-all">
-                <div className="w-10 h-10 rounded-full bg-[#00966F] dark:bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Brain size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-[#101828] dark:text-[#F8FAFC] text-xs sm:text-sm leading-snug">
-                    AI đối kháng thông minh
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-[#667085] dark:text-[#94A3B8] mt-1 leading-snug flex items-center gap-1">
-                    <span>Phản biện đa chiều, logic chặt chẽ</span>
-                    <ArrowRight size={12} className="inline shrink-0 text-[#00966F] dark:text-[#34D399]" />
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 2: Rubric */}
-              <div className="p-4 rounded-2xl bg-[#FFFDF8]/95 dark:bg-[#12231C]/90 backdrop-blur-md border border-[#E5E7EB] dark:border-[rgba(148,163,184,0.18)] shadow-sm flex items-start gap-3 hover:shadow-md transition-all">
-                <div className="w-10 h-10 rounded-full bg-[#00966F] dark:bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <BarChart2 size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-[#101828] dark:text-[#F8FAFC] text-xs sm:text-sm leading-snug">
-                    Chấm điểm Rubric tự động
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-[#667085] dark:text-[#94A3B8] mt-1 leading-snug flex items-center gap-1">
-                    <span>Đánh giá khách quan theo chuẩn quốc tế</span>
-                    <ArrowRight size={12} className="inline shrink-0 text-[#00966F] dark:text-[#34D399]" />
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 3: Đa dạng chủ đề */}
-              <div className="p-4 rounded-2xl bg-[#FFFDF8]/95 dark:bg-[#12231C]/90 backdrop-blur-md border border-[#E5E7EB] dark:border-[rgba(148,163,184,0.18)] shadow-sm flex items-start gap-3 hover:shadow-md transition-all">
-                <div className="w-10 h-10 rounded-full bg-[#00966F] dark:bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Globe size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-[#101828] dark:text-[#F8FAFC] text-xs sm:text-sm leading-snug">
-                    Đa dạng chủ đề thực tế
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-[#667085] dark:text-[#94A3B8] mt-1 leading-snug flex items-center gap-1">
-                    <span>Từ giáo dục, công nghệ đến xã hội</span>
-                    <ArrowRight size={12} className="inline shrink-0 text-[#00966F] dark:text-[#34D399]" />
-                  </p>
-                </div>
-              </div>
-            </div>
+      {/* ============================ HERO ============================ */}
+      <section className="mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-(--s-7) px-5 py-(--s-8) sm:px-8 lg:grid-cols-12 lg:gap-(--s-6) lg:py-(--s-9)">
+        <div className="space-y-(--s-5) lg:col-span-7">
+          <div className="inline-flex items-center gap-(--s-2) rounded-ap-pill border border-separator bg-elevated/80 px-(--s-4) py-(--s-2) text-(length:--text-caption) font-medium text-label-secondary backdrop-blur">
+            <Sparkles size={14} className="text-accent" aria-hidden="true" />
+            <span>Nền tảng tranh biện AI thế hệ mới</span>
           </div>
 
-          {/* ================= RIGHT AUTH CARD (col-span-5) ================= */}
-          <div className="lg:col-span-5 relative w-full">
-            {isAuthenticated && user ? (
-              <div className="bg-[#FFFDF8]/97 dark:bg-[#0F1C17]/98 backdrop-blur-md rounded-3xl border border-white/80 dark:border-[rgba(148,163,184,0.20)] p-6 sm:p-8 shadow-xl shadow-slate-900/5 dark:shadow-black/60 text-[#101828] dark:text-[#F8FAFC] relative z-10 w-full max-w-[430px] mx-auto text-center space-y-6 transition-colors duration-200">
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="w-20 h-20 rounded-full border-2 border-[#00966F] p-1 shadow-md bg-white dark:bg-[#12231C]">
-                    <img
-                      src={
-                        (user.avatarUrl && user.avatarUrl !== "string" ? user.avatarUrl : null) ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
-                      }
-                      alt={user.fullName}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-[#00966F] dark:text-[#34D399] uppercase tracking-wider block mb-1">
-                      BẠN ĐÃ ĐĂNG NHẬP
-                    </span>
-                    <h2 className="text-xl sm:text-2xl font-black text-[#101828] dark:text-[#F8FAFC]">
-                      {user.fullName}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user.email}</p>
-                    <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-[#ECFDF5] dark:bg-[rgba(16,185,129,0.12)] text-[#00966F] dark:text-[#34D399] border border-[#00966F]/30">
-                      {user.role === "Administrator" ? "Quản trị viên" : user.role === "Organizer" ? "Giảng viên" : "Học viên"}
-                    </span>
-                  </div>
-                </div>
+          <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display) text-balance">
+            Lập luận sắc bén.
+            <br />
+            <span className="bg-gradient-to-r from-(--accent) to-(--accent-2) bg-clip-text text-transparent">
+              Tranh biện đỉnh cao.
+            </span>
+          </h1>
 
-                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => handleRoleRedirect(user.role)}
-                    className="w-full py-3.5 px-4 rounded-2xl bg-[#00966F] hover:bg-[#007F5F] text-white font-bold text-sm shadow-md shadow-[#00966F]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Vào Bảng điều khiển (Dashboard)</span>
-                    <ArrowRight size={16} />
-                  </button>
+          <p className="max-w-[560px] text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Luyện tư duy phản biện cùng đối thủ AI mô phỏng luật WSDC & BP, với hệ thống phân tích logic và chấm điểm
+            Rubric đa tiêu chí ngay sau mỗi lượt nói.
+          </p>
 
-                  <button
-                    type="button"
-                    onClick={() => navigate(user.role === "Administrator" ? "/admin/settings" : user.role === "Organizer" ? "/organizer/settings" : "/debater/profile")}
-                    className="w-full py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Xem Hồ sơ cá nhân</span>
-                  </button>
+          <div className="flex flex-wrap items-center gap-(--s-3) pt-(--s-2)">
+            <Link
+              to={isAuthenticated ? "/debater/dashboard" : "/debater/topics"}
+              className="group inline-flex h-12 items-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-6) text-(length:--text-body) font-medium text-accent-contrast shadow-ap-md transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
+            >
+              <span>Bắt đầu luyện tập</span>
+              <ArrowRight size={18} className="transition-transform duration-(--t-base) group-hover:translate-x-1 motion-reduce:transform-none" aria-hidden="true" />
+            </Link>
+            <a
+              href="#how-it-works"
+              className="inline-flex h-12 items-center gap-(--s-2) rounded-ap-pill px-(--s-5) text-(length:--text-body) font-medium text-accent shadow-[inset_0_0_0_1px_var(--accent)] transition-colors duration-(--t-fast) hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
+            >
+              Xem cách hoạt động
+            </a>
+          </div>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await logout();
-                      navigate("/");
-                    }}
-                    className="w-full py-2.5 px-4 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:underline transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <LogOut size={14} />
-                    <span>Đăng xuất (Đổi tài khoản khác)</span>
-                  </button>
+          <ul className="flex flex-wrap gap-x-(--s-5) gap-y-(--s-2) pt-(--s-3) text-(length:--text-callout) text-label-secondary">
+            {proofs.map(({ icon: Icon, label }) => (
+              <li key={label} className="inline-flex items-center gap-(--s-2)">
+                <Icon size={16} className="text-accent" aria-hidden="true" />
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* ===================== AUTH CARD ===================== */}
+        <div className="lg:col-span-5">
+          {isAuthenticated && user ? (
+            <div className={`${cardShell} space-y-(--s-5) text-center`}>
+              <div className="flex flex-col items-center gap-(--s-3)">
+                <div className="h-20 w-20 rounded-full bg-gradient-to-br from-(--accent) to-(--accent-2) p-[3px]">
+                  <img
+                    src={
+                      (user.avatarUrl && user.avatarUrl !== "string" ? user.avatarUrl : null) ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+                    }
+                    alt={user.fullName}
+                    className="h-full w-full rounded-full bg-elevated object-cover"
+                  />
                 </div>
-              </div>
-            ) : (
-              <div className="bg-[#FFFDF8]/97 dark:bg-[#0F1C17]/98 backdrop-blur-md rounded-3xl border border-white/80 dark:border-[rgba(148,163,184,0.20)] p-6 sm:p-8 shadow-xl shadow-slate-900/5 dark:shadow-black/60 text-[#101828] dark:text-[#F8FAFC] relative z-10 w-full max-w-[430px] mx-auto transition-colors duration-200">
-              {/* Card Header with Logo */}
-              <div className="flex flex-col items-center text-center space-y-1.5 mb-5">
-                <div className="w-11 h-11 rounded-2xl bg-[#00966F] dark:bg-[#10B981] flex items-center justify-center font-black text-xl text-white shadow-md shadow-[#00966F]/25 mb-0.5">
-                  A
-                </div>
-                <div className="flex items-center gap-1.5 justify-center">
-                  <span className="font-black text-xs tracking-tight text-[#101828] dark:text-[#F8FAFC]">ADPP</span>
-                  <span className="text-[10px] font-bold text-[#00966F] dark:text-[#34D399] uppercase tracking-wider">
-                    • NỀN TẢNG TRANH BIỆN AI
+                <div>
+                  <p className="text-(length:--text-caption) font-medium uppercase tracking-wider text-accent">Bạn đã đăng nhập</p>
+                  <h2 className="mt-(--s-1) text-(length:--text-title) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+                    {user.fullName}
+                  </h2>
+                  <p className="mt-(--s-1) text-(length:--text-callout) text-label-secondary">{user.email}</p>
+                  <span className="mt-(--s-3) inline-block rounded-ap-pill bg-accent-soft px-(--s-3) py-(--s-1) text-(length:--text-caption) font-medium text-accent">
+                    {roleLabel}
                   </span>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-[#101828] dark:text-[#F8FAFC] pt-0.5">
-                  {authMode === "login" ? "Chào mừng trở lại!" : "Tạo tài khoản mới"}
+              </div>
+
+              <div className="space-y-(--s-3) border-t border-separator pt-(--s-5)">
+                <button type="button" onClick={() => handleRoleRedirect(user.role)} className={primaryButton}>
+                  <span>Vào Bảng điều khiển</span>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(user.role === "Administrator" ? "/admin/settings" : user.role === "Organizer" ? "/organizer/settings" : "/debater/profile")
+                  }
+                  className="flex h-12 w-full cursor-pointer items-center justify-center rounded-ap-pill bg-canvas-secondary text-(length:--text-callout) font-medium text-label transition-colors duration-(--t-fast) hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+                >
+                  Xem hồ sơ cá nhân
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    navigate("/");
+                  }}
+                  className="flex min-h-(--touch-target) w-full cursor-pointer items-center justify-center gap-(--s-2) text-(length:--text-callout) font-medium text-label-secondary hover:text-label focus-visible:outline-none focus-visible:underline"
+                >
+                  <LogOut size={16} aria-hidden="true" />
+                  <span>Đăng xuất (đổi tài khoản khác)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className={cardShell}>
+              <div className="mb-(--s-5) text-center">
+                <h2 className="text-(length:--text-title) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+                  {authMode === "login" ? "Chào mừng trở lại" : "Tạo tài khoản mới"}
                 </h2>
-                <p className="text-[11px] sm:text-xs text-[#667085] dark:text-[#94A3B8] max-w-[280px] mx-auto leading-relaxed">
+                <p className="mt-(--s-2) text-(length:--text-callout) leading-(--leading-snug) text-label-secondary">
                   {authMode === "login"
-                    ? "Đăng nhập để tiếp tục hành trình rèn luyện kỹ năng tranh biện cùng AI."
-                    : "Khám phá đấu trường tranh biện học thuật hàng đầu cùng AI."}
+                    ? "Đăng nhập để tiếp tục hành trình luyện tranh biện cùng AI."
+                    : "Bắt đầu đấu trường tranh biện học thuật cùng AI."}
                 </p>
               </div>
 
-              {/* Segmented Tab Pill Selector */}
-              <div className="grid grid-cols-2 p-1 bg-[#F2F4F7] dark:bg-[#101F1A] rounded-full border border-[#E5E7EB] dark:border-[rgba(148,163,184,0.18)] mb-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setError("");
-                    setSuccessMsg("");
-                  }}
-                  className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    authMode === "login"
-                      ? "bg-[#00966F] text-white shadow-xs"
-                      : "text-[#667085] dark:text-[#94A3B8] hover:text-[#101828] dark:hover:text-[#F8FAFC]"
-                  }`}
-                >
-                  <LogIn size={14} />
-                  <span>Đăng nhập</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("register");
-                    setError("");
-                    setSuccessMsg("");
-                  }}
-                  className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    authMode === "register"
-                      ? "bg-[#00966F] text-white shadow-xs"
-                      : "text-[#667085] dark:text-[#94A3B8] hover:text-[#101828] dark:hover:text-[#F8FAFC]"
-                  }`}
-                >
-                  <UserPlus size={14} />
-                  <span>Tạo tài khoản</span>
-                </button>
+              {/* Segmented control */}
+              <div role="tablist" aria-label="Đăng nhập hoặc tạo tài khoản" className="mb-(--s-5) grid grid-cols-2 rounded-ap-pill bg-canvas-secondary p-1">
+                {(["login", "register"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="tab"
+                    aria-selected={authMode === mode}
+                    onClick={() => switchMode(mode)}
+                    className={`min-h-10 cursor-pointer rounded-ap-pill px-(--s-3) text-(length:--text-callout) font-medium transition-[background-color,box-shadow,color] duration-(--t-base) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+                      authMode === mode ? "bg-elevated text-label shadow-ap-sm" : "text-label-secondary hover:text-label"
+                    }`}
+                  >
+                    {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+                  </button>
+                ))}
               </div>
 
               {successMsg && (
-                <div className="p-3 mb-3.5 text-xs rounded-xl bg-emerald-50 dark:bg-[rgba(16,185,129,0.12)] border border-emerald-200 dark:border-[rgba(16,185,129,0.25)] text-emerald-700 dark:text-[#34D399] font-medium animate-fade-in flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-[#34D399] shrink-0" />
+                <div role="status" className="mb-(--s-4) flex items-center gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label">
+                  <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
                   <span>{successMsg}</span>
                 </div>
               )}
 
-              {/* Google Button */}
-              <div className="mb-3.5">
-                <GoogleLoginButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={(msg) => setError(getAuthErrorMessage(msg, "Đăng nhập bằng Google thất bại."))}
-                  disabled={loading}
-                  text="Đăng nhập bằng Google"
-                />
+              <GoogleLoginButton
+                onSuccess={handleGoogleSuccess}
+                onError={(msg) => setError(getAuthErrorMessage(msg, "Đăng nhập bằng Google thất bại."))}
+                disabled={loading}
+                text="Tiếp tục với Google"
+              />
+
+              <div className="my-(--s-5) flex items-center gap-(--s-3)" role="separator" aria-label="hoặc dùng email">
+                <span className="h-px flex-1 bg-separator" />
+                <span className="text-(length:--text-caption) text-label-tertiary">hoặc dùng email</span>
+                <span className="h-px flex-1 bg-separator" />
               </div>
 
-              {/* Divider */}
-              <div className="relative my-3.5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#E5E7EB] dark:border-[rgba(148,163,184,0.20)]" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-[#FFFDF8] dark:bg-[#0F1C17] px-2.5 text-[#98A2B3] dark:text-[#94A3B8] font-bold tracking-wider">
-                    HOẶC {authMode === "login" ? "ĐĂNG NHẬP" : "ĐĂNG KÝ"} BẰNG EMAIL
-                  </span>
-                </div>
-              </div>
-
-              {/* TAB 1: LOGIN FORM */}
               {authMode === "login" ? (
-                <form onSubmit={handleLoginSubmit} className="space-y-3.5">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-[#101828] dark:text-[#F8FAFC]">
-                      Địa chỉ Email <span className="text-rose-500">*</span>
+                <form onSubmit={handleLoginSubmit} className="flex flex-col gap-(--s-4)">
+                  <div className="flex flex-col gap-(--s-2)">
+                    <label htmlFor="home-email" className={labelClass}>
+                      Địa chỉ Email<span className="sr-only"> (bắt buộc)</span>
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Mail size={15} />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (error) setError("");
-                        }}
-                        placeholder="name@example.com"
-                        required
-                        disabled={loading}
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-white dark:bg-[#12231C] border border-[#E5E7EB] hover:border-slate-300 dark:border-[rgba(148,163,184,0.20)] dark:hover:border-[rgba(148,163,184,0.30)] rounded-xl text-xs sm:text-sm text-[#101828] dark:text-[#F8FAFC] placeholder-[#98A2B3] dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00966F]/15 dark:focus:ring-[#10B981]/20 focus:border-[#00966F] dark:focus:border-[#10B981] transition-all disabled:opacity-60"
-                      />
-                    </div>
+                    <input
+                      id="home-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="name@example.com"
+                      autoComplete="email"
+                      required
+                      disabled={loading}
+                      className={fieldClass}
+                    />
                   </div>
 
                   <PasswordInput
+                    appearance="apple"
+                    id="home-password"
                     label="Mật khẩu"
                     value={password}
                     onChange={(e) => {
@@ -450,65 +429,51 @@ const Home: React.FC = () => {
                       if (error) setError("");
                     }}
                     placeholder="••••••••••••"
+                    autoComplete="current-password"
                     required
                     disabled={loading}
+                    labelAction={
+                      <Link
+                        to="/forgot-password"
+                        className="text-(length:--text-caption) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline"
+                      >
+                        Quên mật khẩu?
+                      </Link>
+                    }
                   />
 
-                  <div className="flex items-center justify-between text-xs pt-0.5">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[#667085] dark:text-[#94A3B8] select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        disabled={loading}
-                        className="w-3.5 h-3.5 rounded border-[#E5E7EB] text-[#00966F] focus:ring-[#00966F]"
-                      />
-                      <span>Ghi nhớ đăng nhập</span>
-                    </label>
+                  <label className="flex min-h-(--touch-target) cursor-pointer select-none items-center gap-(--s-3) text-(length:--text-callout) text-label-secondary">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      disabled={loading}
+                      className="h-5 w-5 cursor-pointer rounded-ap-sm accent-accent focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+                    />
+                    <span>Ghi nhớ đăng nhập</span>
+                  </label>
 
-                    <Link
-                      to="/forgot-password"
-                      className="text-[#00966F] dark:text-[#34D399] hover:text-[#007F5F] dark:hover:text-emerald-300 font-semibold hover:underline"
-                    >
-                      Quên mật khẩu?
-                    </Link>
-                  </div>
+                  {errorAlert}
 
-                  {/* Error Alert directly above Login button */}
-                  {error && (
-                    <div
-                      role="alert"
-                      aria-live="assertive"
-                      className="p-3 text-xs rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 font-medium animate-fade-in flex items-start gap-2 shadow-xs"
-                    >
-                      <AlertCircle size={15} className="text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
-                      <span className="leading-snug break-words">{error}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 sm:py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#00966F] hover:bg-[#007F5F] active:bg-[#006e52] shadow-md shadow-[#00966F]/20 transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
+                  <button type="submit" disabled={loading} className={primaryButton}>
                     {loading ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Đang đăng nhập" />
                     ) : (
                       <>
                         <span>Đăng nhập</span>
-                        <ArrowRight size={15} />
+                        <ArrowRight size={18} aria-hidden="true" />
                       </>
                     )}
                   </button>
                 </form>
               ) : (
-                /* TAB 2: REGISTER FORM */
-                <form onSubmit={handleRegisterSubmit} className="space-y-3 animate-fade-in">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#101828] dark:text-[#F8FAFC] mb-1">
-                      Họ và tên <span className="text-rose-500">*</span>
+                <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-(--s-4)">
+                  <div className="flex flex-col gap-(--s-2)">
+                    <label htmlFor="home-fullname" className={labelClass}>
+                      Họ và tên<span className="sr-only"> (bắt buộc)</span>
                     </label>
                     <input
+                      id="home-fullname"
                       type="text"
                       value={fullName}
                       onChange={(e) => {
@@ -516,37 +481,37 @@ const Home: React.FC = () => {
                         if (error) setError("");
                       }}
                       placeholder="Ví dụ: Nguyễn Văn A"
+                      autoComplete="name"
                       required
                       disabled={loading}
-                      className="w-full px-3.5 py-2 bg-white dark:bg-[#12231C] border border-[#E5E7EB] hover:border-slate-300 dark:border-[rgba(148,163,184,0.20)] dark:hover:border-[rgba(148,163,184,0.30)] rounded-xl text-xs sm:text-sm text-[#101828] dark:text-[#F8FAFC] placeholder-[#98A2B3] dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00966F]/15 dark:focus:ring-[#10B981]/20 focus:border-[#00966F] dark:focus:border-[#10B981] transition-all disabled:opacity-60"
+                      className={fieldClass}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-(--s-2)">
+                    <label htmlFor="home-register-email" className={labelClass}>
+                      Địa chỉ Email<span className="sr-only"> (bắt buộc)</span>
+                    </label>
+                    <input
+                      id="home-register-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError("");
+                      }}
+                      placeholder="your.email@example.com"
+                      autoComplete="email"
+                      required
+                      disabled={loading}
+                      className={fieldClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#101828] dark:text-[#F8FAFC] mb-1">
-                      Địa chỉ Email <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <Mail size={15} />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (error) setError("");
-                        }}
-                        placeholder="your.email@example.com"
-                        required
-                        disabled={loading}
-                        className="w-full pl-9 pr-3.5 py-2 bg-white dark:bg-[#12231C] border border-[#E5E7EB] hover:border-slate-300 dark:border-[rgba(148,163,184,0.20)] dark:hover:border-[rgba(148,163,184,0.30)] rounded-xl text-xs sm:text-sm text-[#101828] dark:text-[#F8FAFC] placeholder-[#98A2B3] dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00966F]/15 dark:focus:ring-[#10B981]/20 focus:border-[#00966F] dark:focus:border-[#10B981] transition-all disabled:opacity-60"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
                     <PasswordInput
+                      appearance="apple"
+                      id="home-register-password"
                       label="Mật khẩu"
                       value={password}
                       onChange={(e) => {
@@ -554,14 +519,16 @@ const Home: React.FC = () => {
                         if (error) setError("");
                       }}
                       placeholder="••••••••••••"
+                      autoComplete="new-password"
                       required
                       disabled={loading}
                     />
-                    <PasswordStrength password={password} />
-                    <PasswordRequirements password={password} />
+                    <PasswordStrength appearance="apple" password={password} />
+                    <PasswordRequirements appearance="apple" password={password} />
                   </div>
 
                   <ConfirmPasswordInput
+                    appearance="apple"
                     label="Xác nhận mật khẩu"
                     value={confirmPassword}
                     originalPassword={password}
@@ -573,29 +540,15 @@ const Home: React.FC = () => {
                     disabled={loading}
                   />
 
-                  {/* Error Alert directly above Register button */}
-                  {error && (
-                    <div
-                      role="alert"
-                      aria-live="assertive"
-                      className="p-3 text-xs rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 font-medium animate-fade-in flex items-start gap-2 shadow-xs"
-                    >
-                      <AlertCircle size={15} className="text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
-                      <span className="leading-snug break-words">{error}</span>
-                    </div>
-                  )}
+                  {errorAlert}
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 sm:py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#00966F] hover:bg-[#007F5F] active:bg-[#006e52] shadow-md shadow-[#00966F]/20 transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
+                  <button type="submit" disabled={loading} className={primaryButton}>
                     {loading ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-label="Đang tạo tài khoản" />
                     ) : (
                       <>
-                        <UserPlus size={15} />
-                        <span>Tạo tài khoản & Nhận OTP</span>
+                        <UserPlus size={18} aria-hidden="true" />
+                        <span>Tạo tài khoản & nhận OTP</span>
                       </>
                     )}
                   </button>
@@ -603,7 +556,113 @@ const Home: React.FC = () => {
               )}
             </div>
           )}
-          </div>
+        </div>
+      </section>
+
+      {/* ============================ FEATURES ============================ */}
+      <section id="methods" className="mx-auto w-full max-w-[1200px] scroll-mt-24 px-5 py-(--s-8) sm:px-8 lg:py-(--s-9)">
+        <div className="mx-auto mb-(--s-7) max-w-[680px] text-center">
+          <h2 className="text-(length:--text-section) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+            Mọi thứ để tranh biện tốt hơn
+          </h2>
+          <p className="mt-(--s-3) text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Luyện tập có đối thủ, có điểm số và có hướng dẫn cải thiện sau từng lượt.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-(--s-5) md:grid-cols-3">
+          {features.map(({ icon: Icon, title, text }) => (
+            <article
+              key={title}
+              className="group rounded-ap-xl border border-separator bg-elevated p-(--s-6) transition-[transform,box-shadow] duration-(--t-base) ease-ap hover:-translate-y-1 hover:shadow-ap-md motion-reduce:transform-none"
+            >
+              <div className="mb-(--s-5) flex h-12 w-12 items-center justify-center rounded-ap-md bg-accent-soft text-accent">
+                <Icon size={24} aria-hidden="true" />
+              </div>
+              <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{title}</h3>
+              <p className="mt-(--s-2) text-(length:--text-callout) leading-(--leading-body) text-label-secondary">{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* ============================ FEATURED TOPICS ============================ */}
+      <section id="featured-topics" className="mx-auto w-full max-w-[1200px] scroll-mt-24 px-5 pb-(--s-8) sm:px-8 lg:pb-(--s-9)">
+        <div className="mx-auto mb-(--s-7) max-w-[680px] text-center">
+          <h2 className="text-(length:--text-section) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+            Chủ đề nổi bật
+          </h2>
+          <p className="mt-(--s-3) text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Ba kiến nghị đang được luyện nhiều nhất, mỗi đề có một mục tiêu kỹ năng rõ ràng.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-(--s-5) md:grid-cols-3">
+          {featuredTopics.map((t) => (
+            <article key={t.title} className="flex flex-col rounded-ap-xl border border-separator bg-elevated p-(--s-6)">
+              <span className="text-(length:--text-caption) font-medium text-accent">{t.category}</span>
+              <h3 className="mt-(--s-2) text-(length:--text-headline) font-semibold leading-(--leading-snug)">{t.title}</h3>
+              <p className="mt-(--s-2) text-(length:--text-callout) leading-(--leading-body) text-label-secondary">{t.text}</p>
+              <p className="mt-(--s-4) border-t border-separator pt-(--s-4) text-(length:--text-callout) leading-(--leading-body)">
+                <span className="font-medium">Mục tiêu: </span>
+                <span className="text-label-secondary">{t.goal}</span>
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-(--s-6) text-center">
+          <Link
+            to="/debater/topics"
+            className="inline-flex min-h-11 items-center gap-(--s-2) text-(length:--text-body) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline"
+          >
+            <span>Xem toàn bộ kho đề tài</span>
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <FeaturedLearners />
+
+      {/* ============================ HOW IT WORKS ============================ */}
+      <section id="how-it-works" className="mx-auto w-full max-w-[1200px] scroll-mt-24 px-5 pb-(--s-8) sm:px-8 lg:pb-(--s-9)">
+        <div className="rounded-ap-xl bg-canvas-secondary p-(--s-6) sm:p-(--s-7)">
+          <h2 className="text-center text-(length:--text-section) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+            Ba bước cho mỗi trận
+          </h2>
+          <ol className="mt-(--s-7) grid grid-cols-1 gap-(--s-6) md:grid-cols-3">
+            {steps.map(({ icon: Icon, title, text }, index) => (
+              <li key={title} className="relative">
+                <div className="mb-(--s-4) flex items-center gap-(--s-3)">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-(--accent) to-(--accent-2) text-(length:--text-callout) font-semibold text-accent-contrast">
+                    {index + 1}
+                  </span>
+                  <Icon size={20} className="text-label-secondary" aria-hidden="true" />
+                </div>
+                <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{title}</h3>
+                <p className="mt-(--s-2) text-(length:--text-callout) leading-(--leading-body) text-label-secondary">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ============================ FINAL CTA ============================ */}
+      <section className="mx-auto w-full max-w-[1200px] px-5 pb-(--s-9) sm:px-8">
+        <div className="relative overflow-hidden rounded-ap-xl bg-gradient-to-br from-(--accent) to-(--accent-2) px-(--s-6) py-(--s-8) text-center text-accent-contrast">
+          <h2 className="text-(length:--text-section) font-semibold leading-(--leading-tight) tracking-(--tracking-display)">
+            Sẵn sàng bước vào đấu trường?
+          </h2>
+          <p className="mx-auto mt-(--s-3) max-w-[520px] text-(length:--text-body) leading-(--leading-body) text-accent-contrast/85">
+            Chọn một kiến nghị và bắt đầu trận đầu tiên của bạn ngay hôm nay.
+          </p>
+          <Link
+            to={isAuthenticated ? "/debater/dashboard" : "/debater/topics"}
+            className="mt-(--s-5) inline-flex h-12 items-center gap-(--s-2) rounded-ap-pill bg-white px-(--s-6) text-(length:--text-body) font-medium text-slate-900 transition-transform duration-(--t-fast) ease-ap hover:scale-[1.02] active:scale-[0.97] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+          >
+            <span>{isAuthenticated ? "Vào Bảng điều khiển" : "Khám phá kho đề tài"}</span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
         </div>
       </section>
     </div>
@@ -611,6 +670,3 @@ const Home: React.FC = () => {
 };
 
 export default Home;
-
-
-

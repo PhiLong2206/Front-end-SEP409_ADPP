@@ -31,7 +31,7 @@ const RebuttalSuggestion: React.FC<RebuttalSuggestionProps> = ({ tips }) => {
     <div className="bg-white debate-panel-secondary rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4.5">
       {/* Header */}
       <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800/60">
-        <div className="p-2 rounded-xl bg-[#ECFDF5] dark:bg-[rgba(16,185,129,0.12)] text-[#008A64] dark:text-[#34D399]">
+        <div className="p-2 rounded-xl bg-[#EAF2FF] dark:bg-[rgba(59,130,246,0.12)] text-[#0B5ED7] dark:text-[#60A5FA]">
           <Lightbulb size={20} />
         </div>
         <div>
@@ -43,10 +43,10 @@ const RebuttalSuggestion: React.FC<RebuttalSuggestionProps> = ({ tips }) => {
       {/* 1. Luận điểm chính của đối phương */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-[15px] font-semibold text-slate-900 dark:text-[#F8FAFC]">
-          <span className="w-2 h-2 rounded-full bg-[#008A64] dark:bg-[#34D399]" />
+          <span className="w-2 h-2 rounded-full bg-[#0B5ED7] dark:bg-[#60A5FA]" />
           <span>Luận điểm chính của đối phương</span>
         </div>
-        <p className="text-[15px] leading-[1.65] text-slate-700 bg-slate-50 dark:bg-[#091713] debate-card-neutral debate-card-neutral-text p-3.5 rounded-xl border border-slate-200/70 dark:border-[rgba(148,163,184,0.16)]">
+        <p className="text-[15px] leading-[1.65] text-slate-700 bg-slate-50 dark:bg-[#060d1a] debate-card-neutral debate-card-neutral-text p-3.5 rounded-xl border border-slate-200/70 dark:border-[rgba(148,163,184,0.16)]">
           {tips.mainPoint}
         </p>
       </div>
@@ -72,7 +72,7 @@ const RebuttalSuggestion: React.FC<RebuttalSuggestionProps> = ({ tips }) => {
 
       {/* 3. Hướng phản hồi gợi ý */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-[15px] font-semibold text-[#008A64] dark:text-[#34D399]">
+        <div className="flex items-center gap-2 text-[15px] font-semibold text-[#0B5ED7] dark:text-[#60A5FA]">
           <Compass size={15} />
           <span>Hướng phản hồi gợi ý</span>
         </div>
@@ -80,9 +80,9 @@ const RebuttalSuggestion: React.FC<RebuttalSuggestionProps> = ({ tips }) => {
           {tips.directions.map((d, i) => (
             <li
               key={i}
-              className="text-[14px] text-slate-700 dark:text-[#D1FAE5] bg-emerald-50/60 dark:bg-[rgba(16,185,129,0.10)] p-3 rounded-xl border border-emerald-200/60 dark:border-[rgba(16,185,129,0.22)] flex items-start gap-2"
+              className="text-[14px] text-slate-700 dark:text-[#DBEAFE] bg-blue-50/60 dark:bg-[rgba(59,130,246,0.10)] p-3 rounded-xl border border-blue-200/60 dark:border-[rgba(59,130,246,0.22)] flex items-start gap-2"
             >
-              <span className="font-bold text-[#008A64] dark:text-[#34D399] shrink-0 mt-0.5">
+              <span className="font-bold text-[#0B5ED7] dark:text-[#60A5FA] shrink-0 mt-0.5">
                 {i + 1}.
               </span>
               <span className="leading-snug">{d}</span>

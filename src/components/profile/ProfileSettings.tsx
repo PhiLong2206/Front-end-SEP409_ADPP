@@ -283,10 +283,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
               <img
                 src={profileData.avatarUrl}
                 alt={profileData.fullName}
-                className="w-18 h-18 rounded-2xl object-cover border-2 border-[#008A64]/40 shadow-sm shrink-0"
+                className="w-18 h-18 rounded-2xl object-cover border-2 border-[#0B5ED7]/40 shadow-sm shrink-0"
               />
             ) : (
-              <div className="w-18 h-18 rounded-2xl bg-[#ECFDF5] border border-[#008A64]/30 flex items-center justify-center font-black text-2xl text-[#008A64] shadow-xs shrink-0">
+              <div className="w-18 h-18 rounded-2xl bg-[#EAF2FF] border border-[#0B5ED7]/30 flex items-center justify-center font-black text-2xl text-[#0B5ED7] shadow-xs shrink-0">
                 {profileData.fullName ? profileData.fullName.charAt(0).toUpperCase() : "U"}
               </div>
             )}
@@ -295,7 +295,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
                   {profileData.fullName || authUser?.fullName || "Người dùng"}
                 </h1>
-                <span className="px-3 py-1 rounded-full bg-[#ECFDF5] border border-[#008A64]/30 text-[#008A64] text-xs font-bold uppercase tracking-wider">
+                <span className="px-3 py-1 rounded-full bg-[#EAF2FF] border border-[#0B5ED7]/30 text-[#0B5ED7] text-xs font-bold uppercase tracking-wider">
                   {profileData.roles?.length
                     ? profileData.roles.map((r) => (r === "Admin" || r === "Administrator" ? "Quản trị viên" : r === "Organizer" || r === "Educator" || r === "Lecturer" ? "Giảng viên" : "Học viên")).join(", ")
                     : authUser?.role === "Administrator" || authUser?.role === "Admin"
@@ -306,7 +306,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 mt-1.5 flex items-center gap-2">
-                <Mail size={16} className="text-[#008A64]" />
+                <Mail size={16} className="text-[#0B5ED7]" />
                 <span>{profileData.email || authUser?.email}</span>
                 {profileData.createdAt && (
                   <span className="ml-2 text-slate-400 font-mono">• Tham gia từ {profileData.createdAt}</span>
@@ -315,8 +315,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#ECFDF5] border border-[#008A64]/30 px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold text-emerald-800 shadow-xs">
-            <Shield size={16} className="text-[#008A64]" />
+          <div className="flex items-center gap-2 bg-[#EAF2FF] border border-[#0B5ED7]/30 px-4 py-2 rounded-2xl text-xs sm:text-sm font-semibold text-blue-800 shadow-xs">
+            <Shield size={16} className="text-[#0B5ED7]" />
             <span>Tài khoản đã xác thực OTP</span>
           </div>
         </div>
@@ -329,7 +329,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
           onClick={() => setActiveTab("info")}
           className={`pb-3.5 px-4 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === "info"
-              ? "border-[#008A64] text-[#008A64]"
+              ? "border-[#0B5ED7] text-[#0B5ED7]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -342,7 +342,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
           onClick={() => setActiveTab("security")}
           className={`pb-3.5 px-4 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === "security"
-              ? "border-[#008A64] text-[#008A64]"
+              ? "border-[#0B5ED7] text-[#0B5ED7]"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -369,8 +369,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
           )}
 
           {infoSuccess && (
-            <div className="p-4 mb-6 text-xs sm:text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium animate-fade-in flex items-center gap-3">
-              <CheckCircle2 size={18} className="text-[#008A64] shrink-0" />
+            <div className="p-4 mb-6 text-xs sm:text-sm rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-medium animate-fade-in flex items-center gap-3">
+              <CheckCircle2 size={18} className="text-[#0B5ED7] shrink-0" />
               <span>{infoSuccess}</span>
             </div>
           )}
@@ -408,7 +408,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
                   name="gender"
                   value={profileData.gender}
                   onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
-                  className="w-full px-4 py-2.5 text-sm sm:text-base bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                  className="w-full px-4 py-2.5 text-sm sm:text-base bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                 >
                   <option value="Male">Nam</option>
                   <option value="Female">Nữ</option>
@@ -441,10 +441,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
                     <img
                       src={profileData.avatarUrl}
                       alt="Avatar Preview"
-                      className="w-24 h-24 rounded-2xl object-cover border-2 border-[#008A64]/40 shadow-xs transition-all group-hover:opacity-80"
+                      className="w-24 h-24 rounded-2xl object-cover border-2 border-[#0B5ED7]/40 shadow-xs transition-all group-hover:opacity-80"
                     />
                   ) : (
-                    <div className="w-24 h-24 rounded-2xl bg-[#ECFDF5] border border-[#008A64]/30 flex items-center justify-center font-black text-3xl text-[#008A64] shadow-xs group-hover:opacity-80 transition-all">
+                    <div className="w-24 h-24 rounded-2xl bg-[#EAF2FF] border border-[#0B5ED7]/30 flex items-center justify-center font-black text-3xl text-[#0B5ED7] shadow-xs group-hover:opacity-80 transition-all">
                       {profileData.fullName ? profileData.fullName.charAt(0).toUpperCase() : "U"}
                     </div>
                   )}
@@ -456,7 +456,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
 
                   {uploadingAvatar && (
                     <div className="absolute inset-0 bg-slate-900/80 rounded-2xl flex flex-col items-center justify-center">
-                      <Loader2 size={24} className="text-[#008A64] animate-spin" />
+                      <Loader2 size={24} className="text-[#0B5ED7] animate-spin" />
                       <span className="text-[10px] text-white mt-1">Đang tải...</span>
                     </div>
                   )}
@@ -477,7 +477,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
                       type="button"
                       disabled={uploadingAvatar}
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2.5 bg-[#ECFDF5] hover:bg-emerald-100 text-[#008A64] border border-[#008A64]/30 rounded-xl text-xs sm:text-sm font-semibold transition-all inline-flex items-center gap-2 hover:scale-102 cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2.5 bg-[#EAF2FF] hover:bg-blue-100 text-[#0B5ED7] border border-[#0B5ED7]/30 rounded-xl text-xs sm:text-sm font-semibold transition-all inline-flex items-center gap-2 hover:scale-102 cursor-pointer disabled:opacity-50"
                     >
                       {uploadingAvatar ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
                       <span>{uploadingAvatar ? "Đang xử lý ảnh..." : "Chọn ảnh từ thiết bị"}</span>
@@ -507,7 +507,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
               <button
                 type="submit"
                 disabled={saving || uploadingAvatar}
-                className="px-8 py-3.5 bg-[#008A64] hover:bg-[#007457] text-white text-sm sm:text-base font-bold rounded-2xl shadow-md shadow-[#008A64]/20 transition-all inline-flex items-center gap-2 disabled:opacity-50 hover:scale-102 cursor-pointer"
+                className="px-8 py-3.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-sm sm:text-base font-bold rounded-2xl shadow-md shadow-[#0B5ED7]/20 transition-all inline-flex items-center gap-2 disabled:opacity-50 hover:scale-102 cursor-pointer"
               >
                 <Save size={18} />
                 <span>{saving ? "Đang lưu..." : "Lưu thay đổi"}</span>
@@ -535,8 +535,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
           )}
 
           {secSuccess && (
-            <div className="p-4 mb-6 text-xs sm:text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium animate-fade-in flex items-center gap-3">
-              <CheckCircle2 size={18} className="text-[#008A64] shrink-0" />
+            <div className="p-4 mb-6 text-xs sm:text-sm rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-medium animate-fade-in flex items-center gap-3">
+              <CheckCircle2 size={18} className="text-[#0B5ED7] shrink-0" />
               <span>{secSuccess}</span>
             </div>
           )}
@@ -581,7 +581,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ portalTitle: _portalT
               <button
                 type="submit"
                 disabled={changingPassword}
-                className="px-8 py-3.5 bg-[#008A64] hover:bg-[#007457] text-white text-sm sm:text-base font-bold rounded-2xl shadow-md shadow-[#008A64]/20 transition-all inline-flex items-center gap-2 disabled:opacity-50 hover:scale-102 cursor-pointer"
+                className="px-8 py-3.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-sm sm:text-base font-bold rounded-2xl shadow-md shadow-[#0B5ED7]/20 transition-all inline-flex items-center gap-2 disabled:opacity-50 hover:scale-102 cursor-pointer"
               >
                 <Lock size={18} />
                 <span>{changingPassword ? "Đang cập nhật..." : "Cập nhật mật khẩu"}</span>

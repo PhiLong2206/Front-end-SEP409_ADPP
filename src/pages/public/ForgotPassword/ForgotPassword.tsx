@@ -51,7 +51,7 @@ const ForgotPassword: React.FC = () => {
     >
       {/* Step Indicator */}
       <div className="flex items-center justify-center gap-3 mb-6 pb-2">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#008A64] dark:bg-[#10B981] text-white shadow-xs">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#0B5ED7] dark:bg-[#3B82F6] text-white shadow-xs">
           <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-[11px]">
             1
           </span>
@@ -60,7 +60,7 @@ const ForgotPassword: React.FC = () => {
 
         <div className="w-6 h-0.5 bg-slate-200 dark:bg-slate-700" />
 
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-[#12231C] text-slate-400 dark:text-[#94A3B8]">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-[#0F1726] text-slate-400 dark:text-[#94A3B8]">
           <span className="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-[11px]">
             2
           </span>
@@ -77,8 +77,8 @@ const ForgotPassword: React.FC = () => {
       )}
 
       {successMsg && (
-        <div className="p-3.5 mb-4 text-xs sm:text-sm rounded-xl bg-emerald-50 dark:bg-[rgba(16,185,129,0.12)] border border-emerald-200 dark:border-[rgba(16,185,129,0.25)] text-emerald-700 dark:text-[#34D399] font-medium animate-fade-in flex items-center gap-2.5">
-          <CheckCircle2 size={18} className="text-emerald-600 dark:text-[#34D399] shrink-0" />
+        <div className="p-3.5 mb-4 text-xs sm:text-sm rounded-xl bg-blue-50 dark:bg-[rgba(59,130,246,0.12)] border border-blue-200 dark:border-[rgba(59,130,246,0.25)] text-blue-700 dark:text-[#60A5FA] font-medium animate-fade-in flex items-center gap-2.5">
+          <CheckCircle2 size={18} className="text-blue-600 dark:text-[#60A5FA] shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
@@ -101,7 +101,7 @@ const ForgotPassword: React.FC = () => {
               required
               autoFocus
               disabled={loading}
-              className="w-full py-2.5 sm:py-3 pl-10 pr-4 text-sm sm:text-base bg-white dark:bg-[#12231C] border border-slate-200 hover:border-slate-300 dark:border-[rgba(148,163,184,0.20)] dark:hover:border-[rgba(148,163,184,0.30)] rounded-xl text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-200 outline-none focus:border-[#008A64] dark:focus:border-[#10B981] focus:ring-2 focus:ring-[#008A64]/15 dark:focus:ring-[#10B981]/20 disabled:bg-slate-50 dark:disabled:bg-[#091511]"
+              className="w-full py-2.5 sm:py-3 pl-10 pr-4 text-sm sm:text-base bg-white dark:bg-[#0F1726] border border-slate-200 hover:border-slate-300 dark:border-[rgba(148,163,184,0.20)] dark:hover:border-[rgba(148,163,184,0.30)] rounded-xl text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-200 outline-none focus:border-[#0B5ED7] dark:focus:border-[#3B82F6] focus:ring-2 focus:ring-[#0B5ED7]/15 dark:focus:ring-[#3B82F6]/20 disabled:bg-slate-50 dark:disabled:bg-[#070c17]"
             />
           </div>
         </div>
@@ -109,7 +109,7 @@ const ForgotPassword: React.FC = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-sm sm:text-base font-bold text-white bg-[#008A64] dark:bg-[#10B981] hover:bg-[#007457] dark:hover:bg-[#34D399] active:bg-[#005e45] transition-all duration-200 shadow-md shadow-[#008A64]/25 flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60"
+          className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-sm sm:text-base font-bold text-white bg-[#0B5ED7] dark:bg-[#3B82F6] hover:bg-[#0a4fb4] dark:hover:bg-[#60A5FA] active:bg-[#072f70] transition-all duration-200 shadow-md shadow-[#0B5ED7]/25 flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60"
         >
           {loading ? (
             <>
@@ -128,7 +128,7 @@ const ForgotPassword: React.FC = () => {
       <div className="mt-6 pt-5 border-t border-slate-100 dark:border-[rgba(148,163,184,0.18)] flex items-center justify-between text-xs sm:text-sm text-slate-600 dark:text-[#94A3B8]">
         <Link
           to="/login"
-          className="inline-flex items-center gap-1.5 font-semibold text-slate-600 dark:text-[#94A3B8] hover:text-[#008A64] dark:hover:text-[#34D399] transition-colors"
+          className="inline-flex items-center gap-1.5 font-semibold text-slate-600 dark:text-[#94A3B8] hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] transition-colors"
         >
           <ArrowLeft size={15} />
           <span>Quay lại Đăng nhập</span>
@@ -136,7 +136,7 @@ const ForgotPassword: React.FC = () => {
 
         <Link
           to="/reset-password"
-          className="font-bold text-[#008A64] dark:text-[#34D399] hover:text-[#007457] dark:hover:text-emerald-300 hover:underline"
+          className="font-bold text-[#0B5ED7] dark:text-[#60A5FA] hover:text-[#0a4fb4] dark:hover:text-blue-300 hover:underline"
         >
           Đã có mã OTP?
         </Link>

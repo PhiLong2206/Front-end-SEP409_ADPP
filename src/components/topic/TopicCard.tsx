@@ -15,7 +15,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, showImage = true }) => {
   return (
     <Link
       to={`/debater/topics/${topic.id}`}
-      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg hover:border-[#008A64]/40 transition-all duration-300 flex flex-col overflow-hidden group relative"
+      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg hover:border-[#0B5ED7]/40 transition-all duration-300 flex flex-col overflow-hidden group relative"
     >
       {showImage && topic.imageUrl && (
         <div className="h-40 w-full overflow-hidden relative bg-slate-100">
@@ -26,7 +26,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, showImage = true }) => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
           <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-            <ArrowUpRight size={14} className="text-[#008A64]" />
+            <ArrowUpRight size={14} className="text-[#0B5ED7]" />
           </div>
         </div>
       )}
@@ -37,14 +37,14 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, showImage = true }) => {
             <Badge variant="primary" size="sm">{topicCategoryLabel(topic.category)}</Badge>
             <DifficultyBadge difficulty={topic.difficulty} />
           </div>
-          <h3 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-[#008A64] transition-colors">
+          <h3 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-[#0B5ED7] transition-colors">
             {topic.title}
           </h3>
         </div>
 
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
           <span className="font-medium">Tranh biện ngay</span>
-          <span className="font-bold text-[#008A64] group-hover:translate-x-1 transition-transform">→</span>
+          <span className="font-bold text-[#0B5ED7] group-hover:translate-x-1 transition-transform">→</span>
         </div>
       </div>
     </Link>

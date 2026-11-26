@@ -23,7 +23,20 @@ import {
   RewardStatusResponse,
 } from "../../../types";
 
+// DEMO: bảng giá chuẩn, dùng khi API chưa trả gói nào. packageId < 0 = chưa có API thật.
+const DEMO_PACKAGES: DebaterCreditPackage[] = [
+  { packageId: -1, packageCode: "BASIC", packageName: "Gói Basic", price: 20000, currency: "VNĐ", creditAmount: 2000, bonusCredit: 0 },
+  { packageId: -2, packageCode: "STANDARD", packageName: "Gói Standard", price: 50000, currency: "VNĐ", creditAmount: 5000, bonusCredit: 200 },
+  { packageId: -3, packageCode: "PREMIUM", packageName: "Gói Premium", price: 100000, currency: "VNĐ", creditAmount: 10000, bonusCredit: 1000 },
+];
+// DEMO: gói tự do tính 10 VNĐ / credit (giá gói Basic). Sau này lấy từ API.
+const CUSTOM_RATE_VND = 10;
+const CUSTOM_MIN = 1000;
+const CUSTOM_MAX = 100000;
+const CUSTOM_PRESETS = [1000, 3000, 8000, 20000];
+
 const Payments: React.FC = () => {
+  const [customCredit, setCustomCredit] = useState<number>(3000);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Data states
@@ -126,6 +139,11 @@ const Payments: React.FC = () => {
 
   // Handle Select Package to Top Up: POST /api/payments/top-up -> trực tiếp chuyển hướng sang PayOS
   const handleSelectPackage = async (pkg: DebaterCreditPackage) => {
+    if (pkg.packageId < 0) {
+      setErrorMsg("");
+      setSuccessMsg(`Bản demo: gói ${pkg.packageName} chưa nối API thanh toán.`);
+      return;
+    }
     setRedirectingPackageId(pkg.packageId);
     setErrorMsg("");
     setSuccessMsg("");
@@ -146,16 +164,40 @@ const Payments: React.FC = () => {
     }
   };
 
+  const shownPackages = packages.length > 0 ? packages : DEMO_PACKAGES;
+  const customValid = Number.isFinite(customCredit) && customCredit >= CUSTOM_MIN && customCredit <= CUSTOM_MAX;
+  const customPrice = Math.max(0, customCredit || 0) * CUSTOM_RATE_VND;
+  const handleCustomTopUp = () => {
+    if (!customValid) return;
+    setErrorMsg("");
+    setSuccessMsg(`Bản demo: nạp ${customCredit.toLocaleString("vi-VN")} Credit (${customPrice.toLocaleString("vi-VN")} VNĐ), chưa nối API thanh toán.`);
+  };
+
+  const surface = "rounded-ap-xl bg-elevated shadow-ap-sm";
+  const tabs = [
+    { id: "PACKAGES" as const, label: `Danh sách gói nạp (${shownPackages.length + 1})` },
+    { id: "HISTORY" as const, label: `Lịch sử biến động ví (${transactions.length})` },
+  ];
+  const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1;
+    if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+    if (next >= 0) {
+      event.preventDefault();
+      setActiveTab(tabs[next].id);
+      document.getElementById(`pay-tab-${tabs[next].id}`)?.focus();
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 animate-fade-in">
+    <div className="mx-auto max-w-6xl space-y-(--s-7) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2.5">
-            <Coins className="text-amber-500" size={26} />
-            <span>Ví điểm tín chỉ & Nạp Credit</span>
+      <section className="flex flex-col gap-(--s-4) pt-(--s-4) sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-[720px] space-y-(--s-2)">
+          <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
+            Ví điểm tín chỉ &amp; Nạp Credit
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-(length:--text-body) leading-(--leading-body) text-label-secondary">
             Nạp điểm tín chỉ để tham gia luyện tập đối kháng với AI, thi đấu giải đấu và nhận phản hồi chấm điểm chuyên sâu.
           </p>
         </div>
@@ -164,331 +206,359 @@ const Payments: React.FC = () => {
           type="button"
           onClick={fetchData}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#1A2E26] hover:bg-slate-100 dark:hover:bg-[#233F34] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 self-start sm:self-auto"
+          className="inline-flex min-h-11 cursor-pointer items-center gap-(--s-2) self-start text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline disabled:opacity-50 sm:self-auto"
         >
-          <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+          <RefreshCw size={15} className={loading ? "animate-spin" : ""} aria-hidden="true" />
           <span>Làm mới số dư</span>
         </button>
-      </div>
+      </section>
 
       {/* Alerts */}
       {errorMsg && (
-        <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle size={16} className="text-rose-500 shrink-0" />
+        <div role="alert" className="flex items-center justify-between gap-(--s-3) rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) text-label">
+          <div className="flex items-center gap-(--s-3)">
+            <AlertCircle size={18} className="shrink-0 text-ap-danger" aria-hidden="true" />
             <span>{errorMsg}</span>
           </div>
-          <button type="button" onClick={() => setErrorMsg("")} className="text-rose-400 hover:text-rose-600">
-            <X size={14} />
+          <button
+            type="button"
+            onClick={() => setErrorMsg("")}
+            aria-label="Đóng thông báo"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-label-secondary hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+          >
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-[#008A64] shrink-0" />
+        <div role="status" className="flex items-center justify-between gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label">
+          <div className="flex items-center gap-(--s-3)">
+            <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
             <span>{successMsg}</span>
           </div>
-          <button type="button" onClick={() => setSuccessMsg("")} className="text-emerald-500 hover:text-emerald-700">
-            <X size={14} />
+          <button
+            type="button"
+            onClick={() => setSuccessMsg("")}
+            aria-label="Đóng thông báo"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-label-secondary hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+          >
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {/* Wallet Balance Card Banner */}
-      <div className="bg-gradient-to-br from-[#008A64] via-[#007454] to-[#014D38] rounded-3xl p-6 sm:p-7 text-white shadow-xl shadow-[#008A64]/15 relative overflow-hidden">
-        <div className="absolute -right-8 -bottom-8 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-white/15 backdrop-blur-xs text-amber-300">
-                <Wallet size={20} />
-              </span>
-              <span className="text-xs uppercase tracking-wider font-bold text-emerald-100">
-                Ví tín chỉ học viên
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-black tracking-tight font-mono">
-                {wallet ? wallet.balance.toLocaleString("vi-VN") : "--"}
-              </span>
-              <span className="text-base font-bold text-emerald-200">Credit khả dụng</span>
-            </div>
-
-            <p className="text-xs text-emerald-100/80 max-w-lg leading-relaxed">
-              Điểm tín chỉ dùng để chi trả cho các buổi luyện tập tranh biện cùng AI Coach, chấm điểm tự động và tham gia các giải đấu có thưởng.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            {rewardStatus && (
-              <button
-                type="button"
-                onClick={handleClaimDailyReward}
-                disabled={!rewardStatus.canClaimDailyLogin || claimingReward}
-                className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all ${
-                  rewardStatus.canClaimDailyLogin
-                    ? "bg-amber-400 hover:bg-amber-300 text-slate-900 border-amber-200 cursor-pointer shadow-md"
-                    : "bg-white/10 text-emerald-100 border-white/15 opacity-80 cursor-not-allowed"
-                }`}
-              >
-                <Gift size={16} />
-                <span>
-                  {claimingReward
-                    ? "Đang nhận thưởng..."
-                    : rewardStatus.canClaimDailyLogin
-                    ? `Nhận thưởng hôm nay (+${rewardStatus.dailyLoginAmount} Credit)`
-                    : "Đã nhận thưởng hàng ngày"}
-                </span>
-              </button>
-            )}
-            <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 text-xs text-emerald-50 space-y-1">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-emerald-200">Cổng thanh toán:</span>
-                <span className="font-bold flex items-center gap-1">
-                  <ShieldCheck size={13} className="text-emerald-300" /> PayOS / VietQR
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-emerald-200">Xử lý tự động:</span>
-                <span className="font-bold text-amber-300">Cộng điểm tức thì</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs Selection: Packages vs History */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-[rgba(148,163,184,0.18)] pb-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab("PACKAGES")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-            activeTab === "PACKAGES"
-              ? "bg-[#008A64] text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#12231C]"
-          }`}
-        >
-          <Coins size={14} />
-          <span>Danh sách gói nạp ({packages.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("HISTORY")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-            activeTab === "HISTORY"
-              ? "bg-[#008A64] text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#12231C]"
-          }`}
-        >
-          <Clock size={14} />
-          <span>Lịch sử biến động ví ({transactions.length})</span>
-        </button>
-      </div>
-
-      {/* Tab 1: Packages List */}
-      {activeTab === "PACKAGES" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Chọn gói nạp điểm phù hợp với bạn
-            </h2>
-            <span className="text-xs text-[#008A64] font-bold">
-              Thanh toán an toàn qua quét mã VietQR ngân hàng
+      {/* The balance: a number on a plain surface */}
+      <section aria-label="Số dư ví" className={`${surface} flex flex-col gap-(--s-6) p-(--s-6) md:flex-row md:items-center md:justify-between sm:p-(--s-7)`}>
+        <div className="space-y-(--s-3)">
+          <p className="inline-flex items-center gap-(--s-2) text-(length:--text-callout) text-label-secondary">
+            <Wallet size={16} aria-hidden="true" />
+            Ví tín chỉ học viên
+          </p>
+          <p className="flex items-baseline gap-(--s-3)">
+            <span className="text-(length:--text-hero) font-bold leading-none tracking-(--tracking-display) tabular-nums">
+              {wallet ? wallet.balance.toLocaleString("vi-VN") : "--"}
             </span>
-          </div>
+            <span className="text-(length:--text-headline) text-label-secondary">Credit khả dụng</span>
+          </p>
+          <p className="max-w-[520px] text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
+            Điểm tín chỉ dùng để chi trả cho các buổi luyện tập tranh biện cùng AI Coach, chấm điểm tự động và tham gia các giải đấu có thưởng.
+          </p>
+        </div>
 
-          {loading ? (
-            <div className="p-12 text-center text-xs text-slate-400 bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)]">
-              <RefreshCw size={24} className="animate-spin text-[#008A64] mx-auto mb-2" />
-              <span>Đang tải danh sách gói nạp khả dụng...</span>
+        <div className="flex flex-col gap-(--s-4) md:items-end">
+          {rewardStatus && (
+            <button
+              type="button"
+              onClick={handleClaimDailyReward}
+              disabled={!rewardStatus.canClaimDailyLogin || claimingReward}
+              className={`inline-flex h-12 items-center justify-center gap-(--s-2) rounded-ap-pill px-(--s-5) text-(length:--text-callout) font-medium transition-[background-color,transform] duration-(--t-fast) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 ${
+                rewardStatus.canClaimDailyLogin
+                  ? "cursor-pointer bg-accent text-accent-contrast hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100"
+                  : "cursor-not-allowed bg-canvas-secondary text-label-tertiary"
+              }`}
+            >
+              <Gift size={17} aria-hidden="true" />
+              <span>
+                {claimingReward
+                  ? "Đang nhận thưởng..."
+                  : rewardStatus.canClaimDailyLogin
+                  ? `Nhận thưởng hôm nay (+${rewardStatus.dailyLoginAmount} Credit)`
+                  : "Đã nhận thưởng hàng ngày"}
+              </span>
+            </button>
+          )}
+          <dl className="space-y-(--s-1) text-(length:--text-callout)">
+            <div className="flex items-center justify-between gap-(--s-5)">
+              <dt className="text-label-secondary">Cổng thanh toán</dt>
+              <dd className="inline-flex items-center gap-(--s-2) font-medium">
+                <ShieldCheck size={15} className="text-accent" aria-hidden="true" /> PayOS / VietQR
+              </dd>
             </div>
-          ) : packages.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 text-xs bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)]">
-              Hiện tại chưa có gói nạp nào được mở bán. Vui lòng quay lại sau!
+            <div className="flex items-center justify-between gap-(--s-5)">
+              <dt className="text-label-secondary">Xử lý tự động</dt>
+              <dd className="font-medium">Cộng điểm tức thì</dd>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {packages.map((pkg) => {
-                const totalCredits = pkg.creditAmount + (pkg.bonusCredit || 0);
+          </dl>
+        </div>
+      </section>
 
-                return (
-                  <div
-                    key={pkg.packageId}
-                    className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64] hover:shadow-lg hover:shadow-[#008A64]/5 group relative"
-                  >
-                    <div className="space-y-4">
-                      {/* Top Bar */}
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-black px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          #{pkg.packageCode}
-                        </span>
+      {/* Tabs: Packages vs History */}
+      <div className="space-y-(--s-5)">
+        <div role="tablist" aria-label="Gói nạp và lịch sử" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-ap-pill bg-canvas-secondary p-1">
+          {tabs.map((tab, index) => (
+            <button
+              key={tab.id}
+              id={`pay-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`pay-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(e) => onTabKeyDown(e, index)}
+              className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-(--s-2) rounded-ap-pill px-(--s-5) text-(length:--text-callout) font-medium transition-[background-color,box-shadow,color] duration-(--t-base) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+                activeTab === tab.id ? "bg-elevated text-label shadow-ap-sm" : "text-label-secondary hover:text-label"
+              }`}
+            >
+              {tab.id === "PACKAGES" ? <Coins size={15} aria-hidden="true" /> : <Clock size={15} aria-hidden="true" />}
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-                        {pkg.bonusCredit > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/60 dark:text-rose-300 px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/40">
-                            <Gift size={11} /> Tặng +{pkg.bonusCredit}
-                          </span>
-                        )}
-                      </div>
+        {/* Tab 1: Packages */}
+        {activeTab === "PACKAGES" && (
+          <div id="pay-panel-PACKAGES" role="tabpanel" aria-labelledby="pay-tab-PACKAGES" className="space-y-(--s-5)">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">Chọn gói nạp điểm phù hợp với bạn</h2>
+              <span className="inline-flex items-center gap-(--s-2) text-(length:--text-callout) text-label-secondary">
+                <ShieldCheck size={15} className="text-accent" aria-hidden="true" />
+                Thanh toán an toàn qua quét mã VietQR ngân hàng
+              </span>
+            </div>
 
-                      {/* Package Name & Price */}
-                      <div>
-                        <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                          {pkg.packageName}
-                        </h3>
-                        <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className="text-3xl font-black text-[#008A64]">
-                            {pkg.price.toLocaleString("vi-VN")}
-                          </span>
-                          <span className="text-xs font-bold text-slate-400">
-                            {pkg.currency || "VNĐ"}
-                          </span>
-                        </div>
-                      </div>
+            {loading ? (
+              <div role="status" className={`${surface} space-y-(--s-3) px-(--s-6) py-(--s-8) text-center`}>
+                <RefreshCw size={26} className="mx-auto animate-spin text-accent" aria-hidden="true" />
+                <p className="text-(length:--text-callout) text-label-secondary">Đang tải danh sách gói nạp khả dụng...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-(--s-5) sm:grid-cols-2 lg:grid-cols-3">
+                {shownPackages.map((pkg) => {
+                  const totalCredits = pkg.creditAmount + (pkg.bonusCredit || 0);
 
-                      {/* Credit Breakdown */}
-                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0B1713] space-y-2 border border-slate-100 dark:border-slate-800/80 text-xs">
-                        <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                          <span className="flex items-center gap-1.5">
-                            <Coins size={14} className="text-amber-500" />
-                            Credit cơ bản:
-                          </span>
-                          <span className="font-bold">{pkg.creditAmount.toLocaleString()} Credit</span>
-                        </div>
-
-                        {pkg.bonusCredit > 0 && (
-                          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                            <span className="flex items-center gap-1.5">
-                              <Gift size={14} className="text-rose-500" />
-                              Khuyến mãi thêm:
+                  return (
+                    <article
+                      key={pkg.packageId}
+                      className={`${surface} flex flex-col justify-between gap-(--s-5) p-(--s-6) transition-[transform,box-shadow] duration-(--t-base) ease-ap hover:-translate-y-0.5 hover:shadow-ap-md motion-reduce:transform-none`}
+                    >
+                      <div className="space-y-(--s-5)">
+                        <div className="flex items-center justify-between gap-(--s-3)">
+                          <span className="text-(length:--text-caption) tabular-nums text-label-tertiary">#{pkg.packageCode}</span>
+                          {pkg.bonusCredit > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-(--s-3) py-1 text-(length:--text-caption) font-medium text-accent">
+                              <Gift size={12} aria-hidden="true" /> Tặng +{pkg.bonusCredit}
                             </span>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                              +{pkg.bonusCredit.toLocaleString()} Credit
+                          )}
+                        </div>
+
+                        <div>
+                          <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{pkg.packageName}</h3>
+                          <p className="mt-(--s-2) flex items-baseline gap-(--s-2)">
+                            <span className="text-(length:--text-section) font-semibold leading-none tracking-(--tracking-display) tabular-nums">
+                              {pkg.price.toLocaleString("vi-VN")}
                             </span>
+                            <span className="text-(length:--text-callout) text-label-secondary">{pkg.currency || "VNĐ"}</span>
+                          </p>
+                        </div>
+
+                        <dl className="space-y-(--s-2) border-t border-separator pt-(--s-4) text-(length:--text-callout)">
+                          <div className="flex items-center justify-between">
+                            <dt className="text-label-secondary">Credit cơ bản</dt>
+                            <dd className="tabular-nums">{pkg.creditAmount.toLocaleString()} Credit</dd>
                           </div>
-                        )}
-
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between font-bold">
-                          <span className="text-slate-800 dark:text-slate-200">Tổng nhận về ví:</span>
-                          <span className="text-sm font-black text-[#008A64]">
-                            {totalCredits.toLocaleString()} Credit
-                          </span>
-                        </div>
+                          {pkg.bonusCredit > 0 && (
+                            <div className="flex items-center justify-between">
+                              <dt className="text-label-secondary">Khuyến mãi thêm</dt>
+                              <dd className="tabular-nums text-accent">+{pkg.bonusCredit.toLocaleString()} Credit</dd>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between pt-(--s-2) font-semibold">
+                            <dt>Tổng nhận về ví</dt>
+                            <dd className="tabular-nums">{totalCredits.toLocaleString()} Credit</dd>
+                          </div>
+                        </dl>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPackage(pkg)}
+                        disabled={redirectingPackageId !== null}
+                        className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {redirectingPackageId === pkg.packageId ? (
+                          <>
+                            <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
+                            <span>Đang chuyển sang PayOS...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard size={16} aria-hidden="true" />
+                            <span>Nạp ngay qua PayOS</span>
+                          </>
+                        )}
+                      </button>
+                    </article>
+                  );
+                })}
+
+                <article className={`${surface} flex flex-col justify-between gap-(--s-5) p-(--s-6)`}>
+                  <div className="space-y-(--s-5)">
+                    <div className="flex items-center justify-between gap-(--s-3)">
+                      <span className="text-(length:--text-caption) text-label-tertiary">TỰ DO</span>
+                      <span className="rounded-full bg-canvas-secondary px-(--s-3) py-1 text-(length:--text-caption) font-medium text-label-secondary">
+                        {CUSTOM_RATE_VND} VNĐ / Credit
+                      </span>
                     </div>
 
-                    {/* Action Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPackage(pkg)}
-                      disabled={redirectingPackageId !== null}
-                      className="mt-5 w-full py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007454] disabled:opacity-60 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 group-hover:shadow-md group-hover:shadow-[#008A64]/20"
-                    >
-                      {redirectingPackageId === pkg.packageId ? (
-                        <>
-                          <RefreshCw size={14} className="animate-spin" />
-                          <span>Đang chuyển sang PayOS...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard size={14} />
-                          <span>Nạp ngay qua PayOS</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                    <div>
+                      <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">Gói tự do</h3>
+                      <p className="mt-(--s-2) flex items-baseline gap-(--s-2)">
+                        <span className="text-(length:--text-section) font-semibold leading-none tracking-(--tracking-display) tabular-nums">
+                          {customPrice.toLocaleString("vi-VN")}
+                        </span>
+                        <span className="text-(length:--text-callout) text-label-secondary">VNĐ</span>
+                      </p>
+                    </div>
 
-      {/* Tab 2: Wallet Transactions History */}
-      {activeTab === "HISTORY" && (
-        <div className="bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs overflow-hidden">
-          {transactions.length === 0 ? (
-            <div className="p-12 text-center text-xs text-slate-400">
-              Bạn chưa có biến động số dư nào trong ví điểm tín chỉ.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-[#0B1713] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
-                  <tr>
-                    <th className="px-5 py-3.5">Mã GD</th>
-                    <th className="px-5 py-3.5">Loại giao dịch</th>
-                    <th className="px-5 py-3.5">Số lượng</th>
-                    <th className="px-5 py-3.5">Số dư sau</th>
-                    <th className="px-5 py-3.5">Thời gian</th>
-                    <th className="px-5 py-3.5">Nội dung</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[rgba(148,163,184,0.12)]">
-                  {transactions.map((tx) => {
-                    const isCredit = tx.amount > 0 || tx.transactionType?.toLowerCase().includes("topup") || tx.transactionType?.toLowerCase().includes("credit");
-
-                    return (
-                      <tr key={tx.walletTransactionId} className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-slate-400">
-                          #{tx.walletTransactionId}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-bold text-[11px] ${
-                              isCredit
-                                ? "bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-300"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    <div className="space-y-(--s-3) border-t border-separator pt-(--s-4)">
+                      <label htmlFor="custom-credit" className="text-(length:--text-callout) text-label-secondary">
+                        Số Credit muốn nạp
+                      </label>
+                      <input
+                        id="custom-credit"
+                        type="number"
+                        inputMode="numeric"
+                        min={CUSTOM_MIN}
+                        max={CUSTOM_MAX}
+                        step={100}
+                        value={Number.isFinite(customCredit) ? customCredit : ""}
+                        onChange={(e) => setCustomCredit(e.target.value === "" ? NaN : Number(e.target.value))}
+                        aria-invalid={!customValid}
+                        className="h-11 w-full rounded-ap-md border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-body) tabular-nums text-label outline-none focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25"
+                      />
+                      <div className="flex flex-wrap gap-(--s-2)">
+                        {CUSTOM_PRESETS.map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setCustomCredit(n)}
+                            className={`min-h-9 cursor-pointer rounded-full px-(--s-4) text-(length:--text-callout) font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+                              customCredit === n ? "bg-accent-soft text-accent" : "bg-canvas-secondary text-label-secondary hover:text-label"
                             }`}
                           >
-                            {isCredit ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
-                            {tx.transactionType === "TopUp" ? "Nạp điểm tín chỉ" : tx.transactionType}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-bold font-mono">
-                          <span className={isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}>
-                            {isCredit ? `+${tx.amount.toLocaleString()}` : `-${Math.abs(tx.amount).toLocaleString()}`} Credit
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-bold font-mono text-slate-700 dark:text-slate-300">
-                          {tx.balanceAfter.toLocaleString()} Credit
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
-                          {new Date(tx.createdAt).toLocaleString("vi-VN")}
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-600 dark:text-slate-400 max-w-xs truncate">
-                          {tx.description || "Giao dịch nạp điểm tín chỉ"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                            {n.toLocaleString("vi-VN")}
+                          </button>
+                        ))}
+                      </div>
+                      <p className={`text-(length:--text-caption) ${customValid ? "text-label-secondary" : "text-ap-danger"}`}>
+                        Tối thiểu {CUSTOM_MIN.toLocaleString("vi-VN")}, tối đa {CUSTOM_MAX.toLocaleString("vi-VN")} Credit.
+                      </p>
+                    </div>
+                  </div>
 
-      {/* PayOS Redirecting Overlay */}
+                  <button
+                    type="button"
+                    onClick={handleCustomTopUp}
+                    disabled={!customValid || redirectingPackageId !== null}
+                    className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <CreditCard size={16} aria-hidden="true" />
+                    <span>Nạp gói tự do</span>
+                  </button>
+                </article>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Wallet transactions */}
+        {activeTab === "HISTORY" && (
+          <div id="pay-panel-HISTORY" role="tabpanel" aria-labelledby="pay-tab-HISTORY" className={`${surface} overflow-hidden`}>
+            {transactions.length === 0 ? (
+              <div className="px-(--s-6) py-(--s-8) text-center text-(length:--text-callout) text-label-secondary">
+                Bạn chưa có biến động số dư nào trong ví điểm tín chỉ.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-(length:--text-callout)">
+                  <thead>
+                    <tr className="border-b border-separator text-(length:--text-caption) uppercase tracking-wider text-label-secondary">
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Mã GD</th>
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Loại giao dịch</th>
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Số lượng</th>
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Số dư sau</th>
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Thời gian</th>
+                      <th className="px-(--s-5) py-(--s-3) font-medium">Nội dung</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-separator">
+                    {transactions.map((tx) => {
+                      const isCredit = tx.amount > 0 || tx.transactionType?.toLowerCase().includes("topup") || tx.transactionType?.toLowerCase().includes("credit");
+
+                      return (
+                        <tr key={tx.walletTransactionId} className="transition-colors hover:bg-canvas-secondary">
+                          <td className="px-(--s-5) py-(--s-4) tabular-nums text-label-tertiary">#{tx.walletTransactionId}</td>
+                          <td className="px-(--s-5) py-(--s-4)">
+                            <span className={`inline-flex items-center gap-1 ${isCredit ? "text-accent" : "text-label-secondary"}`}>
+                              {isCredit ? <ArrowDownLeft size={14} aria-hidden="true" /> : <ArrowUpRight size={14} aria-hidden="true" />}
+                              {tx.transactionType === "TopUp" ? "Nạp điểm tín chỉ" : tx.transactionType}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-(--s-5) py-(--s-4) font-medium tabular-nums">
+                            <span className={isCredit ? "text-accent" : "text-label"}>
+                              {isCredit ? `+${tx.amount.toLocaleString()}` : `-${Math.abs(tx.amount).toLocaleString()}`} Credit
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-(--s-5) py-(--s-4) tabular-nums">{tx.balanceAfter.toLocaleString()} Credit</td>
+                          <td className="whitespace-nowrap px-(--s-5) py-(--s-4) text-label-secondary">
+                            {new Date(tx.createdAt).toLocaleString("vi-VN")}
+                          </td>
+                          <td className="max-w-xs truncate px-(--s-5) py-(--s-4) text-label-secondary">
+                            {tx.description || "Giao dịch nạp điểm tín chỉ"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* PayOS redirecting overlay */}
       {redirectingPackageId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-sm rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-7 text-center space-y-4 animate-scale-up">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center animate-pulse">
-              <ExternalLink size={28} />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Đang chuyển sang PayOS"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-(--scrim) p-4 backdrop-blur-sm animate-fade-in"
+        >
+          <div className="w-full max-w-sm space-y-(--s-4) rounded-ap-xl bg-elevated p-(--s-7) text-center shadow-ap-lg">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-ap-lg bg-accent-soft text-accent">
+              <ExternalLink size={26} aria-hidden="true" />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Đang chuyển sang PayOS...
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="space-y-(--s-2)">
+              <h3 className="text-(length:--text-headline) font-semibold">Đang chuyển sang PayOS...</h3>
+              <p className="text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
                 Hệ thống đang mở trang thanh toán chính thức của PayOS để bạn quét mã VietQR và thanh toán an toàn.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#008A64] pt-1">
-              <RefreshCw size={14} className="animate-spin" />
+            <div className="flex items-center justify-center gap-(--s-2) text-(length:--text-callout) font-medium text-accent">
+              <RefreshCw size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
               <span>Đang kết nối cổng thanh toán...</span>
             </div>
           </div>

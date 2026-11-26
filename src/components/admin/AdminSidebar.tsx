@@ -1,4 +1,5 @@
 import React from "react";
+import AppLogo from "../common/AppLogo";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -78,7 +79,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
       {/* Main Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 bg-white dark:bg-[#0F1C17] border-r border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] z-50 flex flex-col justify-between select-none shadow-sm dark:shadow-black/30 transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 bottom-0 left-0 bg-white dark:bg-[#0C131F] border-r border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] z-50 flex flex-col justify-between select-none shadow-sm dark:shadow-black/30 transition-all duration-300 ease-in-out ${
           isOpen ? "translate-x-0 w-[260px]" : "-translate-x-full lg:translate-x-0"
         } ${isCollapsed ? "lg:w-[76px]" : "lg:w-[260px]"}`}
       >
@@ -94,11 +95,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 <button
                   type="button"
                   onClick={onToggleCollapse}
-                  className="w-10 h-10 rounded-xl bg-[#008A64] flex items-center justify-center text-white shadow-md shadow-[#008A64]/20 hover:scale-105 transition-all group relative cursor-pointer font-black text-base"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all group relative cursor-pointer"
                   title="Mở rộng thanh bên"
                 >
-                  <span className="group-hover:hidden">A</span>
-                  <PanelLeftOpen size={18} className="hidden group-hover:block text-white" />
+                  <AppLogo size={22} className="group-hover:hidden" />
+                  <PanelLeftOpen size={18} className="hidden group-hover:block text-slate-500" />
                   <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50">
                     Mở rộng thanh bên
                   </div>
@@ -107,19 +108,17 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
             ) : (
               <>
                 <NavLink to="/admin/dashboard" className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#008A64] flex items-center justify-center text-white shadow-sm font-black text-base shrink-0">
-                    A
-                  </div>
+                  <AppLogo size={28} className="shrink-0" />
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="font-extrabold text-[15px] tracking-tight text-slate-900 dark:text-[#F8FAFC] leading-tight">
                         ADPP
                       </span>
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-[#008A64] dark:text-emerald-300 border border-[#008A64]/30">
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-950/80 text-[#0B5ED7] dark:text-blue-300 border border-[#0B5ED7]/30">
                         ADMIN
                       </span>
                     </div>
-                    <span className="text-[9px] font-bold text-[#008A64] dark:text-emerald-400 uppercase tracking-wider leading-none mt-0.5">
+                    <span className="text-[9px] font-bold text-[#0B5ED7] dark:text-blue-400 uppercase tracking-wider leading-none mt-0.5">
                       CỔNG QUẢN TRỊ HỆ THỐNG
                     </span>
                   </div>
@@ -130,7 +129,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <button
                       type="button"
                       onClick={onToggleCollapse}
-                      className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-[#172C23] transition-colors cursor-pointer"
+                      className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-[#131D30] transition-colors cursor-pointer"
                       title="Thu gọn thanh bên"
                     >
                       <PanelLeftClose size={17} />
@@ -179,13 +178,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                           isCollapsed
                             ? `justify-center w-full ${
                                 isActive
-                                  ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20 font-semibold"
-                                  : "text-slate-600 dark:text-slate-300 hover:text-[#008A64] dark:hover:text-[#34D399] hover:bg-emerald-50/60 dark:hover:bg-emerald-500/15"
+                                  ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20 font-semibold"
+                                  : "text-slate-600 dark:text-slate-300 hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] hover:bg-blue-50/60 dark:hover:bg-blue-500/15"
                               }`
                             : `px-3 ${
                                 isActive
-                                  ? "bg-[#008A64] text-white font-semibold shadow-sm shadow-[#008A64]/20"
-                                  : "text-slate-600 dark:text-slate-300 hover:text-[#008A64] dark:hover:text-[#34D399] hover:bg-emerald-50/60 dark:hover:bg-emerald-500/15 font-medium"
+                                  ? "bg-[#0B5ED7] text-white font-semibold shadow-sm shadow-[#0B5ED7]/20"
+                                  : "text-slate-600 dark:text-slate-300 hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] hover:bg-blue-50/60 dark:hover:bg-blue-500/15 font-medium"
                               }`
                         }`
                       }
@@ -196,7 +195,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                             className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                               isActive
                                 ? "text-white"
-                                : "text-slate-500 dark:text-slate-400 group-hover:text-[#008A64] dark:group-hover:text-[#34D399]"
+                                : "text-slate-500 dark:text-slate-400 group-hover:text-[#0B5ED7] dark:group-hover:text-[#60A5FA]"
                             }`}
                           >
                             <Icon size={18} />
@@ -227,7 +226,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
         {/* Bottom Area: Administrator Identity Card (Links to /admin/profile) */}
         <div
-          className={`border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-slate-50/60 dark:bg-[#0B1713] shrink-0 transition-all duration-300 ${
+          className={`border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-slate-50/60 dark:bg-[#090E19] shrink-0 transition-all duration-300 ${
             isCollapsed ? "p-2" : "p-3"
           }`}
         >
@@ -239,7 +238,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
             return (
               <NavLink
                 to="/admin/profile"
-                className={`rounded-xl bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64]/50 hover:shadow-xs transition-all flex items-center relative group cursor-pointer ${
+                className={`rounded-xl bg-white dark:bg-[#0F1726] border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7]/50 hover:shadow-xs transition-all flex items-center relative group cursor-pointer ${
                   isCollapsed ? "justify-center p-2" : "p-2.5 gap-2.5"
                 }`}
                 title={user?.fullName || user?.email || "Quản trị viên"}
@@ -252,21 +251,21 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#008A64] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                    <div className="w-8 h-8 rounded-full bg-[#0B5ED7] text-white font-bold text-xs flex items-center justify-center shadow-xs">
                       {(user?.fullName || user?.email || "A").charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-1.5 ring-white dark:ring-slate-900" />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-blue-500 ring-1.5 ring-white dark:ring-slate-900" />
                 </div>
 
                 {!isCollapsed && (
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate leading-tight group-hover:text-[#008A64] transition-colors">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate leading-tight group-hover:text-[#0B5ED7] transition-colors">
                         {user?.fullName || user?.email?.split("@")[0] || "Quản trị viên"}
                       </p>
                     </div>
-                    <span className="inline-block mt-0.5 text-[9.5px] font-bold text-[#008A64] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-200/60 dark:border-emerald-800/40 uppercase">
+                    <span className="inline-block mt-0.5 text-[9.5px] font-bold text-[#0B5ED7] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.2 rounded border border-blue-200/60 dark:border-blue-800/40 uppercase">
                       Admin
                     </span>
                   </div>

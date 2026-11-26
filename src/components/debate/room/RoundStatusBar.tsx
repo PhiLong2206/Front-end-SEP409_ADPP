@@ -16,7 +16,7 @@ export function roundClockTone(mode: RoundClockMode, secondsRemaining: number, e
 
 const TONE_CLASS: Record<RoundClockTone, string> = {
   prep: "text-blue-600 dark:text-blue-400",
-  ok: "text-[#008A64] dark:text-[#34D399]",
+  ok: "text-[#0B5ED7] dark:text-[#60A5FA]",
   warn: "text-amber-600 dark:text-amber-400",
   danger: "text-rose-600 dark:text-rose-400",
   idle: "text-slate-400 dark:text-slate-500",
@@ -118,8 +118,8 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
       data-glow={glow ? "true" : "false"}
       className={`shrink-0 mx-3 sm:mx-5 mt-2 rounded-2xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all duration-500 ${
         glow
-          ? "border-[#008A64] bg-emerald-50 dark:bg-emerald-950/40 shadow-lg ring-4 ring-[#008A64]/30"
-          : "border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0E1D17]"
+          ? "border-[#0B5ED7] bg-blue-50 dark:bg-blue-950/40 shadow-lg ring-4 ring-[#0B5ED7]/30"
+          : "border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0B1220]"
       }`}
     >
       <div className="min-w-0 space-y-1">
@@ -134,9 +134,9 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
                 aria-current={step === round ? "step" : undefined}
                 className={`h-5 w-5 rounded-full text-[11px] font-bold flex items-center justify-center ${
                   step === round
-                    ? "bg-[#008A64] text-white"
+                    ? "bg-[#0B5ED7] text-white"
                     : step < round
-                    ? "bg-emerald-100 text-[#008A64] dark:bg-emerald-900/50 dark:text-emerald-300"
+                    ? "bg-blue-100 text-[#0B5ED7] dark:bg-blue-900/50 dark:text-blue-300"
                     : "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
                 }`}
               >
@@ -151,7 +151,7 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
           className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
         >
           {isAiWriting ? (
-            <Loader2 size={12} className="animate-spin text-[#008A64]" aria-hidden="true" />
+            <Loader2 size={12} className="animate-spin text-[#0B5ED7]" aria-hidden="true" />
           ) : aiBusy ? (
             <Bot size={12} aria-hidden="true" />
           ) : isPreparing ? (
@@ -178,9 +178,9 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
             aria-pressed={notes.open}
             title="Ghi chú (Alt+N)"
             onClick={notes.onToggle}
-            className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+            className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30 ${
               notes.open
-                ? "bg-[#ECFDF5] dark:bg-emerald-950/40 border-[#008A64]/40 text-[#008A64] dark:text-emerald-400"
+                ? "bg-[#EAF2FF] dark:bg-blue-950/40 border-[#0B5ED7]/40 text-[#0B5ED7] dark:text-blue-400"
                 : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
@@ -190,7 +190,7 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
               <span
                 data-testid="notes-dot"
                 aria-hidden="true"
-                className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#0E1D17]"
+                className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-[#0B1220]"
               />
             )}
           </button>
@@ -201,7 +201,7 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
             onClick={onSkipReading}
             data-testid="skip-ai-reading-btn"
             title="Bạn đã đọc xong phần này: bỏ qua phần đọc to"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#008A64] bg-[#ECFDF5] hover:bg-[#D1FAE5] dark:bg-emerald-950/30 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#0B5ED7] bg-[#EAF2FF] hover:bg-[#DBEAFE] dark:bg-blue-950/30 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
           >
             <SkipForward size={14} aria-hidden="true" />
             {`Bỏ qua phần ${readingPartName}`}
@@ -213,7 +213,7 @@ const RoundStatusBar: React.FC<RoundStatusBarProps> = ({
             data-testid="skip-preparation-btn"
             disabled={isSkippingPreparation || isPrepStarting}
             onClick={onSkipPreparation}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
             {isSkippingPreparation ? (
               <Loader2 size={14} className="animate-spin" aria-hidden="true" />

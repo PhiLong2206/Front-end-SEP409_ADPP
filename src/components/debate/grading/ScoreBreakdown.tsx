@@ -7,8 +7,8 @@ export interface ScoreBreakdownProps {
 }
 
 const getColorClass = (percent: number) => {
-  if (percent >= 80) return "bg-[#008A64]";
-  if (percent >= 70) return "bg-emerald-500";
+  if (percent >= 80) return "bg-[#0B5ED7]";
+  if (percent >= 70) return "bg-blue-500";
   if (percent >= 50) return "bg-amber-500";
   return "bg-rose-500";
 };

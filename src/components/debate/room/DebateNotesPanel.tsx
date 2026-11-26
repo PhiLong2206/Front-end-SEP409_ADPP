@@ -93,7 +93,7 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
     : { left: rect.x, top: rect.y, width: rect.w, height: collapsed ? TITLE_BAR_H : rect.h };
 
   const iconBtn =
-    "p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/40";
+    "p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40";
 
   return (
     <div
@@ -106,7 +106,7 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
       onKeyDown={onCardKeyDown}
       // Pointer / click events inside the card do not reach the room either (nothing there should stop a recording)
       onClick={(e) => e.stopPropagation()}
-      className={`fixed z-40 flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12231C] text-slate-800 dark:text-slate-100 shadow-2xl ${
+      className={`fixed z-40 flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F1726] text-slate-800 dark:text-slate-100 shadow-2xl ${
         isNarrow ? "rounded-t-2xl" : "rounded-2xl"
       } ${isDragging ? "select-none" : ""}`}
     >
@@ -114,12 +114,12 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
       <div
         data-testid="debate-notes-titlebar"
         {...dragHandlers}
-        className={`shrink-0 flex items-center gap-1 px-2 border-b border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-[#0E1D17] touch-none ${
+        className={`shrink-0 flex items-center gap-1 px-2 border-b border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-[#0B1220] touch-none ${
           isNarrow ? "" : "cursor-move"
         }`}
         style={{ height: TITLE_BAR_H }}
       >
-        <NotebookPen size={15} className="ml-1 text-[#008A64] dark:text-emerald-400" aria-hidden="true" />
+        <NotebookPen size={15} className="ml-1 text-[#0B5ED7] dark:text-blue-400" aria-hidden="true" />
         <span className="text-sm font-bold flex-1 truncate">Ghi chú</span>
         {!collapsed && (
           <>
@@ -149,7 +149,7 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
               aria-pressed={readMode}
               data-testid="notes-read-mode"
               onClick={() => setReadMode((v) => !v)}
-              className={`${iconBtn} ${readMode ? "text-[#008A64] bg-emerald-50 dark:bg-emerald-950/40" : ""}`}
+              className={`${iconBtn} ${readMode ? "text-[#0B5ED7] bg-blue-50 dark:bg-blue-950/40" : ""}`}
               title="Chế độ đọc: khoá sửa, chữ to hơn"
             >
               <BookOpen size={15} aria-hidden="true" />
@@ -195,7 +195,7 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
                         setRenamingId(null);
                       }
                     }}
-                    className="w-28 px-2 py-1 rounded-lg border border-[#008A64] bg-white dark:bg-[#0E1D17] text-xs focus:outline-none"
+                    className="w-28 px-2 py-1 rounded-lg border border-[#0B5ED7] bg-white dark:bg-[#0B1220] text-xs focus:outline-none"
                   />
                 ) : (
                   <button
@@ -214,9 +214,9 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
                     onClick={() => notes.setActiveTab(tab.id)}
                     onDoubleClick={() => startRename(tab.id, tab.title)}
                     onKeyDown={(e) => onTabKeyDown(e, index)}
-                    className={`shrink-0 max-w-[9rem] truncate px-2.5 py-1 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#008A64]/40 ${
+                    className={`shrink-0 max-w-[9rem] truncate px-2.5 py-1 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40 ${
                       selected
-                        ? "bg-[#008A64] text-white"
+                        ? "bg-[#0B5ED7] text-white"
                         : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                     }`}
                   >
@@ -286,10 +286,10 @@ const DebateNotesPanel: React.FC<DebateNotesPanelProps> = ({ notes, roundLabel }
               placeholder="Ghi ý chính, số liệu, câu hỏi phản biện…"
               onChange={(e) => notes.setText(activeTabData.id, e.target.value)}
               style={{ fontSize: fontPx }}
-              className={`w-full h-full resize-none rounded-lg border p-2.5 leading-relaxed font-sans focus:outline-none focus:ring-2 focus:ring-[#008A64]/40 ${
+              className={`w-full h-full resize-none rounded-lg border p-2.5 leading-relaxed font-sans focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40 ${
                 readMode
-                  ? "border-transparent bg-slate-50 dark:bg-[#0E1D17] cursor-default"
-                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0E1D17]"
+                  ? "border-transparent bg-slate-50 dark:bg-[#0B1220] cursor-default"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B1220]"
               }`}
             />
           </div>

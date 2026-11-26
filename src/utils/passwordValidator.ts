@@ -86,13 +86,13 @@ export const calculatePasswordStrength = (password: string): PasswordStrengthRes
       break;
     case 4:
       label = "Mạnh";
-      colorClass = "text-emerald-500";
-      bgClass = "bg-emerald-500";
+      colorClass = "text-blue-500";
+      bgClass = "bg-blue-500";
       break;
     case 5:
       label = "Rất mạnh";
-      colorClass = "text-emerald-600";
-      bgClass = "bg-emerald-600";
+      colorClass = "text-blue-600";
+      bgClass = "bg-blue-600";
       break;
     default:
       label = "Rất yếu";

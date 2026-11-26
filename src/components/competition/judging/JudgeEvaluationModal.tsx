@@ -194,9 +194,9 @@ const JudgeEvaluationModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white dark:bg-[#12231C] w-full max-w-4xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#0F1726] w-full max-w-4xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-gradient-to-r from-purple-50 to-emerald-50/40 dark:from-[#191122] dark:to-[#12231C] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-gradient-to-r from-purple-50 to-blue-50/40 dark:from-[#191122] dark:to-[#0F1726] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 flex items-center justify-center">
               <Scale size={20} />
@@ -223,7 +223,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
         {/* Loading Review Indicator */}
         {loadingReview && (
           <div className="px-5 py-2 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 text-xs text-slate-500 flex items-center gap-2">
-            <RefreshCw size={13} className="animate-spin text-[#008A64]" />
+            <RefreshCw size={13} className="animate-spin text-[#0B5ED7]" />
             <span>Đang tải dữ liệu tiêu chí và đánh giá AI...</span>
           </div>
         )}
@@ -257,7 +257,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
         )}
 
         {successMsg && (
-          <div className="m-4 mb-0 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center gap-2">
+          <div className="m-4 mb-0 p-3 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-xl flex items-center gap-2">
             <CheckCircle2 size={14} className="shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -267,8 +267,8 @@ const JudgeEvaluationModal: React.FC<Props> = ({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {/* Comparison Cards Header */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-[#12231C] border border-emerald-300 dark:border-emerald-800">
-              <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider block">
+            <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-[#0F1726] border border-blue-300 dark:border-blue-800">
+              <span className="text-[10px] font-black text-blue-800 dark:text-blue-300 uppercase tracking-wider block">
                 Bên Ủng Hộ (PRO)
               </span>
               <p className="text-sm font-black text-slate-900 dark:text-slate-100 mt-1 truncate">
@@ -276,7 +276,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
               </p>
               <div className="mt-2 flex items-baseline gap-1 text-xs">
                 <span className="text-slate-500">Điểm tổng kết:</span>
-                <span className="text-lg font-black text-[#008A64]">{proTotal.toFixed(2)}</span>
+                <span className="text-lg font-black text-[#0B5ED7]">{proTotal.toFixed(2)}</span>
                 <span className="text-[10px] text-slate-400">/ 10</span>
               </div>
             </div>
@@ -308,7 +308,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
               return (
                 <div
                   key={crit.criteriaId}
-                  className="p-4 bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3"
+                  className="p-4 bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -329,10 +329,10 @@ const JudgeEvaluationModal: React.FC<Props> = ({
                     {/* PRO Score */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <label className="font-bold text-emerald-800 dark:text-emerald-300">
+                        <label className="font-bold text-blue-800 dark:text-blue-300">
                           Điểm PRO:
                         </label>
-                        <span className="font-black text-sm text-[#008A64]">
+                        <span className="font-black text-sm text-[#0B5ED7]">
                           {currentScore.pro} / {crit.maxScore || 10}
                         </span>
                       </div>
@@ -349,7 +349,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
                             [crit.criteriaId]: { ...prev[crit.criteriaId], pro: val },
                           }));
                         }}
-                        className="w-full accent-[#008A64] cursor-pointer"
+                        className="w-full accent-[#0B5ED7] cursor-pointer"
                       />
                       <input
                         type="text"
@@ -362,7 +362,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
                             [crit.criteriaId]: { ...prev[crit.criteriaId], proFeedback: txt },
                           }));
                         }}
-                        className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-[#0B1713]"
+                        className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-[#090E19]"
                       />
                     </div>
 
@@ -402,7 +402,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
                             [crit.criteriaId]: { ...prev[crit.criteriaId], conFeedback: txt },
                           }));
                         }}
-                        className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-[#0B1713]"
+                        className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-[#090E19]"
                       />
                     </div>
                   </div>
@@ -412,7 +412,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
           </div>
 
           {/* Winner Selection & Reason */}
-          <div className="p-4 bg-slate-50 dark:bg-[#0B1713] rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-[#090E19] rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
             <div>
               <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
                 Bên chiến thắng chính thức <span className="text-rose-500">*</span>
@@ -420,7 +420,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
               <select
                 value={winnerId}
                 onChange={(e) => setWinnerId(e.target.value ? Number(e.target.value) : "")}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#12231C] text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#0F1726] text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               >
                 <option value="">-- Chọn bên chiến thắng --</option>
                 <option value={proId}>
@@ -441,7 +441,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
                 placeholder="Nêu tóm tắt lý do lựa chọn người thắng, đặc biệt khi điểm số sít sao hoặc có quyết định đặc biệt..."
                 value={decisionReason}
                 onChange={(e) => setDecisionReason(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#12231C] text-xs focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#0F1726] text-xs focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               />
             </div>
           </div>
@@ -459,7 +459,7 @@ const JudgeEvaluationModal: React.FC<Props> = ({
             <button
               type="submit"
               disabled={submitting || !winnerId}
-              className="px-5 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007454] disabled:opacity-50 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] disabled:opacity-50 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               {submitting ? (
                 <>

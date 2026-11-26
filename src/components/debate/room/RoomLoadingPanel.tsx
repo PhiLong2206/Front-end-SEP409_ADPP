@@ -57,8 +57,8 @@ function useMicLevel(stream: MediaStream | null): number {
 }
 
 const StateIcon: React.FC<{ state: RoomItemState | "warn" }> = ({ state }) => {
-  if (state === "loading") return <Loader2 size={15} className="animate-spin text-[#008A64]" aria-hidden="true" />;
-  if (state === "done") return <Check size={15} className="text-[#008A64]" aria-hidden="true" />;
+  if (state === "loading") return <Loader2 size={15} className="animate-spin text-[#0B5ED7]" aria-hidden="true" />;
+  if (state === "done") return <Check size={15} className="text-[#0B5ED7]" aria-hidden="true" />;
   if (state === "error") return <AlertTriangle size={15} className="text-rose-600" aria-hidden="true" />;
   if (state === "warn") return <AlertTriangle size={15} className="text-amber-600" aria-hidden="true" />;
   return <Circle size={15} className="text-slate-400" aria-hidden="true" />;
@@ -69,7 +69,7 @@ const RetryButton: React.FC<{ testId: string; onClick: () => void }> = ({ testId
     type="button"
     data-testid={testId}
     onClick={onClick}
-    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-[#008A64] hover:bg-[#007556] focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"
+    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-[#0B5ED7] hover:bg-[#0a4fb4] focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"
   >
     <RefreshCw size={12} aria-hidden="true" />
     Thử lại
@@ -120,7 +120,7 @@ const RoomLoadingPanel: React.FC<RoomLoadingPanelProps> = ({
     <section
       data-testid="room-loading-panel"
       aria-label="Đang chuẩn bị phòng"
-      className="mx-4 mt-3 rounded-2xl border border-[#008A64]/30 bg-[#ECFDF5] dark:bg-emerald-950/30 dark:border-emerald-700/40 px-5 py-4 text-slate-800 dark:text-slate-100 shadow-xs"
+      className="mx-4 mt-3 rounded-2xl border border-[#0B5ED7]/30 bg-[#EAF2FF] dark:bg-blue-950/30 dark:border-blue-700/40 px-5 py-4 text-slate-800 dark:text-slate-100 shadow-xs"
     >
       <div className="flex flex-col sm:flex-row gap-4">
         {hasVideo && stream && (
@@ -133,7 +133,7 @@ const RoomLoadingPanel: React.FC<RoomLoadingPanelProps> = ({
           />
         )}
         <div className="min-w-0 flex-1 space-y-2">
-          <p role="status" data-testid="room-loading-title" className="text-sm font-bold text-[#008A64] dark:text-emerald-400">
+          <p role="status" data-testid="room-loading-title" className="text-sm font-bold text-[#0B5ED7] dark:text-blue-400">
             Đang chuẩn bị phòng
           </p>
           <div
@@ -145,7 +145,7 @@ const RoomLoadingPanel: React.FC<RoomLoadingPanelProps> = ({
             data-testid="room-loading-progress"
             className="h-1.5 w-full rounded-full bg-white/70 dark:bg-slate-700 overflow-hidden"
           >
-            <div className="h-full bg-[#008A64] transition-[width]" style={{ width: `${percent}%` }} />
+            <div className="h-full bg-[#0B5ED7] transition-[width]" style={{ width: `${percent}%` }} />
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400" data-testid="room-loading-count">
             {done}/{states.length} mục đã xong
@@ -171,7 +171,7 @@ const RoomLoadingPanel: React.FC<RoomLoadingPanelProps> = ({
                     data-testid="device-mic-level"
                     className="mt-1 h-1.5 w-40 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden"
                   >
-                    <div className="h-full bg-[#008A64] transition-[width]" style={{ width: `${level}%` }} />
+                    <div className="h-full bg-[#0B5ED7] transition-[width]" style={{ width: `${level}%` }} />
                   </div>
                 )}
                 {phase === "failed" && micError && (
@@ -191,7 +191,7 @@ const RoomLoadingPanel: React.FC<RoomLoadingPanelProps> = ({
                       type="button"
                       data-testid="device-continue-without-mic-btn"
                       onClick={onContinueWithoutMic}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-white/60 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-white/60 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
                     >
                       Tiếp tục không dùng micro
                     </button>

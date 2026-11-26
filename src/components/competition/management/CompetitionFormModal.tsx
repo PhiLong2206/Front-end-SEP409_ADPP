@@ -239,7 +239,7 @@ const CompetitionFormModal: React.FC<Props> = ({
           <input
             type="text"
             required
-            className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden transition-colors ${
+            className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden transition-colors ${
               fieldErrors.title ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
             }`}
             placeholder="Ví dụ: Giải Tranh Biện Sinh Viên Toàn Quốc 2026..."
@@ -259,7 +259,7 @@ const CompetitionFormModal: React.FC<Props> = ({
           <label className="block font-bold text-slate-700 mb-1">Mô tả thể lệ & nội dung</label>
           <textarea
             rows={3}
-            className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+            className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
             placeholder="Chi tiết về chủ đề, quy tắc chấm điểm, cơ cấu giải thưởng..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -276,7 +276,7 @@ const CompetitionFormModal: React.FC<Props> = ({
               id="competitionType"
               name="competitionType"
               disabled={isEditing}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-500"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-500"
               value={competitionType}
               onChange={(e) => {
                 const nextType = e.target.value as CompetitionType;
@@ -299,7 +299,7 @@ const CompetitionFormModal: React.FC<Props> = ({
           <div>
             <label className="block font-bold text-slate-700 mb-1">Thể thức tranh biện</label>
             <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               value={formatId}
               onChange={(e) => setFormatId(e.target.value ? Number(e.target.value) : "")}
             >
@@ -325,7 +325,7 @@ const CompetitionFormModal: React.FC<Props> = ({
           <input
             type="number"
             min={2}
-            className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden ${
+            className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden ${
               fieldErrors.maxParticipants ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
             }`}
             placeholder="Ví dụ: 16"
@@ -349,7 +349,7 @@ const CompetitionFormModal: React.FC<Props> = ({
             <input
               type="datetime-local"
               required
-              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden ${
+              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden ${
                 fieldErrors.registrationStart ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
               }`}
               value={registrationStart}
@@ -370,7 +370,7 @@ const CompetitionFormModal: React.FC<Props> = ({
             <input
               type="datetime-local"
               required
-              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden ${
+              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden ${
                 fieldErrors.registrationEnd ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
               }`}
               value={registrationEnd}
@@ -394,7 +394,7 @@ const CompetitionFormModal: React.FC<Props> = ({
             <input
               type="datetime-local"
               required
-              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden ${
+              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden ${
                 fieldErrors.startDate ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
               }`}
               value={startDate}
@@ -412,7 +412,7 @@ const CompetitionFormModal: React.FC<Props> = ({
             <label className="block font-bold text-slate-700 mb-1">Dự kiến kết thúc</label>
             <input
               type="datetime-local"
-              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden ${
+              className={`w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden ${
                 fieldErrors.endDate ? "border-rose-400 bg-rose-50/20" : "border-slate-200"
               }`}
               value={endDate}
@@ -434,7 +434,7 @@ const CompetitionFormModal: React.FC<Props> = ({
             id="isPublic"
             checked={isPublic}
             onChange={(e) => setIsPublic(e.target.checked)}
-            className="w-4 h-4 text-[#008A64] rounded-sm focus:ring-[#008A64] accent-[#008A64]"
+            className="w-4 h-4 text-[#0B5ED7] rounded-sm focus:ring-[#0B5ED7] accent-[#0B5ED7]"
           />
           <label htmlFor="isPublic" className="font-semibold text-slate-700 cursor-pointer">
             Công khai cuộc thi (Hiển thị cho tất cả thí sinh)

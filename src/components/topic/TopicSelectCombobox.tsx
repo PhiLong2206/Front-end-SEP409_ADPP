@@ -13,6 +13,7 @@ import topicApi from "../../api/topicApi";
 import { Topic } from "../../types";
 import DifficultyBadge from "./DifficultyBadge";
 import { topicCategoryLabel } from "../../constants/topicCategories";
+import TopicGuides from "./TopicGuides";
 
 export interface SelectedTopicOption {
   topicId: number;
@@ -21,6 +22,8 @@ export interface SelectedTopicOption {
   description?: string;
   category?: string;
   difficulty?: string;
+  proGuide?: string;
+  conGuide?: string;
 }
 
 export interface TopicSelectComboboxProps {
@@ -50,6 +53,8 @@ const normalizeTopic = (raw: Topic): SelectedTopicOption | null => {
     description: description && description !== title ? description : undefined,
     category: raw.category?.trim() || undefined,
     difficulty: raw.difficulty?.trim() || undefined,
+    proGuide: raw.proGuide?.trim() || undefined,
+    conGuide: raw.conGuide?.trim() || undefined,
   };
 };
 
@@ -184,9 +189,9 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
       {loading ? (
         <div
           data-testid="topic-combobox-loading"
-          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#091713] border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500"
         >
-          <Loader2 size={15} className="animate-spin text-[#008A64] shrink-0" />
+          <Loader2 size={15} className="animate-spin text-[#0B5ED7] shrink-0" />
           <span>Đang tải danh sách chủ đề từ máy chủ...</span>
         </div>
       ) : error ? (
@@ -252,8 +257,8 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
               disabled
                 ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                 : isOpen
-                ? "bg-white dark:bg-[#091713] border-[#008A64] ring-2 ring-[#008A64]/20 cursor-pointer"
-                : "bg-white dark:bg-[#091713] border-slate-200 dark:border-slate-800 hover:border-slate-300 cursor-pointer"
+                ? "bg-white dark:bg-[#060d1a] border-[#0B5ED7] ring-2 ring-[#0B5ED7]/20 cursor-pointer"
+                : "bg-white dark:bg-[#060d1a] border-slate-200 dark:border-slate-800 hover:border-slate-300 cursor-pointer"
             }`}
           >
             {selectedTopic ? (
@@ -263,7 +268,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                     {selectedTopic.title}
                   </span>
                   {selectedTopic.category && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399] border border-emerald-200/70 dark:border-emerald-800/60">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA] border border-blue-200/70 dark:border-blue-800/60">
                       {topicCategoryLabel(selectedTopic.category)}
                     </span>
                   )}
@@ -305,10 +310,10 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
             <div
               role="listbox"
               data-testid="topic-combobox-listbox"
-              className="z-30 mt-1.5 bg-white dark:bg-[#10211B] border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden animate-fade-in"
+              className="z-30 mt-1.5 bg-white dark:bg-[#0D1524] border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden animate-fade-in"
             >
               {/* Search Box */}
-              <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#091713]">
+              <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-[#060d1a]">
                 <div className="relative">
                   <Search
                     size={14}
@@ -321,7 +326,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Tìm theo tên chủ đề, kiến nghị, danh mục..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 focus:outline-none focus:border-[#008A64]"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 focus:outline-none focus:border-[#0B5ED7]"
                   />
                 </div>
               </div>
@@ -345,7 +350,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                         onClick={() => handleSelectTopic(topic)}
                         className={`w-full px-3.5 py-2.5 text-left transition-colors flex items-start justify-between gap-2.5 cursor-pointer ${
                           isSelected
-                            ? "bg-[#ECFDF5]/80 dark:bg-emerald-950/50"
+                            ? "bg-[#EAF2FF]/80 dark:bg-blue-950/50"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                         }`}
                       >
@@ -354,7 +359,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                             <span
                               className={`text-xs sm:text-sm font-semibold leading-snug ${
                                 isSelected
-                                  ? "text-[#008A64] dark:text-[#34D399]"
+                                  ? "text-[#0B5ED7] dark:text-[#60A5FA]"
                                   : "text-slate-800 dark:text-slate-100"
                               }`}
                             >
@@ -383,7 +388,7 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
                         </div>
 
                         {isSelected && (
-                          <Check size={15} className="text-[#008A64] dark:text-[#34D399] shrink-0 mt-0.5" />
+                          <Check size={15} className="text-[#0B5ED7] dark:text-[#60A5FA] shrink-0 mt-0.5" />
                         )}
                       </button>
                     );
@@ -393,6 +398,11 @@ const TopicSelectCombobox: React.FC<TopicSelectComboboxProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* What each side has to do in the chosen topic */}
+      {selectedTopic && (selectedTopic.proGuide || selectedTopic.conGuide) && (
+        <TopicGuides proGuide={selectedTopic.proGuide} conGuide={selectedTopic.conGuide} className="pt-1" />
       )}
     </div>
   );

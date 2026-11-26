@@ -49,7 +49,7 @@ function ScoreBar({ label, myScore, theirScore }: { label: string; myScore: numb
       <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
         <span>{label}</span>
         <div className="flex items-center gap-2">
-          <span className="font-black text-[#008A64]">{myScore}</span>
+          <span className="font-black text-[#0B5ED7]">{myScore}</span>
           <span className="text-slate-300">vs</span>
           <span className="font-black text-rose-500">{theirScore}</span>
         </div>
@@ -58,7 +58,7 @@ function ScoreBar({ label, myScore, theirScore }: { label: string; myScore: numb
         {/* My score */}
         <div className="flex-1 bg-slate-100 rounded-l-full overflow-hidden flex justify-end">
           <div
-            className="h-full bg-[#008A64] rounded-full transition-all duration-500"
+            className="h-full bg-[#0B5ED7] rounded-full transition-all duration-500"
             style={{ width: `${Math.min(100, Math.max(0, (myScore / maxPct) * 100))}%` }}
           />
         </div>
@@ -220,7 +220,7 @@ const Debate1v1Result: React.FC = () => {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto py-20 text-center space-y-3">
-        <Loader2 size={36} className="mx-auto text-[#008A64] animate-spin" />
+        <Loader2 size={36} className="mx-auto text-[#0B5ED7] animate-spin" />
         <p className="text-sm font-semibold text-slate-600">Đang tải kết quả trận đấu...</p>
       </div>
     );
@@ -239,7 +239,7 @@ const Debate1v1Result: React.FC = () => {
         <div className="pt-2 flex items-center justify-center gap-3">
           <Link
             to="/debater/debate-1v1"
-            className="px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+            className="px-5 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
           >
             Quay lại Tranh biện 1v1
           </Link>
@@ -270,7 +270,7 @@ const Debate1v1Result: React.FC = () => {
       {/* Result Hero Banner */}
       <div
         className={`rounded-3xl p-6 sm:p-8 border shadow-lg text-white relative overflow-hidden ${isWin
-          ? "bg-gradient-to-r from-[#008A64] to-emerald-400 border-[#008A64]/50"
+          ? "bg-gradient-to-r from-[#0B5ED7] to-blue-400 border-[#0B5ED7]/50"
           : isDraw
             ? "bg-gradient-to-r from-slate-600 to-slate-500 border-slate-400/50"
             : "bg-gradient-to-r from-rose-600 to-rose-400 border-rose-400/50"
@@ -325,12 +325,12 @@ const Debate1v1Result: React.FC = () => {
             <div className="flex items-center justify-between gap-4">
               {/* Me */}
               <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-xl bg-[#008A64] text-white font-black flex items-center justify-center text-sm">
+                <div className="w-12 h-12 rounded-xl bg-[#0B5ED7] text-white font-black flex items-center justify-center text-sm">
                   {match.playerA.avatar}
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-black text-slate-900">{match.playerA.name}</p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#008A64] border border-[#008A64]/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EAF2FF] text-[#0B5ED7] border border-[#0B5ED7]/30">
                     {match.playerA.role === "PRO" ? "Ủng hộ" : "Phản đối"}
                   </span>
                 </div>
@@ -339,7 +339,7 @@ const Debate1v1Result: React.FC = () => {
 
               <div className="flex flex-col items-center gap-1">
                 <span className="text-xl font-black text-slate-300">vs</span>
-                {isWin && <span className="text-[10px] font-bold text-[#008A64]">BẠN THẮNG</span>}
+                {isWin && <span className="text-[10px] font-bold text-[#0B5ED7]">BẠN THẮNG</span>}
                 {match.result === "LOSE" && <span className="text-[10px] font-bold text-rose-500">BẠN THUA</span>}
                 {isDraw && <span className="text-[10px] font-bold text-slate-500">HÒA</span>}
               </div>
@@ -373,7 +373,7 @@ const Debate1v1Result: React.FC = () => {
 
             {/* Legend */}
             <div className="flex items-center justify-center gap-5 mt-3 pt-3 border-t border-slate-100 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[#008A64]" /><span className="text-slate-600">Bạn</span></div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[#0B5ED7]" /><span className="text-slate-600">Bạn</span></div>
               <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-rose-400" /><span className="text-slate-600">{match.playerB.name}</span></div>
             </div>
           </div>
@@ -411,12 +411,12 @@ const Debate1v1Result: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 space-y-2.5">
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={14} className="text-[#008A64]" />
-                <h3 className="text-xs font-bold text-emerald-700">Điểm mạnh của bạn</h3>
+                <CheckCircle2 size={14} className="text-[#0B5ED7]" />
+                <h3 className="text-xs font-bold text-blue-700">Điểm mạnh của bạn</h3>
               </div>
               <ul className="space-y-2">
                 {match.myStrengths.map((s, i) => (
-                  <li key={i} className="text-xs text-slate-700 pl-3 border-l-2 border-[#008A64]/30 leading-relaxed">{s}</li>
+                  <li key={i} className="text-xs text-slate-700 pl-3 border-l-2 border-[#0B5ED7]/30 leading-relaxed">{s}</li>
                 ))}
               </ul>
             </div>
@@ -455,7 +455,7 @@ const Debate1v1Result: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate("/debater/dashboard")}
-          className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-sm inline-flex items-center gap-2 transition-all"
+          className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-xl shadow-sm inline-flex items-center gap-2 transition-all"
         >
           Quay về Dashboard <ArrowRight size={14} />
         </button>

@@ -261,9 +261,9 @@ const UserManagement: React.FC = () => {
           type="button"
           onClick={fetchUsers}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#1A2E26] hover:bg-slate-100 dark:hover:bg-[#233F34] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#162032] hover:bg-slate-100 dark:hover:bg-[#1D2B45] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 self-start sm:self-auto"
         >
-          <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+          <RefreshCw size={13} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
           <span>Làm mới danh sách</span>
         </button>
       </div>
@@ -282,30 +282,30 @@ const UserManagement: React.FC = () => {
       )}
 
       {successMsg && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
+        <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle size={16} className="text-[#008A64] shrink-0" />
+            <CheckCircle size={16} className="text-[#0B5ED7] shrink-0" />
             <span>{successMsg}</span>
           </div>
-          <button type="button" onClick={() => setSuccessMsg("")} className="text-emerald-500 hover:text-emerald-700">
+          <button type="button" onClick={() => setSuccessMsg("")} className="text-blue-500 hover:text-blue-700">
             <X size={14} />
           </button>
         </div>
       )}
 
       {/* Security & RBAC Policy Notice */}
-      <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-3">
-        <Shield size={18} className="text-[#008A64] shrink-0 mt-0.5" />
+      <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/40 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-3">
+        <Shield size={18} className="text-[#0B5ED7] shrink-0 mt-0.5" />
         <div className="space-y-0.5">
           <p className="font-bold">Chính sách Phân quyền & Bảo mật Quản trị</p>
-          <p className="text-[11.5px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
+          <p className="text-[11.5px] text-blue-700 dark:text-blue-400 leading-relaxed">
             Hệ thống áp dụng các nguyên tắc nghiệp vụ bảo mật nghiêm ngặt từ Backend: Không cho phép Quản trị viên tự khóa tài khoản của chính mình và ngăn chặn gỡ bỏ quyền Admin cuối cùng để đảm bảo hệ thống luôn có người điều hành.
           </p>
         </div>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-[#12231C] p-4 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#0F1726] p-4 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
         <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -313,7 +313,7 @@ const UserManagement: React.FC = () => {
             placeholder="Tìm theo tên hoặc email... (Enter)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] text-slate-800 dark:text-slate-200"
+            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] text-slate-800 dark:text-slate-200"
           />
         </form>
 
@@ -326,7 +326,7 @@ const UserManagement: React.FC = () => {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
           >
             <option value="ALL">Tất cả vai trò</option>
             <option value="Admin">Quản trị viên</option>
@@ -338,7 +338,7 @@ const UserManagement: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="ACTIVE">Đang hoạt động</option>
@@ -348,10 +348,10 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* User Table */}
-      <div className="bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400">
-            <RefreshCw size={24} className="animate-spin text-[#008A64] mx-auto mb-2" />
+            <RefreshCw size={24} className="animate-spin text-[#0B5ED7] mx-auto mb-2" />
             <span>Đang tải danh sách người dùng từ máy chủ...</span>
           </div>
         ) : displayedUsers.length === 0 ? (
@@ -361,7 +361,7 @@ const UserManagement: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-[#0B1713] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+              <thead className="bg-slate-50 dark:bg-[#090E19] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-5 py-3.5">Mã ID</th>
                   <th className="px-5 py-3.5">Họ và tên</th>
@@ -383,7 +383,7 @@ const UserManagement: React.FC = () => {
                   return (
                     <tr
                       key={u.userId}
-                      className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors"
+                      className="hover:bg-slate-50/60 dark:hover:bg-[#162032]/40 transition-colors"
                     >
                       <td className="px-5 py-3.5 font-mono text-slate-400">#{u.userId}</td>
                       <td className="px-5 py-3.5">
@@ -400,7 +400,7 @@ const UserManagement: React.FC = () => {
                               {u.fullName}
                             </span>
                             {isCurrentAdmin && (
-                              <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9.5px] font-black bg-emerald-100 dark:bg-emerald-950 text-[#008A64]">
+                              <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9.5px] font-black bg-blue-100 dark:bg-blue-950 text-[#0B5ED7]">
                                 Bạn
                               </span>
                             )}
@@ -412,7 +412,7 @@ const UserManagement: React.FC = () => {
                           <span>{u.email}</span>
                           {u.isEmailVerified && (
                             <span title="Email đã xác thực" className="inline-flex">
-                              <CheckCircle size={12} className="text-[#008A64]" />
+                              <CheckCircle size={12} className="text-[#0B5ED7]" />
                             </span>
                           )}
                         </div>
@@ -442,7 +442,7 @@ const UserManagement: React.FC = () => {
                                       ? "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200"
                                       : rLower === "moderator"
                                       ? "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200"
-                                      : "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200"
+                                      : "bg-blue-50 text-[#0B5ED7] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200"
                                   }`}
                                 >
                                   {badgeText}
@@ -456,7 +456,7 @@ const UserManagement: React.FC = () => {
                       </td>
                       <td className="px-5 py-3.5">
                         {u.isActive ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
                             <CheckCircle size={13} /> Hoạt động
                           </span>
                         ) : (
@@ -485,7 +485,7 @@ const UserManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenRoleModal(u)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-[#008A64] dark:text-emerald-300 text-[11px] font-bold border border-emerald-200/80 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-[#0B5ED7] dark:text-blue-300 text-[11px] font-bold border border-blue-200/80 transition-colors cursor-pointer"
                             title="Phân quyền vai trò"
                           >
                             <UserCheck size={12} />
@@ -500,7 +500,7 @@ const UserManagement: React.FC = () => {
                             className={`p-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                               u.isActive
                                 ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 border border-rose-200/80"
-                                : "bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] hover:bg-emerald-100 border border-emerald-200/80"
+                                : "bg-blue-50 dark:bg-blue-950/40 text-[#0B5ED7] hover:bg-blue-100 border border-blue-200/80"
                             }`}
                             title={
                               isCurrentAdmin && u.isActive
@@ -523,11 +523,11 @@ const UserManagement: React.FC = () => {
         )}
 
         {/* Pagination Bar */}
-        <div className="p-4 bg-slate-50 dark:bg-[#0B1713] border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div className="p-4 bg-slate-50 dark:bg-[#090E19] border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <span className="text-slate-500 dark:text-slate-400">
             Hiển thị trang <span className="font-bold text-slate-800 dark:text-slate-200">{pageNumber}</span> /{" "}
             <span className="font-bold text-slate-800 dark:text-slate-200">{totalPages}</span> (Tổng cộng{" "}
-            <span className="font-bold text-[#008A64]">{totalCount}</span> người dùng)
+            <span className="font-bold text-[#0B5ED7]">{totalCount}</span> người dùng)
           </span>
 
           <div className="flex items-center gap-1.5">
@@ -535,7 +535,7 @@ const UserManagement: React.FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
               disabled={pageNumber <= 1 || loading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
             >
               <ChevronLeft size={14} />
               <span>Trang trước</span>
@@ -545,7 +545,7 @@ const UserManagement: React.FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
               disabled={pageNumber >= totalPages || loading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
             >
               <span>Trang sau</span>
               <ChevronRight size={14} />
@@ -557,7 +557,7 @@ const UserManagement: React.FC = () => {
       {/* Modal 1: User Detail */}
       {detailModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-5 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-5 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)]">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Chi tiết người dùng
@@ -572,7 +572,7 @@ const UserManagement: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center text-xl font-black border border-emerald-200/60 shrink-0">
+              <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] flex items-center justify-center text-xl font-black border border-blue-200/60 shrink-0">
                 {detailModalUser.avatarUrl ? (
                   <img src={detailModalUser.avatarUrl} alt="" className="w-full h-full rounded-2xl object-cover" />
                 ) : (
@@ -586,7 +586,7 @@ const UserManagement: React.FC = () => {
                 <p className="text-xs text-slate-500 font-mono">Mã người dùng: #{detailModalUser.userId}</p>
                 <div className="mt-1 flex items-center gap-2">
                   {detailModalUser.isActive ? (
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
                       <CheckCircle size={11} /> Hoạt động
                     </span>
                   ) : (
@@ -604,13 +604,13 @@ const UserManagement: React.FC = () => {
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#0B1713] flex items-center gap-2.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#090E19] flex items-center gap-2.5">
                 <Mail size={15} className="text-slate-400 shrink-0" />
                 <span className="text-slate-500">Email:</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200 ml-auto">{detailModalUser.email}</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#0B1713] flex items-center gap-2.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#090E19] flex items-center gap-2.5">
                 <Phone size={15} className="text-slate-400 shrink-0" />
                 <span className="text-slate-500">Số điện thoại:</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200 ml-auto">
@@ -618,7 +618,7 @@ const UserManagement: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#0B1713] flex items-center gap-2.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#090E19] flex items-center gap-2.5">
                 <Calendar size={15} className="text-slate-400 shrink-0" />
                 <span className="text-slate-500">Ngày tạo tài khoản:</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200 ml-auto">
@@ -647,7 +647,7 @@ const UserManagement: React.FC = () => {
                   return (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-300 border border-emerald-200/80"
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-300 border border-blue-200/80"
                     >
                       {badgeText}
                     </span>
@@ -672,7 +672,7 @@ const UserManagement: React.FC = () => {
       {/* Modal 2: Assign Roles */}
       {roleModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-5 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-5 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)]">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -730,8 +730,8 @@ const UserManagement: React.FC = () => {
                       isSelfAdmin ? "cursor-not-allowed opacity-90" : "cursor-pointer"
                     } ${
                       isChecked
-                        ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-[#008A64] text-slate-900 dark:text-slate-100"
-                        : "bg-white dark:bg-[#0B1713] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                        ? "bg-blue-50/60 dark:bg-blue-950/30 border-[#0B5ED7] text-slate-900 dark:text-slate-100"
+                        : "bg-white dark:bg-[#090E19] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                     }`}
                   >
                     <input
@@ -739,7 +739,7 @@ const UserManagement: React.FC = () => {
                       checked={isChecked}
                       disabled={isSelfAdmin}
                       onChange={() => toggleRoleSelection(role.roleId)}
-                      className="mt-0.5 accent-[#008A64] w-4 h-4 rounded cursor-pointer disabled:cursor-not-allowed"
+                      className="mt-0.5 accent-[#0B5ED7] w-4 h-4 rounded cursor-pointer disabled:cursor-not-allowed"
                     />
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -778,7 +778,7 @@ const UserManagement: React.FC = () => {
                 type="button"
                 onClick={handleAssignRolesSubmit}
                 disabled={actionLoading}
-                className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] text-white font-bold text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-bold text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
                 {actionLoading && <RefreshCw size={13} className="animate-spin" />}
                 <span>Lưu phân quyền</span>
@@ -791,13 +791,13 @@ const UserManagement: React.FC = () => {
       {/* Modal 3: Lock / Unlock Confirmation */}
       {statusModalUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
             <div className="flex items-center gap-3">
               <div
                 className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                   statusModalUser.isActive
                     ? "bg-rose-50 text-rose-600 dark:bg-rose-950/60"
-                    : "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/60"
+                    : "bg-blue-50 text-[#0B5ED7] dark:bg-blue-950/60"
                 }`}
               >
                 {statusModalUser.isActive ? <Lock size={20} /> : <Unlock size={20} />}
@@ -833,7 +833,7 @@ const UserManagement: React.FC = () => {
                 className={`px-4 py-2 rounded-xl text-white font-bold text-xs transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${
                   statusModalUser.isActive
                     ? "bg-rose-600 hover:bg-rose-700"
-                    : "bg-[#008A64] hover:bg-[#007454]"
+                    : "bg-[#0B5ED7] hover:bg-[#0a4fb4]"
                 }`}
               >
                 {actionLoading && <RefreshCw size={13} className="animate-spin" />}

@@ -26,9 +26,9 @@ const Button: React.FC<ButtonProps> = ({
   };
 
   const variantStyles = {
-    primary: "bg-[#008A64] text-white hover:bg-[#007457] active:bg-[#005e45] focus:ring-[#008A64] shadow-sm",
+    primary: "bg-[#0B5ED7] text-white hover:bg-[#0a4fb4] active:bg-[#072f70] focus:ring-[#0B5ED7] shadow-sm",
     secondary: "bg-white text-slate-700 hover:bg-slate-50 focus:ring-slate-300 border border-slate-200 shadow-xs",
-    outline: "bg-transparent text-[#008A64] border border-[#008A64] hover:bg-[#008A64]/5 focus:ring-[#008A64]",
+    outline: "bg-transparent text-[#0B5ED7] border border-[#0B5ED7] hover:bg-[#0B5ED7]/5 focus:ring-[#0B5ED7]",
     danger: "bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 focus:ring-rose-500 shadow-sm",
     warning: "bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 focus:ring-amber-400 shadow-sm",
     info: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 focus:ring-blue-500 shadow-sm",

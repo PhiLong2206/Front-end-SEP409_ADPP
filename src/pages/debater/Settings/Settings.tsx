@@ -261,8 +261,8 @@ const Settings: React.FC = () => {
       )}
 
       {success && (
-        <div className="p-3.5 text-xs sm:text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium animate-fade-in flex items-center gap-2.5">
-          <CheckCircle2 size={18} className="text-[#008A64] shrink-0" />
+        <div className="p-3.5 text-xs sm:text-sm rounded-xl bg-blue-50 border border-blue-200 text-blue-700 font-medium animate-fade-in flex items-center gap-2.5">
+          <CheckCircle2 size={18} className="text-[#0B5ED7] shrink-0" />
           <span>{success}</span>
         </div>
       )}
@@ -270,7 +270,7 @@ const Settings: React.FC = () => {
       {/* Main Grid: Left Tabs (4 Cols), Right Content (8 Cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT TAB MENU */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#0F1C17] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-3 shadow-xs space-y-1">
+        <div className="lg:col-span-4 bg-white dark:bg-[#0C131F] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-3 shadow-xs space-y-1">
           <button
             type="button"
             onClick={() => {
@@ -280,8 +280,8 @@ const Settings: React.FC = () => {
             }}
             className={`w-full px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "account"
-                ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#172C23]"
+                ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#131D30]"
             }`}
           >
             <UserIcon size={16} />
@@ -297,8 +297,8 @@ const Settings: React.FC = () => {
             }}
             className={`w-full px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "security"
-                ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#172C23]"
+                ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#131D30]"
             }`}
           >
             <Shield size={16} />
@@ -314,8 +314,8 @@ const Settings: React.FC = () => {
             }}
             className={`w-full px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "notifications"
-                ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#172C23]"
+                ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#131D30]"
             }`}
           >
             <Bell size={16} />
@@ -331,7 +331,7 @@ const Settings: React.FC = () => {
             }}
             className={`w-full px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "appearance"
-                ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20"
+                ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20"
                 : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
           >
@@ -348,8 +348,8 @@ const Settings: React.FC = () => {
             }}
             className={`w-full px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "language"
-                ? "bg-[#008A64] text-white shadow-sm shadow-[#008A64]/20"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#172C23]"
+                ? "bg-[#0B5ED7] text-white shadow-sm shadow-[#0B5ED7]/20"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#131D30]"
             }`}
           >
             <Globe size={16} />
@@ -358,7 +358,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* RIGHT CONTENT CARD */}
-        <div className="lg:col-span-8 bg-white dark:bg-[#0F1C17] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 sm:p-8 shadow-xs">
+        <div className="lg:col-span-8 bg-white dark:bg-[#0C131F] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 sm:p-8 shadow-xs">
           {/* TAB 1: TÀI KHOẢN */}
           {activeTab === "account" && (
             <form onSubmit={handleUpdateAccount} className="space-y-5">
@@ -375,7 +375,7 @@ const Settings: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Nhập họ và tên..."
-                  className="w-full px-4 py-2.5 bg-white dark:bg-[#101F1A] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/15 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-[#0D1422] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#0B5ED7] focus:ring-2 focus:ring-[#0B5ED7]/15 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                 />
               </div>
 
@@ -387,7 +387,7 @@ const Settings: React.FC = () => {
                   type="email"
                   value={email}
                   disabled
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#091511] border border-slate-200 dark:border-[rgba(148,163,184,0.15)] rounded-xl text-xs sm:text-sm text-slate-500 dark:text-slate-500 cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-[#070c17] border border-slate-200 dark:border-[rgba(148,163,184,0.15)] rounded-xl text-xs sm:text-sm text-slate-500 dark:text-slate-500 cursor-not-allowed"
                 />
               </div>
 
@@ -402,7 +402,7 @@ const Settings: React.FC = () => {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Nhập số điện thoại..."
-                    className="w-full px-4 py-2.5 bg-white dark:bg-[#101F1A] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/15 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-[#0D1422] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#0B5ED7] focus:ring-2 focus:ring-[#0B5ED7]/15 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
                   />
                 </div>
 
@@ -414,7 +414,7 @@ const Settings: React.FC = () => {
                     type="date"
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-[#101F1A] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/15 transition-all"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-[#0D1422] border border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.35)] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-[#F8FAFC] focus:outline-none focus:border-[#0B5ED7] focus:ring-2 focus:ring-[#0B5ED7]/15 transition-all"
                   />
                 </div>
               </div>
@@ -432,8 +432,8 @@ const Settings: React.FC = () => {
                       onClick={() => setGender(option.value)}
                       className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
                         gender === option.value
-                          ? "bg-[#008A64] text-white border-[#008A64] shadow-xs"
-                          : "bg-white dark:bg-[#101F1A] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.4)]"
+                          ? "bg-[#0B5ED7] text-white border-[#0B5ED7] shadow-xs"
+                          : "bg-white dark:bg-[#0D1422] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[rgba(148,163,184,0.2)] hover:border-slate-300 dark:hover:border-[rgba(148,163,184,0.4)]"
                       }`}
                     >
                       {option.label}
@@ -448,7 +448,7 @@ const Settings: React.FC = () => {
                   Ảnh đại diện
                 </label>
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full overflow-hidden bg-[#008A64] text-white font-black text-lg flex items-center justify-center shadow-xs border-2 border-slate-100">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-[#0B5ED7] text-white font-black text-lg flex items-center justify-center shadow-xs border-2 border-slate-100">
                     {effectiveAvatar ? (
                       <img
                         src={effectiveAvatar}
@@ -470,7 +470,7 @@ const Settings: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2 bg-white dark:bg-[#12231C] hover:bg-slate-50 dark:hover:bg-[#172C23] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.2)] rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 py-2 bg-white dark:bg-[#0F1726] hover:bg-slate-50 dark:hover:bg-[#131D30] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.2)] rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                     >
                       <Camera size={14} />
                       <span>Đổi ảnh</span>
@@ -492,7 +492,7 @@ const Settings: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] active:bg-[#005e45] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] active:bg-[#072f70] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Save size={15} />
                   <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
@@ -543,7 +543,7 @@ const Settings: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Save size={15} />
                   <span>{loading ? "Đang xử lý..." : "Cập nhật mật khẩu"}</span>
@@ -560,7 +560,7 @@ const Settings: React.FC = () => {
               </h2>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#12231C] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0F1726] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
                   <div>
                     <p className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC]">Lời mời tranh biện 1 vs 1</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Nhận thông báo khi có học viên thách đấu</p>
@@ -569,11 +569,11 @@ const Settings: React.FC = () => {
                     type="checkbox"
                     checked={notifyDebateInvite}
                     onChange={(e) => setNotifyDebateInvite(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-[#008A64] focus:ring-[#008A64]"
+                    className="w-4 h-4 rounded border-slate-300 text-[#0B5ED7] focus:ring-[#0B5ED7]"
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#12231C] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0F1726] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
                   <div>
                     <p className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC]">Sự kiện & Giải đấu mới</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Thông báo khi có giải đấu mở đăng ký</p>
@@ -582,11 +582,11 @@ const Settings: React.FC = () => {
                     type="checkbox"
                     checked={notifyContest}
                     onChange={(e) => setNotifyContest(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-[#008A64] focus:ring-[#008A64]"
+                    className="w-4 h-4 rounded border-slate-300 text-[#0B5ED7] focus:ring-[#0B5ED7]"
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#12231C] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0F1726] border border-slate-100 dark:border-[rgba(148,163,184,0.15)]">
                   <div>
                     <p className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC]">Báo cáo học tập tuần qua Email</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Gửi tổng kết số phiên và điểm Rubric</p>
@@ -595,7 +595,7 @@ const Settings: React.FC = () => {
                     type="checkbox"
                     checked={notifyWeeklyEmail}
                     onChange={(e) => setNotifyWeeklyEmail(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-[#008A64] focus:ring-[#008A64]"
+                    className="w-4 h-4 rounded border-slate-300 text-[#0B5ED7] focus:ring-[#0B5ED7]"
                   />
                 </div>
               </div>
@@ -604,7 +604,7 @@ const Settings: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSuccess("Đã lưu tùy chọn thông báo thành công!")}
-                  className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Save size={15} />
                   <span>Lưu tùy chọn</span>
@@ -626,16 +626,16 @@ const Settings: React.FC = () => {
                   onClick={() => handleThemeChange("light")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     theme === "light"
-                      ? "border-[#008A64] bg-emerald-50/40 dark:bg-emerald-950/40 shadow-xs"
+                      ? "border-[#0B5ED7] bg-blue-50/40 dark:bg-blue-950/40 shadow-xs"
                       : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
                   }`}
                 >
-                  <div className="w-full h-14 rounded-xl bg-[#FAFBF8] border border-slate-200 mb-3 flex items-center justify-center font-bold text-xs text-slate-700 shadow-2xs">
+                  <div className="w-full h-14 rounded-xl bg-[#F5F8FD] border border-slate-200 mb-3 flex items-center justify-center font-bold text-xs text-slate-700 shadow-2xs">
                     Sáng / Nature
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-[#0F172A] dark:text-slate-100">Sáng (Nature)</p>
-                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "light" ? "border-[#008A64] bg-[#008A64]" : "border-slate-300"}`} />
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "light" ? "border-[#0B5ED7] bg-[#0B5ED7]" : "border-slate-300"}`} />
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Giao diện xanh ngọc tự nhiên</p>
                 </div>
@@ -645,16 +645,16 @@ const Settings: React.FC = () => {
                   onClick={() => handleThemeChange("dark")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     theme === "dark"
-                      ? "border-[#008A64] bg-emerald-50/40 dark:bg-emerald-950/40 shadow-xs"
+                      ? "border-[#0B5ED7] bg-blue-50/40 dark:bg-blue-950/40 shadow-xs"
                       : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
                   }`}
                 >
-                  <div className="w-full h-14 rounded-xl bg-[#08120F] border border-slate-800 mb-3 flex items-center justify-center font-bold text-xs text-emerald-400 shadow-2xs">
+                  <div className="w-full h-14 rounded-xl bg-[#060B14] border border-slate-800 mb-3 flex items-center justify-center font-bold text-xs text-blue-400 shadow-2xs">
                     Tối / Dark
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-[#0F172A] dark:text-slate-100">Tối (Dark)</p>
-                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "dark" ? "border-[#008A64] bg-[#008A64]" : "border-slate-300"}`} />
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "dark" ? "border-[#0B5ED7] bg-[#0B5ED7]" : "border-slate-300"}`} />
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Dịu mắt khi dùng ban đêm</p>
                 </div>
@@ -664,17 +664,17 @@ const Settings: React.FC = () => {
                   onClick={() => handleThemeChange("system")}
                   className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                     theme === "system"
-                      ? "border-[#008A64] bg-emerald-50/40 dark:bg-emerald-950/40 shadow-xs"
+                      ? "border-[#0B5ED7] bg-blue-50/40 dark:bg-blue-950/40 shadow-xs"
                       : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
                   }`}
                 >
-                  <div className="w-full h-14 rounded-xl bg-gradient-to-r from-[#FAFBF8] to-[#08120F] border border-slate-300 dark:border-slate-700 mb-3 flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shadow-2xs gap-1.5">
+                  <div className="w-full h-14 rounded-xl bg-gradient-to-r from-[#F5F8FD] to-[#060B14] border border-slate-300 dark:border-slate-700 mb-3 flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shadow-2xs gap-1.5">
                     <Laptop size={14} />
                     <span>Hệ thống</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-[#0F172A] dark:text-slate-100">Theo hệ thống</p>
-                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "system" ? "border-[#008A64] bg-[#008A64]" : "border-slate-300"}`} />
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${theme === "system" ? "border-[#0B5ED7] bg-[#0B5ED7]" : "border-slate-300"}`} />
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Tự động theo thiết bị OS</p>
                 </div>
@@ -684,7 +684,7 @@ const Settings: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSuccess("Đã áp dụng chủ đề giao diện!")}
-                  className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Save size={15} />
                   <span>Áp dụng giao diện</span>
@@ -701,24 +701,24 @@ const Settings: React.FC = () => {
               </h2>
 
               <div className="space-y-3 max-w-sm">
-                <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] cursor-pointer">
+                <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] cursor-pointer">
                   <input
                     type="radio"
                     name="lang"
                     checked={language === "vi"}
                     onChange={() => setLanguage("vi")}
-                    className="text-[#008A64] focus:ring-[#008A64]"
+                    className="text-[#0B5ED7] focus:ring-[#0B5ED7]"
                   />
                   <span className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC]">Tiếng Việt (Mặc định)</span>
                 </label>
 
-                <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] cursor-pointer">
+                <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] cursor-pointer">
                   <input
                     type="radio"
                     name="lang"
                     checked={language === "en"}
                     onChange={() => setLanguage("en")}
-                    className="text-[#008A64] focus:ring-[#008A64]"
+                    className="text-[#0B5ED7] focus:ring-[#0B5ED7]"
                   />
                   <span className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC]">English (International WSDC/BP)</span>
                 </label>
@@ -728,7 +728,7 @@ const Settings: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSuccess("Đã lưu ngôn ngữ hiển thị!")}
-                  className="px-6 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Save size={15} />
                   <span>Lưu ngôn ngữ</span>

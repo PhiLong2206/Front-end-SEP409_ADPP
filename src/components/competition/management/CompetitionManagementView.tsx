@@ -240,7 +240,7 @@ const CompetitionManagementView: React.FC<Props> = ({
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl">
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-xl">
           <CheckCircle2 size={16} className="shrink-0" />
           <span>{successMsg}</span>
         </div>
@@ -255,7 +255,7 @@ const CompetitionManagementView: React.FC<Props> = ({
             <input
               type="text"
               placeholder="Tìm kiếm theo tên giải đấu..."
-              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
@@ -265,7 +265,7 @@ const CompetitionManagementView: React.FC<Props> = ({
           <div className="flex items-center gap-2">
             <Filter size={14} className="text-slate-400 shrink-0" />
             <select
-              className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
             >
@@ -275,7 +275,7 @@ const CompetitionManagementView: React.FC<Props> = ({
             </select>
 
             <select
-              className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -291,7 +291,7 @@ const CompetitionManagementView: React.FC<Props> = ({
             <button
               type="button"
               onClick={fetchCompetitions}
-              className="p-2 text-slate-500 hover:text-[#008A64] hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 text-slate-500 hover:text-[#0B5ED7] hover:bg-slate-100 rounded-xl transition-colors"
               title="Tải lại danh sách"
             >
               <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
@@ -303,7 +303,7 @@ const CompetitionManagementView: React.FC<Props> = ({
       {/* Competitions Table / List */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white border border-slate-200 rounded-2xl">
-          <RefreshCw className="animate-spin text-[#008A64]" size={28} />
+          <RefreshCw className="animate-spin text-[#0B5ED7]" size={28} />
           <p className="text-xs text-slate-500 font-medium">Đang tải danh sách cuộc thi...</p>
         </div>
       ) : competitions.length === 0 ? (
@@ -346,7 +346,7 @@ const CompetitionManagementView: React.FC<Props> = ({
                   <td className="py-3.5 px-4">
                     <span
                       onClick={() => setSelectedAdminCompId(comp.competitionId)}
-                      className="font-bold text-slate-900 hover:text-[#008A64] cursor-pointer block text-sm"
+                      className="font-bold text-slate-900 hover:text-[#0B5ED7] cursor-pointer block text-sm"
                     >
                       {comp.title}
                     </span>
@@ -388,7 +388,7 @@ const CompetitionManagementView: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(comp.competitionId)}
-                        className="p-1 text-slate-400 hover:text-[#008A64] hover:bg-slate-100 rounded-lg transition-colors"
+                        className="p-1 text-slate-400 hover:text-[#0B5ED7] hover:bg-slate-100 rounded-lg transition-colors"
                         title="Chỉnh sửa thông tin"
                       >
                         <Edit size={14} />
@@ -400,7 +400,7 @@ const CompetitionManagementView: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenRegistration(comp.competitionId)}
-                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
                             title="Mở đăng ký"
                             disabled={actionLoading}
                           >

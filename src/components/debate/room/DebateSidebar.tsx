@@ -133,7 +133,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
       <aside
         className={`
           fixed lg:static top-0 right-0 bottom-0 z-50 lg:z-auto
-          w-[340px] sm:w-[380px] xl:w-[400px] h-full bg-white dark:bg-[#0E1E18] border-l border-slate-200 dark:border-[rgba(148,163,184,0.18)]
+          w-[340px] sm:w-[380px] xl:w-[400px] h-full bg-white dark:bg-[#0B1321] border-l border-slate-200 dark:border-[rgba(148,163,184,0.18)]
           flex flex-col transition-all duration-300 ease-in-out shadow-xl lg:shadow-none
           ${isOpen ? "translate-x-0" : "translate-x-full lg:hidden"}
         `}
@@ -141,7 +141,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
         {/* Sidebar Header */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-[#008A64] dark:text-[#34D399]" />
+            <Sparkles size={18} className="text-[#0B5ED7] dark:text-[#60A5FA]" />
             <h2 className="font-bold text-[16px] text-slate-900 dark:text-[#F8FAFC]">
               {mode === "competition"
                 ? "Bảng điều khiển Trận đấu"
@@ -153,7 +153,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#172C23] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#131D30] transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -161,7 +161,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
 
         {/* Tab switcher */}
         <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 shrink-0">
-          <div className={`grid grid-cols-${tabs.length} gap-1 bg-slate-100 dark:bg-[#091713] p-1 rounded-xl text-xs font-bold`}>
+          <div className={`grid grid-cols-${tabs.length} gap-1 bg-slate-100 dark:bg-[#060d1a] p-1 rounded-xl text-xs font-bold`}>
             {tabs.map((t) => {
               const Icon = t.icon;
               const isActive = activeTab === t.id;
@@ -172,7 +172,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   onClick={() => onTabChange(t.id)}
                   className={`py-2 px-1 rounded-lg text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                     isActive
-                      ? "bg-white dark:bg-[#163529] text-[#008A64] dark:text-[#34D399] shadow-xs"
+                      ? "bg-white dark:bg-[#101f3b] text-[#0B5ED7] dark:text-[#60A5FA] shadow-xs"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                   }`}
                 >
@@ -190,18 +190,18 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
           {activeTab === "teams" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-[#F8FAFC] pb-2 border-b border-slate-100 dark:border-slate-800/80 text-[15px]">
-                <Users size={18} className="text-[#008A64]" />
+                <Users size={18} className="text-[#0B5ED7]" />
                 <span>Danh sách thành viên hai đội</span>
               </div>
 
               {/* Team PRO */}
-              <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-[rgba(16,185,129,0.08)] border border-emerald-200/60 space-y-2.5">
+              <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-[rgba(59,130,246,0.08)] border border-blue-200/60 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-bold text-[#008A64] dark:text-[#34D399] text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-[#0B5ED7] dark:text-[#60A5FA] text-xs">
                     <Shield size={14} />
                     <span>{proTeam.teamName}</span>
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-semibold">
                     PRO
                   </span>
                 </div>
@@ -209,7 +209,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   {proTeam.members.map((m, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 rounded-lg bg-white dark:bg-[#12231C] border border-emerald-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#0F1726] border border-blue-100 dark:border-slate-800 flex items-center justify-between text-xs"
                     >
                       <div>
                         <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">
@@ -218,11 +218,11 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                         <p className="text-[11px] text-slate-500">{m.roleTag || `Thành viên ${idx + 1}`}</p>
                       </div>
                       {m.hasSpokenInCurrentRound ? (
-                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                        <span className="text-[10px] text-blue-700 font-semibold flex items-center gap-1">
                           <CheckCircle2 size={11} /> Đã phát biểu
                         </span>
                       ) : m.isSpeakingNow ? (
-                        <span className="text-[10px] text-emerald-600 font-bold animate-pulse">
+                        <span className="text-[10px] text-blue-600 font-bold animate-pulse">
                           Đang phát biểu
                         </span>
                       ) : (
@@ -248,7 +248,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   {conTeam.members.map((m, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 rounded-lg bg-white dark:bg-[#12231C] border border-rose-100 dark:border-slate-800 flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-lg bg-white dark:bg-[#0F1726] border border-rose-100 dark:border-slate-800 flex items-center justify-between text-xs"
                     >
                       <div>
                         <p className="font-semibold text-slate-800 dark:text-[#F8FAFC]">
@@ -274,13 +274,13 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
 
               {/* Speaker Order Timeline (2vs2) */}
               {(mode === "2v2" || mode === "competition") && (
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#091713] border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-[#F8FAFC]">
-                    <Clock size={14} className="text-[#008A64]" />
+                    <Clock size={14} className="text-[#0B5ED7]" />
                     <span>Thứ tự lượt phát biểu 2vs2 (WSDC flow):</span>
                   </div>
                   <div className="space-y-1.5 text-[11px]">
-                    <div className="flex items-center justify-between p-1.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-medium">
+                    <div className="flex items-center justify-between p-1.5 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 font-medium">
                       <span>Vòng 1 (Mở đầu):</span>
                       <span className="font-bold">PRO 1 ➔ CON 1</span>
                     </div>
@@ -311,7 +311,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
 
               {/* Judges Roster */}
               {competitionMatch?.judges && competitionMatch.judges.length > 0 ? (
-                <div className="p-3 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-2 text-xs">
+                <div className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-2 text-xs">
                   <p className="font-bold text-slate-700 dark:text-slate-300">Danh sách giám khảo:</p>
                   <ul className="space-y-1">
                     {competitionMatch.judges.map((j, i) => (
@@ -325,7 +325,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   </ul>
                 </div>
               ) : (
-                <div className="p-3 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 text-xs text-slate-500">
+                <div className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 text-xs text-slate-500">
                   Chưa có thông tin danh sách giám khảo được chỉ định từ ban tổ chức.
                 </div>
               )}
@@ -339,8 +339,8 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   </div>
 
                   {judgeSubmitted ? (
-                    <div className="py-4 text-center text-xs space-y-1 text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 size={24} className="mx-auto text-emerald-600" />
+                    <div className="py-4 text-center text-xs space-y-1 text-blue-700 dark:text-blue-400">
+                      <CheckCircle2 size={24} className="mx-auto text-blue-600" />
                       <p className="font-bold">Đã nộp phiếu chấm điểm thành công!</p>
                       <p className="text-slate-500">Kết quả đã được ghi nhận vào hệ thống giải đấu.</p>
                     </div>
@@ -400,7 +400,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                           value={judgeNotes}
                           onChange={(e) => setJudgeNotes(e.target.value)}
                           placeholder="Nhập nhận xét chi tiết cho hai bên..."
-                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#12231C] text-xs resize-none"
+                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0F1726] text-xs resize-none"
                         />
                       </div>
 
@@ -415,7 +415,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 text-xs text-slate-500">
+                <div className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 text-xs text-slate-500">
                   Chỉ thành viên thuộc Ban Giám khảo mới có quyền chấm điểm trận đấu.
                 </div>
               )}
@@ -440,11 +440,11 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
                 <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-[#F8FAFC] text-[15px]">
-                  <Award size={18} className="text-[#008A64]" />
+                  <Award size={18} className="text-[#0B5ED7]" />
                   <span>Đánh giá & Chấm điểm</span>
                 </div>
                 {isEvaluating && (
-                  <span className="text-xs text-[#008A64] font-semibold animate-pulse">
+                  <span className="text-xs text-[#0B5ED7] font-semibold animate-pulse">
                     Đang chấm điểm...
                   </span>
                 )}
@@ -498,33 +498,33 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   0;
 
                 return (
-                  <div className="p-3.5 bg-slate-50 dark:bg-[#091713] border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-2.5 text-xs">
+                  <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-2.5 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-800 dark:text-slate-200">
                         Phong thái & Giọng nói (DeepFace + Whisper)
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#008A64] dark:bg-emerald-950/60 dark:text-[#34D399] font-black">
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-[#0B5ED7] dark:bg-blue-950/60 dark:text-[#60A5FA] font-black">
                         {overallDemeanor}/100
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
                         <p className="text-slate-400">Điềm tĩnh (Composure)</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100">
                           {composure}% ({domEmotion})
                         </p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
                         <p className="text-slate-400">Tương tác mắt</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100">{eyeContact}%</p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
                         <p className="text-slate-400">Tốc độ nói (WPM)</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100">
                           {wpmVal} WPM {paceEval ? `· ${paceEval}` : ""}
                         </p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#12231C] border border-slate-200/60 dark:border-slate-800">
+                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
                         <p className="text-slate-400">Độ trôi chảy (Fluency)</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100">
                           {fluencyVal}/100 ({fillerCnt} từ đệm)
@@ -557,16 +557,16 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
               ) : (
                 <div className="space-y-4">
                   {/* Overall Score */}
-                  <div className="p-4 bg-[#ECFDF5] dark:bg-[rgba(16,185,129,0.12)] border border-[#008A64]/30 rounded-xl flex items-center justify-between">
+                  <div className="p-4 bg-[#EAF2FF] dark:bg-[rgba(59,130,246,0.12)] border border-[#0B5ED7]/30 rounded-xl flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-[#008A64] uppercase tracking-wider">
+                      <p className="text-xs font-bold text-[#0B5ED7] uppercase tracking-wider">
                         Điểm tổng kết
                       </p>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-snug">
                         {evaluationResult.overall_reasoning}
                       </p>
                     </div>
-                    <div className="text-2xl font-black text-[#008A64] dark:text-[#34D399] shrink-0 pl-3">
+                    <div className="text-2xl font-black text-[#0B5ED7] dark:text-[#60A5FA] shrink-0 pl-3">
                       {evaluationResult.overall_score}/{OVERALL_MAX_SCORE}
                     </div>
                   </div>
@@ -581,11 +581,11 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                         {evaluationResult.criteria.map((c, i) => (
                           <div
                             key={i}
-                            className="p-3 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-1"
+                            className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-1"
                           >
                             <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
                               <span>{c.name}</span>
-                              <span className="text-[#008A64]">{c.score}/{c.max_score ?? CRITERION_MAX_SCORE}</span>
+                              <span className="text-[#0B5ED7]">{c.score}/{c.max_score ?? CRITERION_MAX_SCORE}</span>
                             </div>
                             <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
                               {c.reasoning}
@@ -598,8 +598,8 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
 
                   {/* Strengths & Weaknesses */}
                   {evaluationResult.strengths?.length > 0 && (
-                    <div className="space-y-1.5 p-3 rounded-xl bg-emerald-50/60 dark:bg-[rgba(16,185,129,0.08)] border border-emerald-200/60">
-                      <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400">
+                    <div className="space-y-1.5 p-3 rounded-xl bg-blue-50/60 dark:bg-[rgba(59,130,246,0.08)] border border-blue-200/60">
+                      <p className="text-xs font-bold text-blue-800 dark:text-blue-400">
                         Điểm mạnh:
                       </p>
                       <ul className="text-xs space-y-1 text-slate-700 dark:text-slate-300 list-disc list-inside">
@@ -631,7 +631,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
           {activeTab === "caseplan" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-[#F8FAFC] pb-2 border-b border-slate-100 dark:border-slate-800/80 text-[15px]">
-                <BookOpen size={18} className="text-[#008A64]" />
+                <BookOpen size={18} className="text-[#0B5ED7]" />
                 <span>Hồ sơ lập luận AI (Case Plan)</span>
               </div>
 
@@ -648,7 +648,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
               ) : (
                 <div className="space-y-3 text-xs">
                   {(casePlan.content?.motion_reading || (casePlan.content as any)?.case_summary) && (
-                    <div className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-1">
+                    <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-1">
                       <p className="font-bold text-slate-800 dark:text-slate-200">Định nghĩa phạm vi &amp; Bối cảnh:</p>
                       <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                         {casePlan.content?.motion_reading || (casePlan.content as any)?.case_summary}
@@ -657,12 +657,12 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   )}
 
                   {casePlan.content?.definitions && casePlan.content.definitions.length > 0 && (
-                    <div className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-2">
+                    <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-2">
                       <p className="font-bold text-slate-800 dark:text-slate-200">Thuật ngữ cốt lõi:</p>
                       <div className="space-y-1.5">
                         {casePlan.content.definitions.map((def, idx) => (
                           <p key={idx} className="text-slate-600 dark:text-slate-400">
-                            <span className="font-semibold text-[#008A64]">{def.term}:</span> {def.meaning}
+                            <span className="font-semibold text-[#0B5ED7]">{def.term}:</span> {def.meaning}
                           </p>
                         ))}
                       </div>
@@ -675,9 +675,9 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                       {casePlan.content.arguments.map((arg) => (
                         <div
                           key={arg.id}
-                          className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-1.5"
+                          className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-1.5"
                         >
-                          <p className="font-bold text-[#008A64]">
+                          <p className="font-bold text-[#0B5ED7]">
                             {arg.id}: {arg.title}
                           </p>
                           <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
@@ -692,7 +692,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                             </p>
                           )}
                           {arg.impact && (
-                            <p className="text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                            <p className="text-blue-700 dark:text-blue-400 leading-relaxed">
                               <span className="font-semibold">Tác động:</span> {arg.impact}
                             </p>
                           )}
@@ -709,9 +709,9 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                           (pt: { title: string; description: string }, idx: number) => (
                             <div
                               key={idx}
-                              className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-1"
+                              className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-1"
                             >
-                              <p className="font-bold text-[#008A64]">{pt.title}</p>
+                              <p className="font-bold text-[#0B5ED7]">{pt.title}</p>
                               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                                 {pt.description}
                               </p>
@@ -774,7 +774,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                     )}
 
                   {casePlan.content?.weighing && (
-                    <div className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 space-y-1">
+                    <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 space-y-1">
                       <p className="font-bold text-slate-800 dark:text-slate-200">Cân nhắc tác động (Weighing):</p>
                       <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                         {casePlan.content.weighing}

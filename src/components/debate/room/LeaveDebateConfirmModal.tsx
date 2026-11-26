@@ -57,11 +57,11 @@ const LeaveDebateConfirmModal: React.FC<LeaveDebateConfirmModalProps> = ({
       }}
     >
       <div
-        className="w-full max-w-md bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden transition-all"
+        className="w-full max-w-md bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Accent Strip */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#008A64] via-amber-500 to-rose-500" />
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#0B5ED7] via-amber-500 to-rose-500" />
 
         <div className="p-6 space-y-4">
           {/* Header with clear warning icon */}
@@ -116,7 +116,7 @@ const LeaveDebateConfirmModal: React.FC<LeaveDebateConfirmModalProps> = ({
               onClick={onStay}
               disabled={isLeaving}
               data-testid="stay-in-debate-btn"
-              className="px-5 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold shadow-sm shadow-[#008A64]/20 transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/40 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold shadow-sm shadow-[#0B5ED7]/20 transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40 disabled:opacity-50"
             >
               <ShieldCheck size={15} />
               <span>Ở lại trận đấu</span>

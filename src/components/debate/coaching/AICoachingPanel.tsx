@@ -17,9 +17,9 @@ const TYPE_CONFIG = {
   },
   strategy: {
     icon: Zap,
-    color: "text-[#008A64] dark:text-[#34D399]",
-    bg: "bg-[#ECFDF5]/60 dark:bg-[rgba(16,185,129,0.08)] border-[#008A64]/20 dark:border-[rgba(16,185,129,0.25)]",
-    textColor: "text-slate-700 dark:text-[#DCE7E3]",
+    color: "text-[#0B5ED7] dark:text-[#60A5FA]",
+    bg: "bg-[#EAF2FF]/60 dark:bg-[rgba(59,130,246,0.08)] border-[#0B5ED7]/20 dark:border-[rgba(59,130,246,0.25)]",
+    textColor: "text-slate-700 dark:text-[#DDE7F5]",
   },
   evidence: {
     icon: Lightbulb,
@@ -61,7 +61,7 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#123326]/40 transition-colors"
+        className="w-full px-5 py-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0b1c3a]/40 transition-colors"
       >
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/40">
@@ -159,7 +159,7 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                     onUsed?.();
                   }}
                   disabled={isLoading}
-                  className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] bg-slate-50 dark:bg-[#091713] text-[15px] font-semibold flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-[#123326] transition-colors disabled:opacity-60"
+                  className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] bg-slate-50 dark:bg-[#060d1a] text-[15px] font-semibold flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-[#0b1c3a] transition-colors disabled:opacity-60"
                 >
                   <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                   <span>Phân tích lại{costPerUse > 0 ? ` (${costPerUse.toLocaleString()}đ)` : ""}</span>

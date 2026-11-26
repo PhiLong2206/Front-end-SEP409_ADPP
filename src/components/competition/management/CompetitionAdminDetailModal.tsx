@@ -413,7 +413,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
             </div>
           )}
           {successMsg && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl">
+            <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-xl">
               <CheckCircle2 size={16} className="shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -421,7 +421,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <RefreshCw className="animate-spin text-[#008A64]" size={28} />
+              <RefreshCw className="animate-spin text-[#0B5ED7]" size={28} />
               <p className="text-xs text-slate-500 font-medium">Đang tải dữ liệu quản lý...</p>
             </div>
           ) : competition ? (
@@ -519,7 +519,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setActiveTab("bracket")}
-                        className="text-xs border-[#008A64] text-[#008A64] hover:bg-emerald-50 font-bold"
+                        className="text-xs border-[#0B5ED7] text-[#0B5ED7] hover:bg-blue-50 font-bold"
                       >
                         <Swords size={13} className="mr-1" />
                         Cây thi đấu & Bốc thăm
@@ -553,7 +553,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setActiveTab("bracket")}
-                        className="text-xs border-[#008A64] text-[#008A64] hover:bg-emerald-50 font-bold"
+                        className="text-xs border-[#0B5ED7] text-[#0B5ED7] hover:bg-blue-50 font-bold"
                       >
                         <Swords size={13} className="mr-1" />
                         Cây thi đấu & Giám sát trận
@@ -597,7 +597,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("overview")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "overview"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -610,7 +610,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                     onClick={() => setActiveTab("registrations")}
                     className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                       activeTab === "registrations"
-                        ? "bg-[#008A64] text-white shadow-xs"
+                        ? "bg-[#0B5ED7] text-white shadow-xs"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
@@ -624,7 +624,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                     onClick={() => setActiveTab("teams")}
                     className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                       activeTab === "teams"
-                        ? "bg-[#008A64] text-white shadow-xs"
+                        ? "bg-[#0B5ED7] text-white shadow-xs"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
@@ -637,7 +637,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("judges")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "judges"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -649,7 +649,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("bracket")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "bracket"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -708,7 +708,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                           onClick={() => setRegStatusFilter(s)}
                           className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
                             regStatusFilter === s
-                              ? "bg-[#008A64] text-white"
+                              ? "bg-[#0B5ED7] text-white"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
@@ -763,7 +763,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                     reg.status === "Approved"
-                                      ? "bg-emerald-100 text-emerald-800"
+                                      ? "bg-blue-100 text-blue-800"
                                       : reg.status === "Pending"
                                       ? "bg-amber-100 text-amber-800"
                                       : reg.status === "Rejected"
@@ -783,7 +783,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleApproveRegistration(reg.registrationId)}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px]"
+                                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px]"
                                       disabled={actionLoading}
                                     >
                                       Duyệt
@@ -852,7 +852,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 t.status === "Active"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
                                   : "bg-slate-100 text-slate-500"
                               }`}
                             >
@@ -969,7 +969,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
             <textarea
               required
               rows={3}
-              className="w-full p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="w-full p-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               placeholder="Nhập lý do cụ thể..."
               value={reasonNote}
               onChange={(e) => setReasonNote(e.target.value)}
@@ -1014,7 +1014,7 @@ const CompetitionAdminDetailModal: React.FC<Props> = ({
               <input
                 type="number"
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
                 placeholder="Nhập ID người dùng làm giám khảo (Ví dụ: 3)"
                 value={judgeUserId}
                 onChange={(e) => setJudgeUserId(e.target.value)}

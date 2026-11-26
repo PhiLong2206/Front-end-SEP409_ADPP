@@ -4,7 +4,6 @@ import {
   Calendar,
   ChevronRight,
   Search,
-  Filter,
   RefreshCw,
   Clock,
   Plus,
@@ -252,213 +251,242 @@ const Competitions: React.FC = () => {
     return detail && currentUserId && detail.createdBy === currentUserId;
   });
 
+  const fieldClass =
+    "h-11 w-full rounded-ap-pill border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-callout) text-label placeholder:text-label-tertiary outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25";
+  const surface = "rounded-ap-xl bg-elevated shadow-ap-sm";
+  const emptyBox = `${surface} space-y-(--s-3) px-(--s-6) py-(--s-8) text-center`;
+  const textAction =
+    "inline-flex min-h-11 cursor-pointer items-center gap-(--s-2) text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline";
+  // The actions of an organiser's card: quiet pills, the colour only says what the action does
+  const pill =
+    "inline-flex min-h-9 cursor-pointer items-center gap-(--s-2) rounded-full px-(--s-4) text-(length:--text-callout) font-medium transition-colors duration-(--t-fast) focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50";
+  const pillNeutral = `${pill} bg-canvas-secondary text-label-secondary hover:text-label`;
+  const pillAccent = `${pill} bg-accent-soft text-accent hover:bg-accent/15`;
+  const pillWarn = `${pill} bg-ap-warning/15 text-label hover:bg-ap-warning/25`;
+  const cancelIcon =
+    "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-label-tertiary transition-colors hover:bg-ap-danger/10 hover:text-ap-danger focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 disabled:opacity-50";
+
+  const mainTabs = [
+    { id: "competitions" as const, label: "Cuộc thi & Giải đấu" },
+    { id: "my-competitions" as const, label: "Cuộc thi của tôi", count: myCompetitions.length },
+    { id: "leaderboard" as const, label: "Bảng xếp hạng" },
+  ];
+
+  const onMainTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1;
+    if (event.key === "ArrowRight") next = (index + 1) % mainTabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + mainTabs.length) % mainTabs.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = mainTabs.length - 1;
+    if (next >= 0) {
+      event.preventDefault();
+      setMainTab(mainTabs[next].id);
+      document.getElementById(`comp-tab-${mainTabs[next].id}`)?.focus();
+    }
+  };
+
+  const loadingBox = (text: string) => (
+    <div role="status" className={`${emptyBox} flex flex-col items-center`}>
+      <RefreshCw className="animate-spin text-accent" size={26} aria-hidden="true" />
+      <p className="text-(length:--text-callout) text-label-secondary">{text}</p>
+    </div>
+  );
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-            Giải đấu & Xếp hạng
+    <div className="mx-auto max-w-5xl space-y-(--s-7) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
+      {/* Header: plain and large, one filled button */}
+      <section className="flex flex-col gap-(--s-5) pt-(--s-4) sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-[640px] space-y-(--s-2)">
+          <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
+            Giải đấu &amp; Xếp hạng
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Tham gia các cuộc thi tranh biện cá nhân & đồng đội, tích lũy điểm và thăng hạng.
+          <p className="text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Tham gia các cuộc thi tranh biện cá nhân &amp; đồng đội, tích lũy điểm và thăng hạng.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
-
-          {/* Button: + Tạo cuộc thi */}
-          {/* Business Rule: Bất kỳ Authenticated user nào cũng có thể tạo cuộc thi (Creator tự động thành Judge). Khi Backend bổ sung Credit Cost API sau này sẽ integrate tiếp. */}
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all hover:shadow-md cursor-pointer shrink-0"
-            title="Khởi tạo cuộc thi mới"
-          >
-            <Plus size={16} />
-            <span>Tạo cuộc thi</span>
-          </button>
-        </div>
-      </div>
+        {/* Business Rule: Bất kỳ Authenticated user nào cũng có thể tạo cuộc thi (Creator tự động thành Judge). Khi Backend bổ sung Credit Cost API sau này sẽ integrate tiếp. */}
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex h-12 shrink-0 cursor-pointer items-center gap-(--s-2) self-start rounded-ap-pill bg-accent px-(--s-6) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 sm:self-auto"
+          title="Khởi tạo cuộc thi mới"
+        >
+          <Plus size={18} aria-hidden="true" />
+          <span>Tạo cuộc thi</span>
+        </button>
+      </section>
 
       {/* Notifications */}
       {errorMsg && (
-        <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl animate-fade-in">
-          <AlertCircle size={16} className="shrink-0" />
+        <div role="alert" className="flex items-center gap-(--s-3) rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) text-label animate-fade-in">
+          <AlertCircle size={18} className="shrink-0 text-ap-danger" aria-hidden="true" />
           <span>{errorMsg}</span>
         </div>
       )}
       {successMsg && (
-        <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl animate-fade-in">
-          <CheckCircle2 size={16} className="shrink-0" />
+        <div role="status" className="flex items-center gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label animate-fade-in">
+          <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {/* Main tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200">
-        {[
-          { id: "competitions" as const, label: "⚔️ Cuộc thi & Giải đấu" },
-          { id: "my-competitions" as const, label: `📋 Cuộc thi của tôi (${myCompetitions.length})` },
-          { id: "leaderboard" as const, label: "🏆 Bảng xếp hạng" },
-        ].map((tab) => (
+      <div role="tablist" aria-label="Các mục giải đấu" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-ap-pill bg-canvas-secondary p-1">
+        {mainTabs.map((tab, index) => (
           <button
             key={tab.id}
+            id={`comp-tab-${tab.id}`}
             type="button"
+            role="tab"
+            aria-selected={mainTab === tab.id}
+            aria-controls={`comp-panel-${tab.id}`}
+            tabIndex={mainTab === tab.id ? 0 : -1}
             onClick={() => setMainTab(tab.id)}
-            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              mainTab === tab.id
-                ? "border-[#008A64] text-[#008A64]"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+            onKeyDown={(e) => onMainTabKeyDown(e, index)}
+            className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-(--s-2) rounded-ap-pill px-(--s-5) text-(length:--text-callout) font-medium transition-[background-color,box-shadow,color] duration-(--t-base) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+              mainTab === tab.id ? "bg-elevated text-label shadow-ap-sm" : "text-label-secondary hover:text-label"
             }`}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="rounded-full bg-accent-soft px-2 text-(length:--text-caption) text-accent">{tab.count}</span>
+            )}
           </button>
         ))}
       </div>
 
       {/* ── Tab 1: All Competitions ── */}
       {mainTab === "competitions" && (
-        <div className="space-y-4">
-          {/* Filters Bar */}
-          <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm cuộc thi theo tên..."
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                />
-              </div>
+        <div id="comp-panel-competitions" role="tabpanel" aria-labelledby="comp-tab-competitions" className="space-y-(--s-5)">
+          {/* Search and filters */}
+          <div className="flex flex-col gap-(--s-3) sm:flex-row sm:items-center">
+            <div role="search" className="relative flex-1">
+              <Search size={17} className="pointer-events-none absolute left-(--s-4) top-1/2 -translate-y-1/2 text-label-tertiary" aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Tìm kiếm cuộc thi"
+                placeholder="Tìm kiếm cuộc thi theo tên..."
+                className={`${fieldClass} pl-11 [&::-webkit-search-cancel-button]:hidden`}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
 
-              {/* Type filter */}
-              <div className="flex items-center gap-2">
-                <Filter size={14} className="text-slate-400 shrink-0" />
-                <select
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                >
-                  <option value="all">Tất cả hình thức</option>
-                  <option value="INDIVIDUAL">Cá nhân</option>
-                  <option value="TEAM">Đồng đội</option>
-                </select>
+            <div className="flex items-center gap-(--s-2)">
+              <select
+                aria-label="Lọc theo hình thức"
+                className={`${fieldClass} w-auto`}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">Tất cả hình thức</option>
+                <option value="INDIVIDUAL">Cá nhân</option>
+                <option value="TEAM">Đồng đội</option>
+              </select>
 
-                {/* Status filter */}
-                <select
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="OpenRegistration">Đang mở đăng ký</option>
-                  <option value="RegistrationClosed">Đã đóng đăng ký</option>
-                  <option value="Ongoing">Đang diễn ra</option>
-                  <option value="Completed">Đã hoàn thành</option>
-                </select>
+              <select
+                aria-label="Lọc theo trạng thái"
+                className={`${fieldClass} w-auto`}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="OpenRegistration">Đang mở đăng ký</option>
+                <option value="RegistrationClosed">Đã đóng đăng ký</option>
+                <option value="Ongoing">Đang diễn ra</option>
+                <option value="Completed">Đã hoàn thành</option>
+              </select>
 
-                <button
-                  type="button"
-                  onClick={fetchCompetitions}
-                  className="p-2 text-slate-500 hover:text-[#008A64] hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                  title="Tải lại danh sách"
-                >
-                  <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={fetchCompetitions}
+                aria-label="Tải lại danh sách"
+                className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-label-secondary transition-colors hover:bg-canvas-secondary hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+                title="Tải lại danh sách"
+              >
+                <RefreshCw size={17} className={loading ? "animate-spin" : ""} aria-hidden="true" />
+              </button>
             </div>
           </div>
 
           {/* List of competitions */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white border border-slate-200 rounded-2xl">
-              <RefreshCw className="animate-spin text-[#008A64]" size={28} />
-              <p className="text-xs text-slate-500 font-medium">Đang tải danh sách giải đấu...</p>
-            </div>
+            loadingBox("Đang tải danh sách giải đấu...")
           ) : errorMsg ? (
-            <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-2">
-              <p className="text-xs font-bold text-rose-700">{errorMsg}</p>
-              <button
-                type="button"
-                onClick={fetchCompetitions}
-                className="text-xs font-bold text-[#008A64] hover:underline cursor-pointer"
-              >
+            <div className="space-y-(--s-2) rounded-ap-xl bg-ap-danger/10 p-(--s-6) text-center">
+              <p className="text-(length:--text-callout) font-semibold">{errorMsg}</p>
+              <button type="button" onClick={fetchCompetitions} className={textAction}>
                 Thử lại
               </button>
             </div>
           ) : competitions.length === 0 ? (
-            <div className="p-12 bg-white border border-slate-200 rounded-2xl text-center space-y-3">
-              <Trophy size={40} className="mx-auto text-slate-300" />
-              <h3 className="font-bold text-slate-800 text-sm">Chưa có giải đấu nào phù hợp</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <div className={emptyBox}>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-ap-lg bg-canvas-secondary text-label-tertiary">
+                <Trophy size={26} aria-hidden="true" />
+              </div>
+              <h3 className="text-(length:--text-headline) font-semibold">Chưa có giải đấu nào phù hợp</h3>
+              <p className="mx-auto max-w-sm text-(length:--text-callout) text-label-secondary">
                 Hiện tại chưa có cuộc thi nào được công khai hoặc phù hợp với bộ lọc tìm kiếm của bạn.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-(--s-4)">
               {competitions.map((comp) => {
                 const isOpenReg = comp.status === "OpenRegistration";
+                const isOngoing = comp.status === "Ongoing";
 
                 return (
-                  <div
+                  <article
                     key={comp.competitionId}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedCompetitionId(comp.competitionId)}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 hover:shadow-md hover:border-[#008A64]/50 transition-all cursor-pointer group"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedCompetitionId(comp.competitionId);
+                      }
+                    }}
+                    className={`${surface} group flex cursor-pointer flex-col gap-(--s-4) p-(--s-6) transition-[transform,box-shadow] duration-(--t-base) ease-ap hover:-translate-y-0.5 hover:shadow-ap-md motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 sm:flex-row sm:items-center`}
                   >
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      {/* Left: icon */}
-                      <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-                        <Trophy size={24} className="text-amber-500 fill-amber-200" />
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-ap-lg bg-ap-warning/15 text-ap-warning">
+                      <Trophy size={26} aria-hidden="true" />
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-(--s-2)">
+                      <div className="flex flex-wrap items-center gap-(--s-2)">
+                        <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{comp.title}</h3>
+                        <CompetitionStatusBadge status={comp.status} />
+                        <CompetitionTypeBadge type={comp.competitionType} />
                       </div>
-
-                      {/* Center: info */}
-                      <div className="flex-1 space-y-2 min-w-0">
-                        <div className="flex items-start gap-2 flex-wrap">
-                          <h3 className="font-black text-slate-900 text-base group-hover:text-[#008A64] transition-colors">
-                            {comp.title}
-                          </h3>
-                          <CompetitionStatusBadge status={comp.status} />
-                          <CompetitionTypeBadge type={comp.competitionType} />
-                        </div>
-
-                        <div className="flex flex-wrap gap-4 text-xs text-slate-500 pt-1">
-                          <span className="flex items-center gap-1.5">
-                            <Clock size={12} className="text-slate-400" />
-                            Đăng ký: {formatDate(comp.registrationStart)} – {formatDate(comp.registrationEnd)}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Calendar size={12} className="text-slate-400" />
-                            Thi đấu: {formatDate(comp.startDate)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right: CTA */}
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0">
-                        {comp.status === "Ongoing" ? (
-                          <span className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-[#008A64] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-sm">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                            </span>
-                            Đang diễn ra • Xem phòng <ChevronRight size={13} />
-                          </span>
-                        ) : isOpenReg ? (
-                          <span className="px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-sm">
-                            Xem & Đăng ký <ChevronRight size={13} />
-                          </span>
-                        ) : (
-                          <span className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold inline-flex items-center gap-1.5 transition-all">
-                            Xem chi tiết <ChevronRight size={13} />
-                          </span>
-                        )}
+                      <div className="flex flex-wrap gap-x-(--s-5) gap-y-1 text-(length:--text-callout) text-label-secondary">
+                        <span className="inline-flex items-center gap-(--s-2)">
+                          <Clock size={14} aria-hidden="true" />
+                          Đăng ký: {formatDate(comp.registrationStart)} – {formatDate(comp.registrationEnd)}
+                        </span>
+                        <span className="inline-flex items-center gap-(--s-2)">
+                          <Calendar size={14} aria-hidden="true" />
+                          Thi đấu: {formatDate(comp.startDate)}
+                        </span>
                       </div>
                     </div>
-                  </div>
+
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 self-start text-(length:--text-callout) font-medium sm:self-center ${
+                        isOngoing || isOpenReg ? "text-accent" : "text-label-secondary"
+                      }`}
+                    >
+                      {isOngoing && (
+                        <span className="relative mr-1 flex h-2 w-2" aria-hidden="true">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60 motion-reduce:animate-none" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                        </span>
+                      )}
+                      {isOngoing ? "Đang diễn ra • Xem phòng" : isOpenReg ? "Xem & Đăng ký" : "Xem chi tiết"}
+                      <ChevronRight size={16} className="transition-transform duration-(--t-base) group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                    </span>
+                  </article>
                 );
               })}
             </div>
@@ -468,187 +496,133 @@ const Competitions: React.FC = () => {
 
       {/* ── Tab 2: My Competitions (Organizer / Manager View) ── */}
       {mainTab === "my-competitions" && (
-        <div className="space-y-4">
-          <div className="p-4 bg-emerald-50/60 border border-[#008A64]/20 rounded-2xl flex items-center justify-between gap-4">
+        <div id="comp-panel-my-competitions" role="tabpanel" aria-labelledby="comp-tab-my-competitions" className="space-y-(--s-5)">
+          <div className="flex flex-col gap-(--s-3) rounded-ap-xl bg-canvas-secondary p-(--s-5) sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Cuộc thi do bạn khởi tạo & quản lý</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <h3 className="text-(length:--text-callout) font-semibold">Cuộc thi do bạn khởi tạo &amp; quản lý</h3>
+              <p className="mt-0.5 text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
                 Quản lý vòng đời giải đấu, xét duyệt đơn đăng ký của thí sinh/đội thi và phân công giám khảo.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="px-3 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-1 transition-all cursor-pointer shrink-0"
-            >
-              <Plus size={14} />
+            <button type="button" onClick={() => setShowCreateModal(true)} className={`${pillAccent} shrink-0`}>
+              <Plus size={15} aria-hidden="true" />
               <span>Tạo thêm cuộc thi</span>
             </button>
           </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white border border-slate-200 rounded-2xl">
-              <RefreshCw className="animate-spin text-[#008A64]" size={28} />
-              <p className="text-xs text-slate-500 font-medium">Đang tải cuộc thi của bạn...</p>
-            </div>
+            loadingBox("Đang tải cuộc thi của bạn...")
           ) : myCompetitions.length === 0 ? (
-            <div className="p-12 bg-white border border-slate-200 rounded-2xl text-center space-y-3">
-              <Trophy size={40} className="mx-auto text-slate-300" />
-              <h3 className="font-bold text-slate-800 text-sm">Bạn chưa tạo cuộc thi nào</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            <div className={emptyBox}>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-ap-lg bg-canvas-secondary text-label-tertiary">
+                <Trophy size={26} aria-hidden="true" />
+              </div>
+              <h3 className="text-(length:--text-headline) font-semibold">Bạn chưa tạo cuộc thi nào</h3>
+              <p className="mx-auto max-w-sm text-(length:--text-callout) text-label-secondary">
                 Nhấn nút &ldquo;Tạo cuộc thi&rdquo; để khởi tạo và tổ chức giải đấu đầu tiên của bạn trên nền tảng.
               </p>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setShowCreateModal(true)}
-                className="mt-2"
-              >
+              <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)} className="mt-2">
                 <Plus size={14} className="mr-1" />
                 Tạo cuộc thi ngay
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-(--s-4)">
               {myCompetitions.map((comp) => {
                 const detail = detailedCompMap[comp.competitionId];
 
                 return (
-                  <div
-                    key={comp.competitionId}
-                    className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3 hover:border-slate-300 transition-all"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono font-bold text-slate-400">
-                            #{comp.competitionId}
-                          </span>
-                          <h4 className="font-black text-slate-900 text-base">{comp.title}</h4>
+                  <article key={comp.competitionId} className={`${surface} space-y-(--s-4) p-(--s-6)`}>
+                    <div className="flex flex-col justify-between gap-(--s-4) lg:flex-row lg:items-center">
+                      <div className="min-w-0 space-y-(--s-2)">
+                        <div className="flex flex-wrap items-center gap-(--s-2)">
+                          <span className="text-(length:--text-caption) tabular-nums text-label-tertiary">#{comp.competitionId}</span>
+                          <h4 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{comp.title}</h4>
                           <CompetitionStatusBadge status={comp.status} />
                           <CompetitionTypeBadge type={comp.competitionType} />
                         </div>
-                        <div className="flex flex-wrap gap-4 text-xs text-slate-500 pt-1.5">
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} className="text-slate-400" />
+                        <div className="flex flex-wrap gap-x-(--s-5) gap-y-1 text-(length:--text-callout) text-label-secondary">
+                          <span className="inline-flex items-center gap-(--s-2)">
+                            <Clock size={14} aria-hidden="true" />
                             Đăng ký: {formatDate(comp.registrationStart)} – {formatDate(comp.registrationEnd)}
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} className="text-slate-400" />
+                          <span className="inline-flex items-center gap-(--s-2)">
+                            <Calendar size={14} aria-hidden="true" />
                             Thi đấu: {formatDate(comp.startDate)}
                           </span>
                           {detail?.maxParticipants && (
-                            <span className="text-slate-600 font-medium">
+                            <span className="font-medium text-label">
                               Tối đa: {detail.maxParticipants} {comp.competitionType === "TEAM" ? "đội" : "thí sinh"}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Operation Actions */}
-                      <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
-                        {/* Detail */}
+                      {/* Operation actions */}
+                      <div className="flex flex-wrap items-center gap-(--s-2) lg:justify-end">
                         <button
                           type="button"
                           onClick={() => setSelectedCompetitionId(comp.competitionId)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          className={pillNeutral}
                           title="Xem chi tiết giải đấu"
                         >
-                          <Eye size={13} />
+                          <Eye size={14} aria-hidden="true" />
                           <span>Xem</span>
                         </button>
 
-                        {/* Edit */}
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(comp.competitionId)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          className={pillNeutral}
                           title="Chỉnh sửa thông tin"
                         >
-                          <Edit size={13} />
+                          <Edit size={14} aria-hidden="true" />
                           <span>Sửa</span>
                         </button>
 
-                        {/* Manage Modal */}
                         <button
                           type="button"
                           onClick={() => setSelectedAdminCompId(comp.competitionId)}
-                          className="px-2.5 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                          className={pillAccent}
                           title="Quản lý thí sinh, đội thi & giám khảo"
                         >
-                          <Settings size={13} />
+                          <Settings size={14} aria-hidden="true" />
                           <span>Quản lý</span>
                         </button>
 
                         {/* Lifecycle quick buttons */}
                         {comp.status === "Draft" && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRegistration(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-emerald-200"
-                              title="Mở đăng ký"
-                            >
-                              <DoorOpen size={13} />
+                            <button type="button" onClick={() => handleOpenRegistration(comp.competitionId)} disabled={actionLoading} className={pillAccent} title="Mở đăng ký">
+                              <DoorOpen size={14} aria-hidden="true" />
                               <span>Mở ĐK</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancelCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                              title="Hủy cuộc thi"
-                            >
-                              <Ban size={14} />
+                            <button type="button" onClick={() => handleCancelCompetition(comp.competitionId)} disabled={actionLoading} className={cancelIcon} title="Hủy cuộc thi" aria-label="Hủy cuộc thi">
+                              <Ban size={15} aria-hidden="true" />
                             </button>
                           </>
                         )}
 
                         {comp.status === "OpenRegistration" && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleCloseRegistration(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-amber-200"
-                              title="Đóng đăng ký"
-                            >
-                              <DoorClosed size={13} />
+                            <button type="button" onClick={() => handleCloseRegistration(comp.competitionId)} disabled={actionLoading} className={pillWarn} title="Đóng đăng ký">
+                              <DoorClosed size={14} aria-hidden="true" />
                               <span>Đóng ĐK</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancelCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                              title="Hủy cuộc thi"
-                            >
-                              <Ban size={14} />
+                            <button type="button" onClick={() => handleCancelCompetition(comp.competitionId)} disabled={actionLoading} className={cancelIcon} title="Hủy cuộc thi" aria-label="Hủy cuộc thi">
+                              <Ban size={15} aria-hidden="true" />
                             </button>
                           </>
                         )}
 
                         {comp.status === "RegistrationClosed" && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => handleStartCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-blue-200"
-                              title="Bắt đầu thi đấu"
-                            >
-                              <Play size={13} />
+                            <button type="button" onClick={() => handleStartCompetition(comp.competitionId)} disabled={actionLoading} className={pillAccent} title="Bắt đầu thi đấu">
+                              <Play size={14} aria-hidden="true" />
                               <span>Bắt đầu</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancelCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                              title="Hủy cuộc thi"
-                            >
-                              <Ban size={14} />
+                            <button type="button" onClick={() => handleCancelCompetition(comp.competitionId)} disabled={actionLoading} className={cancelIcon} title="Hủy cuộc thi" aria-label="Hủy cuộc thi">
+                              <Ban size={15} aria-hidden="true" />
                             </button>
                           </>
                         )}
@@ -658,36 +632,24 @@ const Competitions: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedAdminCompId(comp.competitionId)}
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-[#008A64] text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-emerald-200"
+                              className={pillAccent}
                               title="Xem cây thi đấu và điều phối các trận"
                             >
-                              <Swords size={13} />
+                              <Swords size={14} aria-hidden="true" />
                               <span>Cây thi đấu</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCompleteCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold rounded-xl inline-flex items-center gap-1 transition-colors cursor-pointer border border-purple-200"
-                              title="Hoàn thành giải đấu"
-                            >
-                              <CheckCheck size={13} />
+                            <button type="button" onClick={() => handleCompleteCompetition(comp.competitionId)} disabled={actionLoading} className={pillNeutral} title="Hoàn thành giải đấu">
+                              <CheckCheck size={14} aria-hidden="true" />
                               <span>Hoàn thành</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCancelCompetition(comp.competitionId)}
-                              disabled={actionLoading}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                              title="Hủy cuộc thi"
-                            >
-                              <Ban size={14} />
+                            <button type="button" onClick={() => handleCancelCompetition(comp.competitionId)} disabled={actionLoading} className={cancelIcon} title="Hủy cuộc thi" aria-label="Hủy cuộc thi">
+                              <Ban size={15} aria-hidden="true" />
                             </button>
                           </>
                         )}
                       </div>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -697,14 +659,12 @@ const Competitions: React.FC = () => {
 
       {/* ── Tab 3: Leaderboard ── */}
       {mainTab === "leaderboard" && (
-        <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-12 text-center shadow-xs">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto mb-4 shadow-xs">
-            <Trophy size={32} />
+        <div id="comp-panel-leaderboard" role="tabpanel" aria-labelledby="comp-tab-leaderboard" className={emptyBox}>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-ap-lg bg-ap-warning/15 text-ap-warning">
+            <Trophy size={32} aria-hidden="true" />
           </div>
-          <h3 className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mb-2">
-            Bảng xếp hạng giải đấu
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+          <h3 className="text-(length:--text-title) font-semibold leading-(--leading-tight)">Bảng xếp hạng giải đấu</h3>
+          <p className="mx-auto max-w-md text-(length:--text-body) leading-(--leading-body) text-label-secondary">
             Hệ thống bảng xếp hạng đang được đồng bộ và tổng hợp dựa trên kết quả các giải đấu đã hoàn thành. Hiện chưa có xếp hạng chính thức từ hệ thống.
           </p>
         </div>

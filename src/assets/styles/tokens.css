@@ -1,0 +1,173 @@
+/* ==========================================================================
+   DESIGN TOKENS (Apple-style scale, on top of the existing ADPP theme)
+
+   Mostly additive: no existing variable (--bg, --primary, --text-primary ...)
+   and no Tailwind default (rounded-lg, shadow-md ...) is overridden. The one
+   exception is the font: --font-sans is the app's default font (the Instagram web
+   stack: the system font of each device, nothing to download).
+
+   - Brand: ADPP uses the water tones (blue, Thuỷ), so --accent follows --primary
+     (--primary is set in index.css).
+   - Dark mode follows the project: the .dark / [data-theme="dark"] class set by
+     ThemeContext, not prefers-color-scheme. Dark values reuse the deep navy
+     surfaces the app already has.
+   ========================================================================== */
+
+:root {
+  /* Typography: system stack (SF on Apple devices). Never bundle SF font files. */
+  /* The stack instagram.com uses on the web: SF on Apple devices, Segoe UI on Windows, Roboto on Android.
+     (Instagram Sans, its brand font, is proprietary and not available for web use.) Nothing to download. */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Type scale (size / line-height) */
+  --text-hero: clamp(40px, 6vw, 72px);
+  --text-section: clamp(32px, 4.2vw, 48px);
+  --text-title: clamp(24px, 2.6vw, 28px);
+  --text-headline: 21px;
+  --text-body: 17px;
+  --text-callout: 15px;
+  --text-caption: 13px;
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-body: 1.47;
+  --tracking-display: -0.015em;
+  --tracking-body: -0.022em;
+
+  /* Labels, separators, accent: mapped onto the existing brand variables */
+  --label: var(--text-primary);
+  --label-secondary: var(--text-secondary);
+  --label-tertiary: #86868b; /* only for non-essential text: low contrast on white */
+  --separator: rgba(0, 0, 0, 0.08);
+  --bg-elevated: var(--surface);
+  --accent: var(--primary); /* Apple system blue would be #0071e3 */
+  --accent-hover: var(--primary-hover);
+  --accent-soft: var(--primary-soft);
+  --accent-contrast: #ffffff;
+  --success: #34c759;
+  --warning: #ff9f0a;
+  --danger: #ff3b30;
+
+  /* Materials (glass) */
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-blur: saturate(180%) blur(20px);
+  --scrim: rgba(0, 0, 0, 0.3);
+
+  /* Radius */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 28px;
+  --r-pill: 980px;
+
+  /* Spacing: 4/8pt grid (Tailwind spacing is already a 4px step: p-1 = 4px, p-2 = 8px ...) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* Shadows: soft, wide, low opacity */
+  --shadow-soft-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-soft-lg: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+
+  /* Motion */
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast: 150ms;
+  --t-base: 250ms;
+  --t-slow: 400ms;
+
+  /* Layout */
+  --content-max: 1200px;
+  --content-narrow: 980px;
+  --prose-max: 680px;
+  --touch-target: 44px;
+}
+
+.dark,
+[data-theme="dark"] {
+  --label-tertiary: #64748b;
+  --separator: rgba(148, 163, 184, 0.18);
+  --bg-elevated: var(--surface-secondary);
+  --accent-contrast: #030913;
+  --glass-bg: rgba(12, 19, 31, 0.72);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-soft-lg: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* `page-modern` pins the water palette (and the cyan --accent-2 for gradients) on a page, whatever --primary says. */
+.page-modern {
+  --accent: #0b5ed7;
+  --accent-hover: #0a4fb4;
+  --accent-soft: rgba(11, 94, 215, 0.1);
+  --accent-2: #0891b2;
+  --accent-contrast: #ffffff;
+}
+.dark .page-modern,
+[data-theme="dark"] .page-modern {
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: rgba(96, 165, 250, 0.16);
+  --accent-2: #22d3ee;
+  --accent-contrast: #04101f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0.01ms;
+    --t-base: 0.01ms;
+    --t-slow: 0.01ms;
+  }
+}
+
+/* ==========================================================================
+   TAILWIND UTILITIES FROM THE TOKENS (new names only, so no default utility changes)
+   e.g. text-label  bg-elevated  text-accent  rounded-ap-lg  shadow-ap-md  font-apple  ease-ap
+   `inline` keeps the utilities pointing at the variables, so dark mode switches at runtime.
+   ========================================================================== */
+@theme inline {
+  --color-label: var(--label);
+  --color-label-secondary: var(--label-secondary);
+  --color-label-tertiary: var(--label-tertiary);
+  --color-separator: var(--separator);
+  --color-canvas: var(--bg);
+  --color-canvas-secondary: var(--bg-secondary);
+  --color-elevated: var(--bg-elevated);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-ap-success: var(--success);
+  --color-ap-warning: var(--warning);
+  --color-ap-danger: var(--danger);
+
+  --radius-ap-sm: var(--r-sm);
+  --radius-ap-md: var(--r-md);
+  --radius-ap-lg: var(--r-lg);
+  --radius-ap-xl: var(--r-xl);
+  --radius-ap-pill: var(--r-pill);
+
+  --shadow-ap-sm: var(--shadow-soft-sm);
+  --shadow-ap-md: var(--shadow-soft-md);
+  --shadow-ap-lg: var(--shadow-soft-lg);
+
+  --font-sans: var(--font-ui); /* the app's default font (html, body and every font-sans) */
+  --font-apple: var(--font-ui);
+  --font-apple-display: var(--font-display);
+  --font-apple-mono: var(--font-code);
+
+  --ease-ap: var(--ease);
+  --ease-ap-spring: var(--ease-spring);
+}

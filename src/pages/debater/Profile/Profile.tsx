@@ -268,553 +268,286 @@ const DebaterProfile: React.FC = () => {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  const surface = "rounded-ap-xl bg-elevated shadow-ap-sm";
+  const labelClass = "mb-(--s-2) block text-(length:--text-callout) font-medium text-label-secondary";
+  const fieldBase =
+    "h-11 w-full rounded-ap-md border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-callout) text-label outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap placeholder:text-label-tertiary focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25 disabled:cursor-default";
+  const fieldClass = (editable: boolean) => `${fieldBase} ${editable ? "" : "text-label-secondary"}`;
+  const displayName = fullName || user?.fullName || user?.email?.split("@")[0] || (isAdmin ? "Quản trị viên" : "Người dùng");
+
+  const avatar = (size: "sm" | "lg") => (
+    <div className="relative shrink-0">
+      <div
+        className={`flex items-center justify-center overflow-hidden rounded-full bg-accent-soft font-semibold text-accent ${
+          size === "lg" ? "h-24 w-24 text-(length:--text-title)" : "h-16 w-16 text-(length:--text-headline)"
+        }`}
+      >
+        {effectiveAvatar ? (
+          <img src={effectiveAvatar} alt={fullName} className="h-full w-full object-cover" />
+        ) : (
+          <span>{fullName ? fullName.charAt(0).toUpperCase() : isAdmin ? "A" : "L"}</span>
+        )}
+      </div>
+      <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        title="Đổi ảnh đại diện"
+        aria-label="Đổi ảnh đại diện"
+        className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-elevated text-label-secondary shadow-ap-md transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+      >
+        <Camera size={15} aria-hidden="true" />
+      </button>
+    </div>
+  );
+
+  const editButton = (
+    <button
+      type="button"
+      onClick={() => setIsEditing(!isEditing)}
+      className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-(--s-2) text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline"
+    >
+      {isEditing ? <X size={15} aria-hidden="true" /> : <Edit3 size={15} aria-hidden="true" />}
+      <span>{isEditing ? "Hủy" : "Chỉnh sửa"}</span>
+    </button>
+  );
+
+  const form = (
+    <form onSubmit={handleSaveProfile} className="space-y-(--s-4)">
+      <div>
+        <label htmlFor="profile-name" className={labelClass}>Họ và tên</label>
+        <input
+          id="profile-name"
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          disabled={!isEditing || loading}
+          className={fieldClass(isEditing)}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="profile-email" className={labelClass}>Email</label>
+        <input id="profile-email" type="email" value={email} disabled className={fieldClass(false)} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-(--s-4) sm:grid-cols-2">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
-            {isAdmin ? "Hồ sơ quản trị viên" : "Hồ sơ cá nhân"}
-          </h1>
-          {isAdmin && (
-            <p className="text-xs text-slate-500 mt-1">
-              Thông tin tài khoản và quyền hạn quản trị hệ thống ADPP
-            </p>
+          <label htmlFor="profile-phone" className={labelClass}>Số điện thoại</label>
+          <input
+            id="profile-phone"
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            disabled={!isEditing || loading}
+            placeholder="Chưa cập nhật"
+            className={fieldClass(isEditing)}
+          />
+        </div>
+        <div>
+          <label htmlFor="profile-dob" className={labelClass}>Ngày sinh</label>
+          <input
+            id="profile-dob"
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            disabled={!isEditing || loading}
+            className={fieldClass(isEditing)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-(--s-4) sm:grid-cols-2">
+        <div>
+          <span className={labelClass}>Giới tính</span>
+          {isEditing ? (
+            <div role="group" aria-label="Giới tính" className="inline-flex gap-1 rounded-ap-pill bg-canvas-secondary p-1">
+              {GENDER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={gender === opt.value}
+                  onClick={() => setGender(opt.value)}
+                  className={`min-h-9 cursor-pointer rounded-ap-pill px-(--s-4) text-(length:--text-callout) font-medium transition-[background-color,box-shadow,color] duration-(--t-base) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+                    gender === opt.value ? "bg-elevated text-label shadow-ap-sm" : "text-label-secondary hover:text-label"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <input
+              type="text"
+              aria-label="Giới tính"
+              value={GENDER_OPTIONS.find((o) => o.value === gender)?.label || "Chưa cập nhật"}
+              disabled
+              className={fieldClass(false)}
+            />
           )}
         </div>
-        {isAdmin && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-[#008A64] border border-emerald-200 text-xs font-bold w-fit">
-            <ShieldCheck size={16} />
-            <span>Quản trị viên hệ thống</span>
+
+        {isAdmin ? (
+          <div>
+            <label htmlFor="profile-role" className={labelClass}>Vai trò</label>
+            <input id="profile-role" type="text" value="Quản trị viên" disabled className={`${fieldClass(false)} font-medium text-accent`} />
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="profile-joined" className={labelClass}>Ngày tham gia</label>
+            <input id="profile-joined" type="text" value={joinDate} disabled className={fieldClass(false)} />
           </div>
         )}
       </div>
 
+      {isAdmin && (
+        <div>
+          <label htmlFor="profile-joined" className={labelClass}>Ngày tham gia</label>
+          <input id="profile-joined" type="text" value={joinDate} disabled className={fieldClass(false)} />
+        </div>
+      )}
+
+      {isEditing && (
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-6) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Save size={16} aria-hidden="true" />
+          <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
+        </button>
+      )}
+    </form>
+  );
+
+  const stats = [
+    { label: "Phiên hoàn thành", value: String(completedCount) },
+    { label: "Điểm trung bình (/100)", value: avgScore100 !== null ? String(avgScore100) : "--" },
+    { label: "Ngày liên tiếp", value: String(streakDays) },
+    { label: "Trạng thái", value: completedCount > 0 ? "Hoạt động" : "Mới" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-(--s-7) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
+      {/* Title */}
+      <section className="space-y-(--s-2) pt-(--s-4)">
+        <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
+          {isAdmin ? "Hồ sơ quản trị viên" : "Hồ sơ cá nhân"}
+        </h1>
+        {isAdmin && (
+          <p className="text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Thông tin tài khoản và quyền hạn quản trị hệ thống ADPP
+          </p>
+        )}
+      </section>
+
       {error && (
-        <div className="p-3.5 text-xs sm:text-sm rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-medium animate-fade-in flex items-start gap-2.5">
-          <AlertCircle size={17} className="text-rose-500 shrink-0 mt-0.5" />
+        <div role="alert" className="flex items-start gap-(--s-3) rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) text-label animate-fade-in">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-ap-danger" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="p-3.5 text-xs sm:text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium animate-fade-in flex items-center gap-2.5">
-          <CheckCircle2 size={18} className="text-[#008A64] shrink-0" />
+        <div role="status" className="flex items-center gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label animate-fade-in">
+          <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
           <span>{success}</span>
         </div>
       )}
 
-      {/* Main Grid: Tailored for Admin vs Debater */}
       {isAdmin ? (
-        /* ADMIN PROFILE LAYOUT: Balanced 2-card layout with NO debater stats or radar chart */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT CARD: Admin Identity & System Summary (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="grid grid-cols-1 items-start gap-(--s-5) lg:grid-cols-12">
+          {/* Identity */}
+          <section className={`${surface} space-y-(--s-5) p-(--s-6) lg:col-span-5`}>
             <div className="flex flex-col items-center text-center">
-              <div className="relative group mb-4">
-                <div className="w-24 h-24 rounded-3xl overflow-hidden bg-[#008A64] text-white font-black text-3xl flex items-center justify-center shadow-lg shadow-[#008A64]/20 border-4 border-slate-100">
-                  {effectiveAvatar ? (
-                    <img
-                      src={effectiveAvatar}
-                      alt={fullName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{fullName ? fullName.charAt(0).toUpperCase() : "A"}</span>
-                  )}
-                </div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Đổi ảnh đại diện"
-                  className="absolute -bottom-1 -right-1 p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#008A64] hover:border-[#008A64] shadow-md transition-all cursor-pointer"
-                >
-                  <Camera size={14} />
-                </button>
-              </div>
-
-              <h2 className="text-lg font-bold text-[#0F172A] leading-tight">
-                {fullName || user?.fullName || user?.email?.split("@")[0] || "Quản trị viên"}
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">{email || user?.email || ""}</p>
-
-              <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-[#008A64] border border-emerald-200/80 text-xs font-bold">
-                <ShieldCheck size={14} />
-                <span>Quản trị viên</span>
-              </div>
+              {avatar("lg")}
+              <h2 className="mt-(--s-4) text-(length:--text-headline) font-semibold leading-(--leading-snug)">{displayName}</h2>
+              <p className="mt-(--s-1) text-(length:--text-callout) text-label-secondary">{email || user?.email || ""}</p>
             </div>
 
-            <div className="border-t border-slate-100 pt-5 space-y-3.5 text-xs">
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="flex items-center gap-2 text-slate-500 font-medium">
-                  <ShieldCheck size={15} className="text-[#008A64]" />
-                  Vai trò
-                </span>
-                <span className="font-bold text-[#0F172A]">Quản trị viên</span>
+            <dl className="space-y-(--s-3) border-t border-separator pt-(--s-4) text-(length:--text-callout)">
+              <div className="flex items-center justify-between gap-(--s-3)">
+                <dt className="inline-flex items-center gap-(--s-2) text-label-secondary">
+                  <ShieldCheck size={15} aria-hidden="true" /> Vai trò
+                </dt>
+                <dd className="font-medium">Quản trị viên</dd>
               </div>
-
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="flex items-center gap-2 text-slate-500 font-medium">
-                  <Calendar size={15} className="text-[#008A64]" />
-                  Ngày tham gia
-                </span>
-                <span className="font-bold text-[#0F172A]">
-                  {joinDate || "Chưa cập nhật"}
-                </span>
+              <div className="flex items-center justify-between gap-(--s-3)">
+                <dt className="inline-flex items-center gap-(--s-2) text-label-secondary">
+                  <Calendar size={15} aria-hidden="true" /> Ngày tham gia
+                </dt>
+                <dd className="font-medium">{joinDate || "Chưa cập nhật"}</dd>
               </div>
-
-              <div className="flex items-center justify-between text-slate-600">
-                <span className="flex items-center gap-2 text-slate-500 font-medium">
-                  <CheckCircle2 size={15} className="text-[#008A64]" />
-                  Trạng thái
-                </span>
-                <span className="font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
+              <div className="flex items-center justify-between gap-(--s-3)">
+                <dt className="inline-flex items-center gap-(--s-2) text-label-secondary">
+                  <CheckCircle2 size={15} aria-hidden="true" /> Trạng thái
+                </dt>
+                <dd className="inline-flex items-center gap-(--s-2) font-medium">
+                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-ap-success" />
                   Đang hoạt động
-                </span>
+                </dd>
               </div>
+            </dl>
+          </section>
+
+          {/* Details */}
+          <section className={`${surface} space-y-(--s-5) p-(--s-6) lg:col-span-7`}>
+            <div className="flex items-center justify-between gap-(--s-3)">
+              <div>
+                <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">Thông tin chi tiết</h3>
+                <p className="text-(length:--text-callout) text-label-secondary">Thông tin liên hệ và hồ sơ cá nhân quản trị viên</p>
+              </div>
+              {editButton}
             </div>
-          </div>
-
-          {/* RIGHT CARD: Admin Personal Details Form (7 Cols) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold text-[#0F172A]">
-                  Thông tin chi tiết
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Thông tin liên hệ và hồ sơ cá nhân quản trị viên
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsEditing(!isEditing)}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:border-[#008A64] text-slate-700 hover:text-[#008A64] text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                {isEditing ? <X size={13} /> : <Edit3 size={13} />}
-                <span>{isEditing ? "Hủy" : "Chỉnh sửa"}</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  Họ và tên
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={!isEditing || loading}
-                  className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                    isEditing
-                      ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                      : "bg-slate-50/80 border-slate-200 text-slate-700"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-500 cursor-not-allowed"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Số điện thoại
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    disabled={!isEditing || loading}
-                    placeholder="Chưa cập nhật"
-                    className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                      isEditing
-                        ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                        : "bg-slate-50/80 border-slate-200 text-slate-700"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Ngày sinh
-                  </label>
-                  <input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    disabled={!isEditing || loading}
-                    className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                      isEditing
-                        ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                        : "bg-slate-50/80 border-slate-200 text-slate-700"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Giới tính
-                  </label>
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      {GENDER_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setGender(opt.value)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                            gender === opt.value
-                              ? "bg-[#008A64] text-white border-[#008A64] shadow-xs"
-                              : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      value={GENDER_OPTIONS.find((o) => o.value === gender)?.label || "Chưa cập nhật"}
-                      disabled
-                      className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-700 cursor-not-allowed"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Vai trò
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value="Quản trị viên"
-                      disabled
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50/60 border border-emerald-200 text-[#008A64] cursor-not-allowed"
-                    />
-                    <ShieldCheck size={16} className="absolute left-3 top-3 text-[#008A64]" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  Ngày tham gia
-                </label>
-                <input
-                  type="text"
-                  value={joinDate}
-                  disabled
-                  className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-500 cursor-not-allowed"
-                />
-              </div>
-
-              {isEditing && (
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#008A64] hover:bg-[#007457] shadow-sm shadow-[#008A64]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Save size={15} />
-                    <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
-                  </button>
-                </div>
-              )}
-            </form>
-          </div>
+            {form}
+          </section>
         </div>
       ) : (
-        /* DEBATER PROFILE LAYOUT: Original 12-column grid with debater stats and radar chart preserved */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* LEFT COLUMN: Personal Info Form (5 Cols) */}
-          <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-6 flex flex-col justify-between">
-            <div>
-              {/* Header with Avatar & Name & Edit Button */}
-              <div className="flex items-center justify-between pb-6 border-b border-slate-100">
-                <div className="flex items-center gap-3.5">
-                  <div className="relative group">
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#008A64] text-white font-black text-xl flex items-center justify-center shadow-md shadow-[#008A64]/20 border-2 border-slate-100">
-                      {effectiveAvatar ? (
-                        <img
-                          src={effectiveAvatar}
-                          alt={fullName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span>{fullName ? fullName.charAt(0).toUpperCase() : "L"}</span>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Đổi ảnh đại diện"
-                      className="absolute -bottom-1 -right-1 p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-[#008A64] hover:border-[#008A64] shadow-xs transition-all cursor-pointer"
-                    >
-                      <Camera size={12} />
-                    </button>
-                  </div>
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-[#0F172A] leading-tight">
-                      {fullName || user?.fullName || user?.email?.split("@")[0] || "Người dùng"}
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {email || user?.email || ""}
-                    </p>
-                  </div>
+        <div className="grid grid-cols-1 items-start gap-(--s-5) lg:grid-cols-12">
+          {/* Personal info */}
+          <section className={`${surface} space-y-(--s-5) p-(--s-6) lg:col-span-5`}>
+            <div className="flex items-center justify-between gap-(--s-3)">
+              <div className="flex min-w-0 items-center gap-(--s-4)">
+                {avatar("sm")}
+                <div className="min-w-0">
+                  <h2 className="truncate text-(length:--text-headline) font-semibold leading-(--leading-snug)">{displayName}</h2>
+                  <p className="truncate text-(length:--text-callout) text-label-secondary">{email || user?.email || ""}</p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:border-[#008A64] text-slate-700 hover:text-[#008A64] text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  {isEditing ? <X size={13} /> : <Edit3 size={13} />}
-                  <span>{isEditing ? "Hủy" : "Chỉnh sửa"}</span>
-                </button>
               </div>
-
-              {/* Form Fields */}
-              <form onSubmit={handleSaveProfile} className="space-y-4 pt-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Họ và tên
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={!isEditing || loading}
-                    className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                      isEditing
-                        ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                        : "bg-slate-50/80 border-slate-200 text-slate-700"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    disabled
-                    className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-500 cursor-not-allowed"
-                  />
-                </div>
-
-                {/* 2-Column Row for Phone & DOB */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                      Số điện thoại
-                    </label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      disabled={!isEditing || loading}
-                      placeholder="Chưa cập nhật"
-                      className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                        isEditing
-                          ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                          : "bg-slate-50/80 border-slate-200 text-slate-700"
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                      Ngày sinh
-                    </label>
-                    <input
-                      type="date"
-                      value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      disabled={!isEditing || loading}
-                      className={`w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all ${
-                        isEditing
-                          ? "bg-white border-[#008A64] text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#008A64]/15"
-                          : "bg-slate-50/80 border-slate-200 text-slate-700"
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                {/* Gender */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Giới tính
-                  </label>
-                  {isEditing ? (
-                    <div className="flex items-center gap-2.5">
-                      {GENDER_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setGender(opt.value)}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                            gender === opt.value
-                              ? "bg-[#008A64] text-white border-[#008A64] shadow-xs"
-                              : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      value={GENDER_OPTIONS.find((o) => o.value === gender)?.label || "Chưa cập nhật"}
-                      disabled
-                      className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-700 cursor-not-allowed"
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Ngày tham gia
-                  </label>
-                  <input
-                    type="text"
-                    value={joinDate}
-                    disabled
-                    className="w-full px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-50/80 border border-slate-200 text-slate-500 cursor-not-allowed"
-                  />
-                </div>
-
-                {isEditing && (
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#008A64] hover:bg-[#007457] shadow-sm shadow-[#008A64]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Save size={15} />
-                      <span>{loading ? "Đang lưu..." : "Lưu thay đổi"}</span>
-                    </button>
-                  </div>
-                )}
-              </form>
+              {editButton}
             </div>
-          </div>
+            {form}
+          </section>
 
-          {/* RIGHT COLUMN: Statistics & Skills Radar Chart (7 Cols) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs space-y-6">
-            {/* Top: Thống kê */}
-            <div>
-              <h3 className="text-sm font-bold text-[#0F172A] mb-3">
+          {/* Statistics and skills */}
+          <div className="space-y-(--s-5) lg:col-span-7">
+            <section aria-label="Thống kê" className={surface}>
+              <h3 className="px-(--s-6) pt-(--s-5) text-(length:--text-caption) font-medium uppercase tracking-wider text-label-secondary">
                 Thống kê
               </h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {/* Stat 1 */}
-                <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
-                  <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    {completedCount}
+              <div className="grid grid-cols-2 divide-separator sm:grid-cols-4 sm:divide-x">
+                {stats.map((s) => (
+                  <div key={s.label} className="p-(--s-5)">
+                    <div className="text-(length:--text-title) font-semibold leading-none tracking-(--tracking-display) tabular-nums">{s.value}</div>
+                    <div className="mt-(--s-2) text-(length:--text-callout) text-label-secondary">{s.label}</div>
                   </div>
-                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Phiên hoàn thành
-                  </div>
-                </div>
-
-                {/* Stat 2 */}
-                <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
-                  <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    {avgScore100 !== null ? avgScore100 : "--"}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Điểm trung bình (/100)
-                  </div>
-                </div>
-
-                {/* Stat 3 */}
-                <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
-                  <div className="text-xl sm:text-2xl font-black text-amber-500">
-                    {streakDays}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Ngày liên tiếp
-                  </div>
-                </div>
-
-                {/* Stat 4 */}
-                <div className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-2xl">
-                  <div className="text-xl sm:text-2xl font-black text-[#008A64]">
-                    {completedCount > 0 ? "Hoạt động" : "Mới"}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Trạng thái
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
+            </section>
 
-            {/* Bottom: Kỹ năng Radar Chart */}
-            <div>
-              <h3 className="text-sm font-bold text-[#0F172A] mb-2">
-                Kỹ năng (Rubric 5 tiêu chí)
-              </h3>
-
-              <div className="w-full h-64 sm:h-72 flex items-center justify-center">
+            <section className={`${surface} p-(--s-6)`}>
+              <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">Kỹ năng (Rubric 5 tiêu chí)</h3>
+              <div className="mt-(--s-3) flex h-64 w-full items-center justify-center sm:h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={skillData} cx="50%" cy="50%" outerRadius="75%">
-                    <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                    <PolarAngleAxis
-                      dataKey="subject"
-                      tick={{ fill: "#64748b", fontSize: 11, fontWeight: 600 }}
-                    />
-                    <PolarRadiusAxis
-                      angle={30}
-                      domain={[0, 100]}
-                      stroke="#cbd5e1"
-                      tick={{ fill: "#94a3b8", fontSize: 9 }}
-                    />
-                    <Radar
-                      name="Kỹ năng"
-                      dataKey="A"
-                      stroke="#008A64"
-                      fill="#008A64"
-                      fillOpacity={0.25}
-                      strokeWidth={2}
-                    />
+                    <PolarGrid stroke="var(--separator)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--label-secondary)", fontSize: 13 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="var(--separator)" tick={{ fill: "var(--label-tertiary)", fontSize: 11 }} />
+                    <Radar name="Kỹ năng" dataKey="A" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.2} strokeWidth={2} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}
@@ -823,5 +556,3 @@ const DebaterProfile: React.FC = () => {
 };
 
 export default DebaterProfile;
-
-

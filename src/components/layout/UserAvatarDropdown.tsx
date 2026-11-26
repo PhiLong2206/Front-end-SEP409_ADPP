@@ -95,21 +95,21 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
             <img
               src={effectiveAvatar}
               alt={displayName}
-              className="w-8 h-8 rounded-full object-cover border border-[#008A64]/30 shadow-xs"
+              className="w-8 h-8 rounded-full object-cover border border-[#0B5ED7]/30 shadow-xs"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[#008A64] text-white font-bold text-xs flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-full bg-[#0B5ED7] text-white font-bold text-xs flex items-center justify-center shadow-xs">
               {displayName.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-white dark:ring-slate-900" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#3B82F6] ring-2 ring-white dark:ring-slate-900" />
         </div>
 
         <div className="hidden sm:flex flex-col text-left">
           <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight max-w-[120px] truncate">
             {displayName}
           </span>
-          <span className="text-[10px] text-[#008A64] dark:text-emerald-400 font-semibold leading-tight">
+          <span className="text-[10px] text-[#0B5ED7] dark:text-blue-400 font-semibold leading-tight">
             {getRoleLabel()}
           </span>
         </div>
@@ -122,17 +122,17 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl bg-white dark:bg-[#0F1C17] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xl shadow-slate-900/10 dark:shadow-black/50 py-2 z-50 animate-fade-in divide-y divide-slate-100 dark:divide-[rgba(148,163,184,0.15)] transition-all duration-200">
+        <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl bg-white dark:bg-[#0C131F] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xl shadow-slate-900/10 dark:shadow-black/50 py-2 z-50 animate-fade-in divide-y divide-slate-100 dark:divide-[rgba(148,163,184,0.15)] transition-all duration-200">
           {/* Top User Info */}
           <div className="px-4 py-3 flex items-center gap-3">
             {effectiveAvatar ? (
               <img
                 src={effectiveAvatar}
                 alt={displayName}
-                className="w-10 h-10 rounded-full object-cover border border-[#008A64]/40 shrink-0"
+                className="w-10 h-10 rounded-full object-cover border border-[#0B5ED7]/40 shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#008A64] text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-10 h-10 rounded-full bg-[#0B5ED7] text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
@@ -144,7 +144,7 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
               <p className="text-[11px] text-slate-500 dark:text-[#94A3B8] truncate">
                 {displayEmail}
               </p>
-              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#ECFDF5] dark:bg-[rgba(16,185,129,0.12)] text-[10px] font-bold text-[#008A64] dark:text-[#34D399] border border-[#008A64]/20 dark:border-[rgba(16,185,129,0.25)]">
+              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EAF2FF] dark:bg-[rgba(59,130,246,0.12)] text-[10px] font-bold text-[#0B5ED7] dark:text-[#60A5FA] border border-[#0B5ED7]/20 dark:border-[rgba(59,130,246,0.25)]">
                 <ShieldCheck size={11} />
                 <span>{getRoleLabel()}</span>
               </div>
@@ -157,9 +157,9 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
               <Link
                 to="/admin/dashboard"
                 onClick={() => setIsOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
               >
-                <ShieldCheck size={16} className="text-[#008A64]" />
+                <ShieldCheck size={16} className="text-[#0B5ED7]" />
                 <span>Cổng Quản trị (Admin)</span>
               </Link>
             )}
@@ -167,7 +167,7 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
             <Link
               to="/debater/payments"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#172C23] hover:text-[#008A64] dark:hover:text-[#34D399] transition-colors"
+              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#131D30] hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] transition-colors"
             >
               <Coins size={16} className="text-amber-500" />
               <span>Nạp điểm tín chỉ</span>
@@ -176,7 +176,7 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
             <Link
               to={getProfilePath()}
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#172C23] hover:text-[#008A64] dark:hover:text-[#34D399] transition-colors"
+              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#131D30] hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] transition-colors"
             >
               <User size={16} className="text-slate-400" />
               <span>Hồ sơ cá nhân</span>
@@ -185,7 +185,7 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
             <Link
               to={getSettingsPath()}
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#172C23] hover:text-[#008A64] dark:hover:text-[#34D399] transition-colors"
+              className="flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#131D30] hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] transition-colors"
             >
               <Settings size={16} className="text-slate-400" />
               <span>Cài đặt & Tùy chọn</span>
@@ -198,7 +198,7 @@ const UserAvatarDropdown: React.FC<UserAvatarDropdownProps> = ({ className = "" 
               type="button"
               onClick={handleDirectLogout}
               disabled={loggingOut}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#172C23] hover:text-[#008A64] dark:hover:text-[#34D399] transition-colors cursor-pointer text-left disabled:opacity-50"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#F8FAFC] hover:bg-slate-50 dark:hover:bg-[#131D30] hover:text-[#0B5ED7] dark:hover:text-[#60A5FA] transition-colors cursor-pointer text-left disabled:opacity-50"
             >
               {loggingOut ? (
                 <>

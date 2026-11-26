@@ -22,51 +22,44 @@ const PracticeStartPanel: React.FC<PracticeStartPanelProps> = ({ idPrefix, defau
   const [side, setSide] = useState<PracticeSide>(defaultSide ?? "PRO");
   const [difficulty, setDifficulty] = useState<AIDifficultyLevel>("Trung bình");
 
+  const option = (checked: boolean, tone: "accent" | "danger" = "accent") =>
+    `flex min-h-11 cursor-pointer items-center gap-(--s-3) rounded-ap-md border px-(--s-3) text-(length:--text-callout) font-medium transition-[background-color,border-color] duration-(--t-fast) has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-accent/30 ${
+      checked
+        ? tone === "danger"
+          ? "border-ap-danger bg-ap-danger/10 text-label"
+          : "border-accent bg-accent-soft text-accent"
+        : "border-transparent bg-canvas-secondary text-label-secondary hover:text-label"
+    }`;
+
   return (
-    <div data-testid="start-panel" className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-bold text-slate-800 dark:text-[#F8FAFC] mb-2">Phe của bạn</legend>
+    <div data-testid="start-panel" className="space-y-(--s-4) border-t border-separator pt-(--s-4)">
+      <div className="grid grid-cols-1 gap-(--s-5) sm:grid-cols-2">
+        <fieldset className="space-y-(--s-2)">
+          <legend className="mb-(--s-2) text-(length:--text-caption) font-medium text-label-secondary">Phe của bạn</legend>
           {(["PRO", "CON"] as const).map((value) => (
-            <label
-              key={value}
-              className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer text-xs sm:text-sm font-semibold transition-all ${
-                side === value
-                  ? value === "PRO"
-                    ? "bg-[#ECFDF5] border-[#008A64] text-[#008A64]"
-                    : "bg-rose-50 border-rose-400 text-rose-700"
-                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
-            >
+            <label key={value} className={option(side === value, value === "CON" ? "danger" : "accent")}>
               <input
                 type="radio"
                 name={`side-${idPrefix}`}
                 checked={side === value}
                 onChange={() => setSide(value)}
-                className={value === "PRO" ? "accent-[#008A64]" : "accent-rose-600"}
+                className={value === "PRO" ? "h-4 w-4 accent-accent" : "h-4 w-4 accent-ap-danger"}
               />
               <span>{value === "PRO" ? "Ủng hộ (Pro)" : "Phản đối (Con)"}</span>
             </label>
           ))}
         </fieldset>
 
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-bold text-slate-800 dark:text-[#F8FAFC] mb-2">Độ khó của AI</legend>
+        <fieldset className="space-y-(--s-2)">
+          <legend className="mb-(--s-2) text-(length:--text-caption) font-medium text-label-secondary">Độ khó của AI</legend>
           {DIFFICULTIES.map((level) => (
-            <label
-              key={level}
-              className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer text-xs sm:text-sm font-semibold transition-all ${
-                difficulty === level
-                  ? "bg-[#ECFDF5] border-[#008A64] text-[#008A64]"
-                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-              }`}
-            >
+            <label key={level} className={option(difficulty === level)}>
               <input
                 type="radio"
                 name={`difficulty-${idPrefix}`}
                 checked={difficulty === level}
                 onChange={() => setDifficulty(level)}
-                className="accent-[#008A64]"
+                className="h-4 w-4 accent-accent"
               />
               <span>{level}</span>
             </label>
@@ -77,7 +70,7 @@ const PracticeStartPanel: React.FC<PracticeStartPanelProps> = ({ idPrefix, defau
       <AiVoicePicker variant="compact" />
 
       {error && (
-        <p role="alert" className="text-xs font-semibold text-rose-600">
+        <p role="alert" className="rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) text-label">
           {error}
         </p>
       )}
@@ -87,9 +80,9 @@ const PracticeStartPanel: React.FC<PracticeStartPanelProps> = ({ idPrefix, defau
         data-testid="start-practice-btn"
         disabled={submitting}
         onClick={() => onStart(side, difficulty)}
-        className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#008A64] hover:bg-[#007457] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold shadow-xs transition-colors cursor-pointer"
+        className="inline-flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+        {submitting ? <Loader2 size={18} className="animate-spin" aria-hidden="true" /> : <ArrowRight size={18} aria-hidden="true" />}
         <span>{submitting ? "Đang tạo phiên..." : "Bắt đầu tranh biện"}</span>
       </button>
     </div>

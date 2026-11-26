@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
 import DebatePractice from "../pages/debater/DebatePractice/DebatePractice";
 import { findListedTopic, groupPracticedTopics, suggestTopics } from "../utils/debateTopicHistory";
 import type { DebateHistoryItemDto, Topic } from "../types";
@@ -80,6 +80,17 @@ describe("history and suggestion helpers", () => {
   });
 });
 
+/** Stands for the topic page: shows which topic it got and what the practice page handed over. */
+const TopicPageProbe = () => {
+  const { id } = useParams();
+  const state = (useLocation().state ?? {}) as { topic?: Topic; defaultSide?: string };
+  return (
+    <div data-testid="topic-page" data-id={id} data-side={state.defaultSide ?? ""}>
+      {state.topic?.title}
+    </div>
+  );
+};
+
 describe("DebatePractice: history and suggestions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,6 +105,7 @@ describe("DebatePractice: history and suggestions", () => {
         <Routes>
           <Route path="/debater/debate" element={<DebatePractice />} />
           <Route path="/debater/debate/:sessionId" element={<div>Room</div>} />
+          <Route path="/debater/topics/:id" element={<TopicPageProbe />} />
         </Routes>
       </MemoryRouter>
     );
@@ -150,40 +162,31 @@ describe("DebatePractice: history and suggestions", () => {
     expect(screen.getAllByTestId("suggested-topic")).toHaveLength(6); // collapsed, filter reset
   });
 
-  it("starts a suggested topic by its id with the chosen side and difficulty", async () => {
+  it("'Luyện tập' on a suggested topic opens the topic page (the one the library uses), without starting a session here", async () => {
     seed(0, 2);
-    mockCreateAiPracticeSession.mockResolvedValue({ data: { sessionId: 77 } });
     renderPage();
 
     fireEvent.click((await screen.findAllByTestId("start-suggested-btn"))[0]);
-    fireEvent.click(screen.getByLabelText("Phản đối (Con)"));
-    fireEvent.click(screen.getByLabelText("Khó"));
-    fireEvent.click(screen.getByTestId("start-practice-btn"));
 
-    await waitFor(() =>
-      expect(mockCreateAiPracticeSession).toHaveBeenCalledWith(
-        expect.objectContaining({ topicId: 100, userSide: 2, difficulty: "Hard", isAI: true, title: "Chủ đề 100" })
-      )
-    );
-    expect(await screen.findByText("Room")).toBeInTheDocument();
+    const page = await screen.findByTestId("topic-page");
+    expect(page).toHaveAttribute("data-id", "100");
+    expect(page).toHaveTextContent("Chủ đề 100");
+    expect(mockCreateAiPracticeSession).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("start-panel")).not.toBeInTheDocument(); // no panel opens under the card
   });
 
-  it("practises a topic again by its id, with the side of the last time preselected", async () => {
+  it("'Học lại' opens the topic page of that topic with the side of the last time", async () => {
     seed(1, 0);
     mockGetUserHistory.mockResolvedValue({ success: true, data: [item(1, { userSide: 2 })] });
-    mockCreateAiPracticeSession.mockResolvedValue({ data: { sessionId: 99 } });
     renderPage();
 
     fireEvent.click(await screen.findByTestId("retry-topic-btn"));
-    expect(screen.getByLabelText("Phản đối (Con)")).toBeChecked();
-    fireEvent.click(screen.getByTestId("start-practice-btn"));
 
-    await waitFor(() =>
-      expect(mockCreateAiPracticeSession).toHaveBeenCalledWith(
-        expect.objectContaining({ topicId: 1, userSide: 2, difficulty: "Medium", topic: "Kiến nghị số 1" })
-      )
-    );
-    expect(await screen.findByText("Room")).toBeInTheDocument();
+    const page = await screen.findByTestId("topic-page");
+    expect(page).toHaveAttribute("data-id", "1");
+    expect(page).toHaveAttribute("data-side", "CON");
+    expect(page).toHaveTextContent("Chủ đề 1");
+    expect(mockCreateAiPracticeSession).not.toHaveBeenCalled();
   });
 
   it("cannot practise again a topic that is no longer listed", async () => {
@@ -215,32 +218,6 @@ describe("DebatePractice: history and suggestions", () => {
     await waitFor(() => expect(screen.getByTestId("retry-topic-btn")).not.toBeDisabled());
     expect(mockGetAllTopics).toHaveBeenCalledTimes(2);
     expect(mockGetAllTopics).toHaveBeenLastCalledWith(expect.objectContaining({ pageNumber: 2 }));
-  });
-
-  it("creates one session only when the start button is clicked twice quickly", async () => {
-    seed(0, 1);
-    mockCreateAiPracticeSession.mockImplementation(() => new Promise(() => {})); // never answers
-    renderPage();
-
-    fireEvent.click(await screen.findByTestId("start-suggested-btn"));
-    const start = screen.getByTestId("start-practice-btn");
-    fireEvent.click(start);
-    fireEvent.click(start);
-
-    expect(mockCreateAiPracticeSession).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the panel open and shows the error when starting fails", async () => {
-    seed(0, 1);
-    mockCreateAiPracticeSession.mockRejectedValue(new Error("Máy chủ bận"));
-    renderPage();
-
-    fireEvent.click(await screen.findByTestId("start-suggested-btn"));
-    fireEvent.click(screen.getByTestId("start-practice-btn"));
-
-    expect(await screen.findByText("Máy chủ bận")).toBeInTheDocument();
-    expect(screen.getByTestId("start-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("start-practice-btn")).not.toBeDisabled();
   });
 
   it("shows the empty states when nothing was practised and nothing is listed", async () => {

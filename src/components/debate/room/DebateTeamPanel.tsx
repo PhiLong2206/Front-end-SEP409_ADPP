@@ -21,19 +21,19 @@ const DebateTeamPanel: React.FC<DebateTeamPanelProps> = ({
 
   return (
     <div
-      className={`bg-slate-50 dark:bg-[#0A1713] border-b border-slate-200 dark:border-[rgba(148,163,184,0.14)] px-4 sm:px-6 py-2.5 transition-all ${
+      className={`bg-slate-50 dark:bg-[#070E1A] border-b border-slate-200 dark:border-[rgba(148,163,184,0.14)] px-4 sm:px-6 py-2.5 transition-all ${
         isCompact ? "py-1.5" : "py-2.5"
       }`}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl mx-auto w-full">
         {/* PRO TEAM / PRO DEBATER */}
-        <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-50/60 dark:bg-[rgba(16,185,129,0.08)] border border-emerald-200/60 dark:border-[rgba(16,185,129,0.22)] flex items-center justify-between gap-2">
+        <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/60 dark:bg-[rgba(59,130,246,0.08)] border border-blue-200/60 dark:border-[rgba(59,130,246,0.22)] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-[#008A64] text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-7 h-7 rounded-lg bg-[#0B5ED7] text-white flex items-center justify-center shrink-0 shadow-xs">
               <Shield size={14} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-[#008A64] dark:text-[#34D399] truncate">
+              <p className="text-xs font-bold text-[#0B5ED7] dark:text-[#60A5FA] truncate">
                 {proTeam.teamName || "Đội Ủng hộ (Team PRO)"}
               </p>
               {/* Member list */}
@@ -45,10 +45,10 @@ const DebateTeamPanel: React.FC<DebateTeamPanelProps> = ({
                       key={idx}
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                         isSpeaking
-                          ? "bg-[#008A64] text-white font-bold ring-2 ring-emerald-300 dark:ring-emerald-600 animate-pulse"
+                          ? "bg-[#0B5ED7] text-white font-bold ring-2 ring-blue-300 dark:ring-blue-600 animate-pulse"
                           : m.hasSpokenInCurrentRound
-                          ? "bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 line-through opacity-75"
-                          : "bg-white dark:bg-[#12231C] text-slate-700 dark:text-[#CBD5E1] border border-emerald-200/50"
+                          ? "bg-blue-100/70 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 line-through opacity-75"
+                          : "bg-white dark:bg-[#0F1726] text-slate-700 dark:text-[#CBD5E1] border border-blue-200/50"
                       }`}
                     >
                       {isSpeaking ? <Mic size={10} /> : m.hasSpokenInCurrentRound ? <CheckCircle2 size={10} /> : <UserIcon size={10} />}
@@ -84,7 +84,7 @@ const DebateTeamPanel: React.FC<DebateTeamPanelProps> = ({
                           ? "bg-rose-600 text-white font-bold ring-2 ring-rose-300 dark:ring-rose-600 animate-pulse"
                           : m.hasSpokenInCurrentRound
                           ? "bg-rose-100/70 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 line-through opacity-75"
-                          : "bg-white dark:bg-[#12231C] text-slate-700 dark:text-[#CBD5E1] border border-rose-200/50"
+                          : "bg-white dark:bg-[#0F1726] text-slate-700 dark:text-[#CBD5E1] border border-rose-200/50"
                       }`}
                     >
                       {m.isAI ? (

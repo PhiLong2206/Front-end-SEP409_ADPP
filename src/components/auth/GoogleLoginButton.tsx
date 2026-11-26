@@ -236,7 +236,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
             type="button"
             onClick={handleManualClick}
             disabled={disabled || loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 dark:bg-[#12231C] dark:hover:bg-[#172C23] dark:border-[rgba(148,163,184,0.20)] dark:text-[#F8FAFC] text-sm sm:text-base font-semibold rounded-xl shadow-xs transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 dark:bg-[#0F1726] dark:hover:bg-[#131D30] dark:border-[rgba(148,163,184,0.20)] dark:text-[#F8FAFC] text-sm sm:text-base font-semibold rounded-xl shadow-xs transition-all duration-150 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? (
               <span className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />

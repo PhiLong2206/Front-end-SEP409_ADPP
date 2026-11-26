@@ -31,6 +31,10 @@ export interface Topic {
   prosHints?: string[];
   consHints?: string[];
   imageUrl?: string;
+  /** The task of each side (never null from the Backend): the default text, or the admin's own when hasCustomGuides. */
+  proGuide?: string;
+  conGuide?: string;
+  hasCustomGuides?: boolean;
   practicesCount?: number;
   isActive?: boolean;
   createdAt?: string;
@@ -46,6 +50,9 @@ export interface CreateTopicDto {
   backgroundInfo?: string;
   prosHints?: string[];
   consHints?: string[];
+  /** Left out: the default text. Up to 1000 characters. */
+  proGuide?: string;
+  conGuide?: string;
 }
 
 export interface UpdateTopicDto extends Partial<CreateTopicDto> {

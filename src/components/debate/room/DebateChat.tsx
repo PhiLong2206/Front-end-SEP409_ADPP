@@ -181,14 +181,14 @@ const DebateChat: React.FC<DebateChatProps> = ({
         {/* Minimal AI Welcome Message in Round 1 when no messages exist yet */}
         {showWelcomeInRound1 && (
           <div className="flex items-start gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-[#008A64] text-white flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-full bg-[#0B5ED7] text-white flex items-center justify-center shrink-0 mt-0.5">
               <Bot size={16} />
             </div>
-            <div className="px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-sm leading-relaxed max-w-[85%] sm:max-w-[75%] shadow-2xs">
+            <div className="px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#0F1726] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-sm leading-relaxed max-w-[85%] sm:max-w-[75%] shadow-2xs">
               {mode === "ai" ? (
                 <p>
                   Chào bạn! Bạn đang ở phe{" "}
-                  <strong className="text-[#008A64] dark:text-[#34D399]">
+                  <strong className="text-[#0B5ED7] dark:text-[#60A5FA]">
                     {debaterSide === "pro" ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
                   </strong>
                   . Hãy trình bày lập luận mở đầu của bạn ở khung nhập bên dưới để bắt đầu Vòng 1.
@@ -277,7 +277,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
       ref={scrollContainerRef}
       data-testid="debate-chat-scroll"
       onScroll={handleScroll}
-      className="relative flex-1 overflow-y-auto px-3 sm:px-6 py-4 scroll-smooth bg-slate-50/40 dark:bg-[#091511]"
+      className="relative flex-1 overflow-y-auto px-3 sm:px-6 py-4 scroll-smooth bg-slate-50/40 dark:bg-[#070c17]"
     >
       <div className="max-w-[880px] mx-auto w-full space-y-4 pb-2">
         {/* Conversation Rounds (1: Opening, 2: Rebuttal, 3: Conclusion) */}
@@ -293,19 +293,19 @@ const DebateChat: React.FC<DebateChatProps> = ({
             className="flex items-start gap-3 justify-start animate-fade-in"
             aria-live="polite"
           >
-            <div className="w-8 h-8 rounded-full bg-[#008A64] text-white flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-full bg-[#0B5ED7] text-white flex items-center justify-center shrink-0 mt-0.5">
               <Bot size={16} />
             </div>
-            <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1.5">
+            <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-tl-xs bg-white dark:bg-[#0F1726] border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1.5">
               <div className="inline-flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                   Đối thủ AI ({aiSide === "pro" ? "PRO" : "CON"})
                   {liveAiSpeech ? " đang nói" : ""}
                 </span>
                 <span className="flex items-center gap-1 ml-1" aria-hidden="true">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.3s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce [animation-delay:-0.15s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#008A64] animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0B5ED7] animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0B5ED7] animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0B5ED7] animate-bounce" />
                 </span>
               </div>
               {isAiRewriting && (
@@ -337,12 +337,12 @@ const DebateChat: React.FC<DebateChatProps> = ({
         {isDebateCompleted && (
           <div
             data-testid="debate-completed-banner"
-            className="mx-auto max-w-xl rounded-2xl bg-[#ECFDF5]/90 dark:bg-emerald-950/40 border border-[#A7F3D0] dark:border-emerald-800/70 px-4 py-3.5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 shadow-2xs animate-fade-in"
+            className="mx-auto max-w-xl rounded-2xl bg-[#EAF2FF]/90 dark:bg-blue-950/40 border border-[#BFDBFE] dark:border-blue-800/70 px-4 py-3.5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 shadow-2xs animate-fade-in"
             role="status"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-2.5">
-                <CheckCircle2 size={17} className="text-[#008A64] dark:text-[#34D399] shrink-0 mt-0.5" />
+                <CheckCircle2 size={17} className="text-[#0B5ED7] dark:text-[#60A5FA] shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-900 dark:text-white">
                     Đã hoàn thành 3 vòng tranh biện
@@ -359,7 +359,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
                   data-testid="submit-and-view-result-btn"
                   disabled={isEvaluating || (!canSubmitDebate && !isDebateCompleted)}
                   onClick={onSubmitDebate}
-                  className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isEvaluating && <Loader2 size={13} className="animate-spin" />}
                   <span>{isEvaluating ? "Đang xử lý..." : "Nộp bài & Xem kết quả"}</span>
@@ -379,7 +379,7 @@ const DebateChat: React.FC<DebateChatProps> = ({
           <button
             type="button"
             onClick={() => scrollToBottom("smooth")}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/85 dark:bg-[#008A64] text-white text-xs font-medium shadow-md hover:bg-slate-800 transition-all cursor-pointer"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/85 dark:bg-[#0B5ED7] text-white text-xs font-medium shadow-md hover:bg-slate-800 transition-all cursor-pointer"
           >
             <ArrowDown size={13} />
             <span>{hasUnreadBelow ? "Tin nhắn mới" : "Cuộn xuống"}</span>

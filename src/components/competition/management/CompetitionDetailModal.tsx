@@ -515,7 +515,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
             </div>
           )}
           {successMsg && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl animate-fade-in">
+            <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-xl animate-fade-in">
               <CheckCircle2 size={16} className="shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -523,7 +523,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <RefreshCw className="animate-spin text-[#008A64]" size={28} />
+              <RefreshCw className="animate-spin text-[#0B5ED7]" size={28} />
               <p className="text-xs text-slate-500 font-medium">Đang tải dữ liệu giải đấu...</p>
             </div>
           ) : competition ? (
@@ -534,7 +534,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   <CompetitionStatusBadge status={competition.status} />
                   <CompetitionTypeBadge type={competition.competitionType} />
                   {isCreator && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-800 bg-blue-100 border border-blue-300 px-2.5 py-0.5 rounded-full">
                       👑 Ban tổ chức (Bạn tạo)
                     </span>
                   )}
@@ -567,7 +567,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                         onClose();
                         onOpenManage(competition.competitionId);
                       }}
-                      className="px-3 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                      className="px-3 py-1.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
                       title="Mở bảng điều phối và quản trị giải đấu này"
                     >
                       <Settings size={13} />
@@ -582,7 +582,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                 <div
                   className={`rounded-2xl p-4 sm:p-5 transition-all shadow-xs border animate-fade-in ${
                     isParticipantApproved
-                      ? "bg-gradient-to-r from-emerald-600 via-[#008A64] to-teal-700 text-white border-emerald-500 shadow-emerald-600/20"
+                      ? "bg-gradient-to-r from-blue-600 via-[#0B5ED7] to-teal-700 text-white border-blue-500 shadow-blue-600/20"
                       : isOrganizerOrJudge
                       ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white border-slate-700 shadow-slate-900/20"
                       : isParticipantPending
@@ -595,7 +595,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
                           </span>
                           <h4 className="font-extrabold text-sm sm:text-base tracking-wide flex items-center gap-2">
@@ -605,14 +605,14 @@ const CompetitionDetailModal: React.FC<Props> = ({
                             </span>
                           </h4>
                         </div>
-                        <p className="text-xs sm:text-sm text-emerald-50 leading-relaxed max-w-xl">
+                        <p className="text-xs sm:text-sm text-blue-50 leading-relaxed max-w-xl">
                           Đơn đăng ký của bạn đã được Ban tổ chức chấp thuận. Phòng tranh biện trực tiếp đã sẵn sàng để bạn tham gia thi đấu!
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveTab("bracket")}
-                        className="px-5 py-2.5 bg-white text-[#008A64] hover:bg-emerald-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                        className="px-5 py-2.5 bg-white text-[#0B5ED7] hover:bg-blue-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                       >
                         <Swords size={16} />
                         <span>Xem cây thi đấu & Trận của bạn</span>
@@ -623,8 +623,8 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-400"></span>
                           </span>
                           <h4 className="font-extrabold text-sm sm:text-base tracking-wide">
                             CUỘC THI ĐANG DIỄN RA ({isCreator ? "BAN TỔ CHỨC" : "GIÁM KHẢO"})
@@ -638,7 +638,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setActiveTab("bracket")}
-                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                         >
                           <Swords size={14} />
                           <span>Cây thi đấu & Giám sát</span>
@@ -704,7 +704,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("overview")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "overview"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -717,7 +717,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     onClick={() => setActiveTab("registration")}
                     className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                       activeTab === "registration"
-                        ? "bg-[#008A64] text-white shadow-xs"
+                        ? "bg-[#0B5ED7] text-white shadow-xs"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
@@ -736,13 +736,13 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     onClick={() => setActiveTab("teams")}
                     className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                       activeTab === "teams"
-                        ? "bg-[#008A64] text-white shadow-xs"
+                        ? "bg-[#0B5ED7] text-white shadow-xs"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
                     Đội thi đấu ({teams.length})
                     {myTeam && (
-                      <span className="ml-1.5 px-1.5 py-0.2 bg-emerald-500 text-white rounded-md text-[10px]">
+                      <span className="ml-1.5 px-1.5 py-0.2 bg-blue-500 text-white rounded-md text-[10px]">
                         Đội của bạn
                       </span>
                     )}
@@ -754,7 +754,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("judges")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "judges"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -766,7 +766,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab("bracket")}
                   className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                     activeTab === "bracket"
-                      ? "bg-[#008A64] text-white shadow-xs"
+                      ? "bg-[#0B5ED7] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -792,7 +792,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
                       <p className="font-bold text-slate-700 flex items-center gap-1.5">
-                        <Calendar size={14} className="text-[#008A64]" />
+                        <Calendar size={14} className="text-[#0B5ED7]" />
                         Thời gian đăng ký
                       </p>
                       <p className="text-slate-600">
@@ -820,7 +820,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                   </div>
 
                   {competition.createdByName && (
-                    <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl text-xs text-slate-600 flex items-center justify-between">
+                    <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-slate-600 flex items-center justify-between">
                       <span>
                         Người khởi tạo / Ban tổ chức:{" "}
                         <strong className="text-slate-800">{competition.createdByName}</strong>
@@ -840,7 +840,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 size={20} className="text-[#008A64]" />
+                          <CheckCircle2 size={20} className="text-[#0B5ED7]" />
                           <h4 className="font-bold text-sm text-slate-900">
                             Trạng thái đăng ký của bạn
                           </h4>
@@ -848,7 +848,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-bold ${
                             myRegistration.status === "Approved"
-                              ? "bg-emerald-100 text-emerald-800"
+                              ? "bg-blue-100 text-blue-800"
                               : myRegistration.status === "Pending"
                               ? "bg-amber-100 text-amber-800"
                               : myRegistration.status === "Rejected"
@@ -881,19 +881,19 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       </div>
 
                       {competition.status === "Ongoing" && myRegistration.status === "Approved" && (
-                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
-                          <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                            <Swords size={16} className="text-[#008A64]" />
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                          <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                            <Swords size={16} className="text-[#0B5ED7]" />
                             Phòng thi đấu tranh biện đã mở
                           </p>
-                          <p className="text-xs text-emerald-700 leading-relaxed">
+                          <p className="text-xs text-blue-700 leading-relaxed">
                             Cuộc thi đang diễn ra. Bạn đã được Ban tổ chức phê duyệt hợp lệ. Nhấn nút bên dưới để vào phòng thi đấu tranh biện ngay.
                           </p>
                           <Button
                             variant="primary"
                             size="sm"
                             onClick={() => setActiveTab("bracket")}
-                            className="bg-[#008A64] hover:bg-[#007457] font-bold text-xs"
+                            className="bg-[#0B5ED7] hover:bg-[#0a4fb4] font-bold text-xs"
                           >
                             <Swords size={14} className="mr-1.5" />
                             Xem nhánh đấu & Trận của tôi
@@ -922,8 +922,8 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       )}
                     </div>
                   ) : isOrganizerOrJudge ? (
-                    <div className="p-6 bg-emerald-50/70 border border-[#008A64]/30 rounded-2xl text-center space-y-3">
-                      <div className="w-12 h-12 rounded-2xl bg-[#008A64]/10 text-[#008A64] flex items-center justify-center mx-auto">
+                    <div className="p-6 bg-blue-50/70 border border-[#0B5ED7]/30 rounded-2xl text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#0B5ED7]/10 text-[#0B5ED7] flex items-center justify-center mx-auto">
                         <Shield size={24} />
                       </div>
                       <h4 className="font-bold text-slate-900 text-sm">
@@ -949,7 +949,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     </div>
                   ) : (
                     <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-3">
-                      <Trophy size={36} className="mx-auto text-[#008A64]" />
+                      <Trophy size={36} className="mx-auto text-[#0B5ED7]" />
                       <h4 className="font-bold text-slate-900 text-sm">
                         Bạn chưa đăng ký tham gia giải đấu này
                       </h4>
@@ -989,17 +989,17 @@ const CompetitionDetailModal: React.FC<Props> = ({
 
                   {/* My Team Section */}
                   {myTeam ? (
-                    <div className="p-5 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 border border-[#008A64]/30 rounded-2xl space-y-4">
+                    <div className="p-5 bg-gradient-to-br from-blue-50/80 to-teal-50/40 border border-[#0B5ED7]/30 rounded-2xl space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#008A64]">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#0B5ED7]">
                             {isCaptain ? "Bạn là Đội trưởng" : "Bạn là Thành viên"}
                           </span>
                           <h4 className="text-base font-black text-slate-900">
                             Đội: {myTeam.teamName}
                           </h4>
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#008A64] text-white">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#0B5ED7] text-white">
                           Trạng thái: {myTeam.status}
                         </span>
                       </div>
@@ -1014,7 +1014,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                           <p className="font-bold text-slate-800 text-sm">
                             {myTeam.captainName || `User #${myTeam.captainUserId}`}
                           </p>
-                          {isCaptain && <span className="text-[10px] text-[#008A64] font-bold">(Bạn)</span>}
+                          {isCaptain && <span className="text-[10px] text-[#0B5ED7] font-bold">(Bạn)</span>}
                         </div>
 
                         {/* Member slot */}
@@ -1090,7 +1090,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                                       <button
                                         type="button"
                                         onClick={() => handleApproveJoinRequest(myTeam.teamId, req.requestId)}
-                                        className="px-2.5 py-1 bg-[#008A64] hover:bg-[#007457] text-white rounded-lg font-bold text-xs flex items-center gap-1"
+                                        className="px-2.5 py-1 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white rounded-lg font-bold text-xs flex items-center gap-1"
                                         disabled={actionLoading}
                                       >
                                         <CheckCircle2 size={13} /> Duyệt
@@ -1112,19 +1112,19 @@ const CompetitionDetailModal: React.FC<Props> = ({
                       )}
 
                       {competition.status === "Ongoing" && (
-                        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
-                          <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                            <Swords size={16} className="text-[#008A64]" />
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                          <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                            <Swords size={16} className="text-[#0B5ED7]" />
                             Phòng thi đấu tranh biện đồng đội đã mở
                           </p>
-                          <p className="text-xs text-emerald-700 leading-relaxed">
+                          <p className="text-xs text-blue-700 leading-relaxed">
                             Cuộc thi đang diễn ra. Cả Đội trưởng và thành viên hãy vào phòng tranh biện để phối hợp thi đấu.
                           </p>
                           <Button
                             variant="primary"
                             size="sm"
                             onClick={() => setActiveTab("bracket")}
-                            className="bg-[#008A64] hover:bg-[#007457] font-bold text-xs"
+                            className="bg-[#0B5ED7] hover:bg-[#0a4fb4] font-bold text-xs"
                           >
                             <Swords size={14} className="mr-1.5" />
                             Xem nhánh đấu & Trận của tôi
@@ -1163,7 +1163,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                     /* User has NO active team */
                     <div className="space-y-4">
                       {isOrganizerOrJudge && (
-                        <div className="p-4 bg-emerald-50/70 border border-[#008A64]/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="p-4 bg-blue-50/70 border border-[#0B5ED7]/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                           <div>
                             <h4 className="text-sm font-bold text-slate-900">
                               Bạn là {isCreator ? "Ban tổ chức (Người tạo)" : "Giám khảo"} của giải đấu này
@@ -1236,7 +1236,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleAcceptInvitation(inv.requestId)}
-                                      className="px-3 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white rounded-lg font-bold text-xs"
+                                      className="px-3 py-1.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white rounded-lg font-bold text-xs"
                                       disabled={actionLoading}
                                     >
                                       Chấp nhận
@@ -1279,7 +1279,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                               key={team.teamId}
                               className={`p-4 rounded-xl border transition-all ${
                                 isMyTeamItem
-                                  ? "bg-emerald-50/50 border-[#008A64]"
+                                  ? "bg-blue-50/50 border-[#0B5ED7]"
                                   : "bg-white border-slate-200 hover:border-slate-300"
                               }`}
                             >
@@ -1291,7 +1291,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                     isFull
                                       ? "bg-slate-100 text-slate-600"
-                                      : "bg-emerald-50 text-[#008A64] border border-emerald-200"
+                                      : "bg-blue-50 text-[#0B5ED7] border border-blue-200"
                                   }`}
                                 >
                                   {memberCount}/2 thành viên
@@ -1321,7 +1321,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
                                   <button
                                     type="button"
                                     onClick={() => handleJoinRequest(team.teamId)}
-                                    className="w-full py-1.5 px-3 bg-slate-100 hover:bg-[#008A64] hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                                    className="w-full py-1.5 px-3 bg-slate-100 hover:bg-[#0B5ED7] hover:text-white text-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
                                     disabled={actionLoading}
                                   >
                                     <UserPlus size={13} />
@@ -1403,7 +1403,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
               Vui lòng cho biết lý do bạn muốn hủy đăng ký tham gia cuộc thi này:
             </p>
             <textarea
-              className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+              className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
               rows={3}
               placeholder="Nhập lý do hủy đăng ký..."
               value={cancelReason}
@@ -1442,7 +1442,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
               <input
                 type="text"
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
                 placeholder="Ví dụ: Đội Rồng Vàng, Alpha Debaters..."
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
@@ -1480,7 +1480,7 @@ const CompetitionDetailModal: React.FC<Props> = ({
               <input
                 type="number"
                 required
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
                 placeholder="Nhập ID người dùng muốn mời (Ví dụ: 2)"
                 value={inviteUserId}
                 onChange={(e) => setInviteUserId(e.target.value)}

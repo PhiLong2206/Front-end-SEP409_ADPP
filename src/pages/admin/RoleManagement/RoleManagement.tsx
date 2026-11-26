@@ -159,7 +159,7 @@ const RoleManagement: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <Link
             to="/admin/users"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] text-white text-xs font-bold transition-all shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold transition-all shadow-xs"
           >
             <Users size={13} />
             <span>Phân quyền người dùng</span>
@@ -169,9 +169,9 @@ const RoleManagement: React.FC = () => {
             type="button"
             onClick={fetchRoles}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1A2E26] hover:bg-slate-100 dark:hover:bg-[#233F34] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#162032] hover:bg-slate-100 dark:hover:bg-[#1D2B45] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
             <span>Làm mới</span>
           </button>
         </div>
@@ -190,14 +190,14 @@ const RoleManagement: React.FC = () => {
           <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
             Danh sách vai trò chuẩn trong hệ thống
           </h2>
-          <span className="text-xs font-bold text-[#008A64]">
+          <span className="text-xs font-bold text-[#0B5ED7]">
             {roles.length} vai trò khả dụng
           </span>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400 bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)]">
-            <RefreshCw size={24} className="animate-spin text-[#008A64] mx-auto mb-2" />
+          <div className="p-12 text-center text-xs text-slate-400 bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)]">
+            <RefreshCw size={24} className="animate-spin text-[#0B5ED7] mx-auto mb-2" />
             <span>Đang tải danh sách vai trò từ máy chủ...</span>
           </div>
         ) : (
@@ -216,9 +216,9 @@ const RoleManagement: React.FC = () => {
               return (
                 <div
                   key={r.roleId}
-                  className={`bg-white dark:bg-[#12231C] p-5 rounded-3xl border shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64]/40 ${
+                  className={`bg-white dark:bg-[#0F1726] p-5 rounded-3xl border shadow-xs flex flex-col justify-between transition-all hover:border-[#0B5ED7]/40 ${
                     isAdmin
-                      ? "border-2 border-[#008A64]/50"
+                      ? "border-2 border-[#0B5ED7]/50"
                       : "border-slate-200/80 dark:border-[rgba(148,163,184,0.18)]"
                   }`}
                 >
@@ -231,7 +231,7 @@ const RoleManagement: React.FC = () => {
                             : isOrganizer
                             ? "bg-amber-50 text-amber-600 dark:bg-amber-950/60"
                             : isDebater
-                            ? "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/60"
+                            ? "bg-blue-50 text-[#0B5ED7] dark:bg-blue-950/60"
                             : "bg-slate-100 text-slate-600 dark:bg-slate-800"
                         }`}
                       >
@@ -256,7 +256,7 @@ const RoleManagement: React.FC = () => {
                     <span className="text-slate-400 font-medium">Định danh: {r.roleName}</span>
                     <Link
                       to={`/admin/users?role=${r.roleName}`}
-                      className="font-bold text-[#008A64] hover:underline"
+                      className="font-bold text-[#0B5ED7] hover:underline"
                     >
                       Xem người dùng
                     </Link>
@@ -269,7 +269,7 @@ const RoleManagement: React.FC = () => {
       </div>
 
       {/* Permissions Matrix Table */}
-      <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
         <div>
           <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
             Ma trận phân quyền chức năng
@@ -281,7 +281,7 @@ const RoleManagement: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-[#0B1713] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-slate-50 dark:bg-[#090E19] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
               <tr>
                 <th className="px-4 py-3 rounded-l-xl">Chức năng / Phân hệ</th>
                 <th className="px-4 py-3">Mô tả chi tiết</th>
@@ -292,7 +292,7 @@ const RoleManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-[rgba(148,163,184,0.12)]">
               {permissions.map((p, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors">
+                <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-[#162032]/40 transition-colors">
                   <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-slate-200">
                     {p.module}
                   </td>
@@ -301,7 +301,7 @@ const RoleManagement: React.FC = () => {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     {p.admin ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-[#008A64]">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/60 text-[#0B5ED7]">
                         <Check size={14} />
                       </span>
                     ) : (
@@ -312,7 +312,7 @@ const RoleManagement: React.FC = () => {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     {p.organizer ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-[#008A64]">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/60 text-[#0B5ED7]">
                         <Check size={14} />
                       </span>
                     ) : (
@@ -323,7 +323,7 @@ const RoleManagement: React.FC = () => {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     {p.debater ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-[#008A64]">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/60 text-[#0B5ED7]">
                         <Check size={14} />
                       </span>
                     ) : (

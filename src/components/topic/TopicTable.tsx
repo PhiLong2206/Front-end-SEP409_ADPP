@@ -59,7 +59,7 @@ const TopicTable: React.FC<TopicTableProps> = ({ topics }) => {
                     </Link>
                     <Link
                       to={`/debater/topics/${topic.id}`}
-                      className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#008A64] hover:bg-[#007457] rounded-xl transition-all shadow-sm shadow-[#008A64]/20 hover:scale-102"
+                      className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#0B5ED7] hover:bg-[#0a4fb4] rounded-xl transition-all shadow-sm shadow-[#0B5ED7]/20 hover:scale-102"
                     >
                       Bắt đầu
                     </Link>

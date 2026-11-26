@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Sparkles, Menu, Sun, Moon, Coins } from "lucide-react";
+import { Bell, Menu, Sun, Moon, Coins } from "lucide-react";
 import UserAvatarDropdown from "./UserAvatarDropdown";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../hooks/useAuth";
@@ -13,12 +13,10 @@ export interface DashboardHeaderProps {
   onMenuClick?: () => void;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  title,
-  subtitle,
-  action,
-  onMenuClick,
-}) => {
+const iconButton =
+  "relative flex h-11 w-11 sm:h-10 sm:w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-label-secondary transition-[background-color,color,transform] duration-(--t-fast) ease-ap hover:bg-canvas-secondary hover:text-label active:scale-95 motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30";
+
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ title, subtitle, action, onMenuClick }) => {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -41,79 +39,65 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   }, [user]);
 
   return (
-    <header className="h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors duration-200">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-(--s-3) border-b border-separator bg-(--glass-bg) px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-(--s-3)">
         {onMenuClick && (
-          <button
-            type="button"
-            onClick={onMenuClick}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors lg:hidden cursor-pointer"
-            title="Mở menu"
-          >
-            <Menu size={20} />
+          <button type="button" onClick={onMenuClick} className={`${iconButton} lg:hidden`} aria-label="Mở menu" title="Mở menu">
+            <Menu size={20} aria-hidden="true" />
           </button>
         )}
 
         {title ? (
-          <div>
-            <h1 className="text-base sm:text-lg font-black text-[#0F172A] dark:text-slate-100 leading-tight">{title}</h1>
-            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+          <div className="min-w-0">
+            <h1 className="truncate text-(length:--text-headline) font-semibold leading-(--leading-snug) tracking-(--tracking-display)">
+              {title}
+            </h1>
+            {subtitle && <p className="truncate text-(length:--text-caption) text-label-secondary">{subtitle}</p>}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/40 text-xs font-bold text-[#008A64] dark:text-emerald-400">
-              <Sparkles size={13} className="text-[#008A64] dark:text-emerald-400" />
-              <span>Nền tảng Luyện tập Tranh biện AI</span>
-            </span>
-          </div>
+          <p className="hidden truncate text-(length:--text-callout) text-label-secondary sm:block">
+            Nền tảng luyện tập tranh biện AI
+          </p>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-(--s-2) sm:gap-(--s-3)">
         {action && <div>{action}</div>}
 
-        {/* Credit Wallet Badge */}
+        {/* Credit wallet */}
         {user && (
           <Link
             to="/debater/payments"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all shadow-2xs group"
+            className="group inline-flex h-10 items-center gap-(--s-2) rounded-ap-pill bg-canvas-secondary pl-(--s-3) pr-1.5 text-(length:--text-callout) font-medium transition-colors duration-(--t-fast) hover:bg-accent-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
             title="Số dư điểm tín chỉ trong ví của bạn. Nhấn để nạp thêm."
           >
-            <Coins size={15} className="text-amber-500 group-hover:rotate-12 transition-transform" />
+            <Coins size={16} className="text-ap-warning transition-transform duration-(--t-base) group-hover:rotate-12 motion-reduce:transform-none" aria-hidden="true" />
             <span>{walletBalance !== null ? `${walletBalance.toLocaleString()} Credit` : "Ví điểm"}</span>
-            <span className="hidden sm:inline-block text-[10px] font-black bg-amber-200/80 dark:bg-amber-800/60 px-1.5 py-0.5 rounded-md text-amber-900 dark:text-amber-100">
-              + Nạp
+            <span className="hidden rounded-ap-pill bg-accent px-2.5 py-1 text-(length:--text-caption) font-medium text-accent-contrast sm:inline-block">
+              Nạp
             </span>
           </Link>
         )}
 
-        {/* Theme Toggle Button */}
+        {/* Theme toggle */}
         <button
           type="button"
           onClick={toggleTheme}
-          className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-[#101F1A] hover:bg-slate-100 dark:hover:bg-[#172C23] border border-slate-200 dark:border-[rgba(148,163,184,0.18)] flex items-center justify-center text-slate-700 dark:text-amber-400 hover:text-slate-900 transition-all duration-200 shadow-xs cursor-pointer active:scale-95 group"
+          className={iconButton}
           title={resolvedTheme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
           aria-label={resolvedTheme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
         >
-          {resolvedTheme === "dark" ? (
-            <Sun size={17} className="text-amber-400 transition-transform duration-200 group-hover:rotate-45" />
-          ) : (
-            <Moon size={17} className="text-slate-600 transition-transform duration-200 group-hover:-rotate-12" />
-          )}
+          {resolvedTheme === "dark" ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
         </button>
 
         {/* Notifications */}
-        <button
-          type="button"
-          className="relative p-2 text-slate-500 hover:text-[#008A64] dark:text-slate-400 dark:hover:text-emerald-400 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          title="Thông báo"
-        >
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#008A64] ring-2 ring-white dark:ring-slate-900" />
+        <button type="button" className={iconButton} title="Thông báo" aria-label="Thông báo">
+          <Bell size={18} aria-hidden="true" />
+          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-accent ring-2 ring-[color:var(--bg)]" />
         </button>
 
         {/* User avatar & logout dropdown */}
-        <div className="pl-2 border-l border-slate-200 dark:border-slate-800">
+        <div className="pl-(--s-2)">
           <UserAvatarDropdown />
         </div>
       </div>
@@ -122,6 +106,3 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 };
 
 export default DashboardHeader;
-
-
-

@@ -51,7 +51,7 @@ describe("RoundStatusBar: one status line and one clock", () => {
     expect(screen.getByTestId("round-status-text")).toHaveTextContent("Lượt của bạn");
     expect(screen.getByTestId("debate-countdown-timer")).toHaveTextContent("01:35");
     expect(screen.getByTestId("debate-countdown-timer")).toHaveAttribute("data-tone", "ok");
-    expect(screen.getByTestId("debate-countdown-timer").className).toContain("text-[#008A64]");
+    expect(screen.getByTestId("debate-countdown-timer").className).toContain("text-[#0B5ED7]");
 
     rerender(<RoundStatusBar {...baseProps} secondsRemaining={29} />);
     expect(screen.getByTestId("debate-countdown-timer")).toHaveAttribute("data-tone", "warn");

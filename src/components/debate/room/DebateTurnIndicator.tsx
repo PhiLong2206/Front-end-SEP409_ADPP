@@ -30,7 +30,7 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
   const isProTurn = currentTurnSide === SystemDebateSide.PRO || String(currentTurnSide) === "1";
 
   return (
-    <div className="bg-white dark:bg-[#12231C] px-4 sm:px-6 py-2 border-b border-slate-100 dark:border-slate-800/70 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+    <div className="bg-white dark:bg-[#0F1726] px-4 sm:px-6 py-2 border-b border-slate-100 dark:border-slate-800/70 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
       {/* Left: 3-round progress line */}
       <div className="flex items-center gap-2 sm:gap-4 max-w-xl w-full sm:w-auto">
         {rounds.map((item, idx) => {
@@ -43,10 +43,10 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
                     isPast
-                      ? "bg-[#008A64] text-white"
+                      ? "bg-[#0B5ED7] text-white"
                       : isCurrent
-                      ? "bg-[#008A64] text-white ring-2 ring-[#ECFDF5] dark:ring-emerald-950/80 shadow-xs"
-                      : "bg-slate-100 dark:bg-[#091713] text-slate-400 dark:text-[#64748B]"
+                      ? "bg-[#0B5ED7] text-white ring-2 ring-[#EAF2FF] dark:ring-blue-950/80 shadow-xs"
+                      : "bg-slate-100 dark:bg-[#060d1a] text-slate-400 dark:text-[#64748B]"
                   }`}
                 >
                   {isPast ? <Check size={11} strokeWidth={3} /> : item.round}
@@ -55,7 +55,7 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
                 <span
                   className={`text-xs font-semibold ${
                     isCurrent
-                      ? "text-[#008A64] dark:text-[#34D399]"
+                      ? "text-[#0B5ED7] dark:text-[#60A5FA]"
                       : isPast
                       ? "text-slate-700 dark:text-[#CBD5E1]"
                       : "text-slate-400 dark:text-[#64748B]"
@@ -69,7 +69,7 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
                 <div
                   className={`flex-1 sm:w-8 h-0.5 rounded-full transition-colors ${
                     item.round < currentRound || isDebateCompleted
-                      ? "bg-[#008A64]"
+                      ? "bg-[#0B5ED7]"
                       : "bg-slate-200 dark:bg-slate-800"
                   }`}
                 />
@@ -82,7 +82,7 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
       {/* Right: Active Speaker Banner */}
       <div className="flex items-center gap-2 text-xs">
         {isDebateCompleted ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] dark:text-[#34D399] border border-emerald-300 dark:border-emerald-700 font-bold">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0B5ED7] dark:text-[#60A5FA] border border-blue-300 dark:border-blue-700 font-bold">
             <Check size={13} />
             <span>Đã hoàn thành 3 vòng tranh biện</span>
           </span>
@@ -97,16 +97,16 @@ const DebateTurnIndicator: React.FC<DebateTurnIndicatorProps> = ({
             <span>Đang chờ đối thủ tham gia phòng đấu...</span>
           </span>
         ) : isMyTurn ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] dark:text-[#34D399] border border-emerald-300 dark:border-emerald-700 font-bold animate-pulse">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#0B5ED7] dark:text-[#60A5FA] border border-blue-300 dark:border-blue-700 font-bold animate-pulse">
             <Mic size={13} />
             <span>Đến lượt bạn phát biểu ({isProTurn ? "Ủng hộ" : "Phản đối"})</span>
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-[#091713] text-slate-700 dark:text-[#CBD5E1] border border-slate-200 dark:border-slate-800 font-medium">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-[#060d1a] text-slate-700 dark:text-[#CBD5E1] border border-slate-200 dark:border-slate-800 font-medium">
             {currentSpeakerName?.includes("AI") ? <Bot size={13} /> : <UserIcon size={13} />}
             <span>
               Lượt phát biểu:{" "}
-              <strong className={isProTurn ? "text-[#008A64] dark:text-[#34D399]" : "text-amber-600 dark:text-amber-400"}>
+              <strong className={isProTurn ? "text-[#0B5ED7] dark:text-[#60A5FA]" : "text-amber-600 dark:text-amber-400"}>
                 {currentSpeakerName || (isProTurn ? "Bên Ủng hộ (PRO)" : "Bên Phản đối (CON)")}
               </strong>
             </span>

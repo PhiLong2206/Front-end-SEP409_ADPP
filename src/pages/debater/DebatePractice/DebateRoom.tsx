@@ -50,6 +50,7 @@ import { isTeamDebateSession, roomSeatCount } from "../../../utils/debateRoomMod
 import RoundStatusBar from "../../../components/debate/room/RoundStatusBar";
 import TeamCallPanel from "../../../components/debate/room/TeamCallPanel";
 import DebateNotesPanel from "../../../components/debate/room/DebateNotesPanel";
+import TaskGuidePanel from "../../../components/debate/room/TaskGuidePanel";
 import { useDebateNotes } from "../../../hooks/useDebateNotes";
 import { useTeamCall } from "./useTeamCall";
 import {
@@ -898,6 +899,17 @@ const DebateRoom: React.FC = () => {
   );
 
   const mySide = myParticipant?.side;
+  // The task of my side comes from the session itself: a side swap brings a new session, and with it the new task.
+  // (Both people of a 2v2 team are on the same side, so they read the same text.)
+  const taskSide: "pro" | "con" | null =
+    userRoleInRoom === "Debater" && myParticipant && !myParticipant.isAI
+      ? mySide === 1 || String(mySide) === "PRO"
+        ? "pro"
+        : mySide === 2 || String(mySide) === "CON"
+        ? "con"
+        : null
+      : null;
+  const hasTaskGuides = Boolean(sessionDetails?.proGuide?.trim() || sessionDetails?.conGuide?.trim());
 
   // ONE source for the session data sent to the AI services: the Backend session first, then the URL.
   const backendLearnerSide: BackendDebateSide | null =
@@ -2633,10 +2645,10 @@ const DebateRoom: React.FC = () => {
         if (oCtx) {
           oCtx.clearRect(0, 0, overlay.width, overlay.height);
           if (res.face_detected && res.region) {
-            oCtx.strokeStyle = "#10B981";
+            oCtx.strokeStyle = "#3B82F6";
             oCtx.lineWidth = 2;
             oCtx.strokeRect(res.region.x, res.region.y, res.region.w, res.region.h);
-            oCtx.fillStyle = "rgba(16, 185, 129, 0.85)";
+            oCtx.fillStyle = "rgba(59, 130, 246, 0.85)";
             oCtx.font = "bold 11px sans-serif";
             oCtx.fillText(
               `${res.dominant_emotion.toUpperCase()} (${res.dominant_score}%)`,
@@ -3420,7 +3432,7 @@ const DebateRoom: React.FC = () => {
     (finishEvaluationFailed ? FINISH_EVALUATION_ERROR : null);
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#0B1813] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+    <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#080F1B] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
       {/* 1. COMPACT STICKY HEADER */}
       <DebateHeader
         motionText={motionText}
@@ -3500,7 +3512,7 @@ const DebateRoom: React.FC = () => {
           data-testid="debate-feedback-banner"
           className={`px-4 py-2 border-b text-xs flex items-center justify-between gap-2 shrink-0 ${
             roomFeedback?.type === "success"
-              ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200/70 dark:border-emerald-800/50"
+              ? "bg-blue-50/80 dark:bg-blue-950/30 border-blue-200/70 dark:border-blue-800/50"
               : roomFeedback?.type === "warning"
               ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200/70 dark:border-amber-800/50"
               : roomFeedback?.type === "info"
@@ -3513,7 +3525,7 @@ const DebateRoom: React.FC = () => {
               size={14}
               className={
                 roomFeedback?.type === "success"
-                  ? "text-[#008A64] shrink-0"
+                  ? "text-[#0B5ED7] shrink-0"
                   : roomFeedback?.type === "warning"
                   ? "text-amber-600 dark:text-amber-400 shrink-0"
                   : roomFeedback?.type === "info"
@@ -3532,7 +3544,7 @@ const DebateRoom: React.FC = () => {
                 type="button"
                 data-testid="retry-ai-turn-btn"
                 onClick={() => executeAiOpponentTurn(pendingAiTurn)}
-                className="px-2.5 py-1 rounded-lg bg-[#008A64] hover:bg-[#007457] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RefreshCw size={11} />
                 <span>Thử lại</span>
@@ -3544,7 +3556,7 @@ const DebateRoom: React.FC = () => {
                 type="button"
                 data-testid="retry-ai-record-btn"
                 onClick={() => executeAiOpponentTurn(pendingAiRecord.ctx, pendingAiRecord.speechText)}
-                className="px-2.5 py-1 rounded-lg bg-[#008A64] hover:bg-[#007457] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RefreshCw size={11} />
                 <span>Thử lại</span>
@@ -3556,7 +3568,7 @@ const DebateRoom: React.FC = () => {
                 type="button"
                 data-testid="retry-opponent-init-btn"
                 onClick={() => setOpponentInitNonce((n) => n + 1)}
-                className="px-2.5 py-1 rounded-lg bg-[#008A64] hover:bg-[#007457] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RefreshCw size={11} />
                 <span>Thử lại</span>
@@ -3568,7 +3580,7 @@ const DebateRoom: React.FC = () => {
                 type="button"
                 data-testid="retry-turn-evaluation-btn"
                 onClick={() => runTurnEvaluation(pendingTurnEvaluation)}
-                className="px-2.5 py-1 rounded-lg bg-[#008A64] hover:bg-[#007457] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RefreshCw size={11} />
                 <span>Thử lại</span>
@@ -3580,7 +3592,7 @@ const DebateRoom: React.FC = () => {
                 type="button"
                 data-testid="retry-finish-evaluation-btn"
                 onClick={handleFinishDebate}
-                className="px-2.5 py-1 rounded-lg bg-[#008A64] hover:bg-[#007457] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <RefreshCw size={11} />
                 <span>Thử lại</span>
@@ -3627,7 +3639,7 @@ const DebateRoom: React.FC = () => {
           data-testid="debate-lobby-loading"
           className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3"
         >
-          <Loader2 size={28} className="animate-spin text-[#008A64]" />
+          <Loader2 size={28} className="animate-spin text-[#0B5ED7]" />
           <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
             Đang kết nối vào phòng chờ tranh biện...
           </p>
@@ -3656,10 +3668,10 @@ const DebateRoom: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-3.5 bg-slate-50 dark:bg-[#091713] rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3 shrink-0">
+            <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3 shrink-0">
               <div>
                 <p className="text-[11px] text-slate-400 font-medium">Mã phòng tranh biện</p>
-                <p className="text-xl font-black font-mono text-[#008A64] dark:text-[#34D399]">
+                <p className="text-xl font-black font-mono text-[#0B5ED7] dark:text-[#60A5FA]">
                   #{sessionDetails.sessionId}
                 </p>
               </div>
@@ -3670,13 +3682,22 @@ const DebateRoom: React.FC = () => {
                   setCopiedCode(true);
                   setTimeout(() => setCopiedCode(false), 2000);
                 }}
-                className="px-3 py-1.5 text-xs font-bold bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1"
+                className="px-3 py-1.5 text-xs font-bold bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1"
               >
-                {copiedCode ? <Check size={14} className="text-[#008A64]" /> : <Copy size={14} />}
+                {copiedCode ? <Check size={14} className="text-[#0B5ED7]" /> : <Copy size={14} />}
                 <span>{copiedCode ? "Đã chép!" : "Copy mã"}</span>
               </button>
             </div>
           </div>
+
+          {taskSide && hasTaskGuides && (
+            <TaskGuidePanel
+              side={taskSide}
+              proGuide={sessionDetails.proGuide}
+              conGuide={sessionDetails.conGuide}
+              defaultOpen
+            />
+          )}
 
           {pendingSwapRequests.length > 0 && (
             <div className="space-y-2">
@@ -3697,7 +3718,7 @@ const DebateRoom: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleRespondSwapRequest(req.requesterUserId, true)}
-                      className="px-3 py-1.5 bg-[#008A64] text-white rounded-lg font-bold text-xs hover:bg-[#007457] transition-colors cursor-pointer"
+                      className="px-3 py-1.5 bg-[#0B5ED7] text-white rounded-lg font-bold text-xs hover:bg-[#0a4fb4] transition-colors cursor-pointer"
                     >
                       Đồng ý đổi phe
                     </button>
@@ -3715,13 +3736,13 @@ const DebateRoom: React.FC = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-[rgba(16,185,129,0.08)] border border-emerald-200/70 dark:border-emerald-800/40 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-emerald-100 dark:border-slate-800">
-                <div className="flex items-center gap-2 font-bold text-[#008A64] dark:text-[#34D399] text-sm">
+            <div className="p-4 rounded-xl bg-blue-50/60 dark:bg-[rgba(59,130,246,0.08)] border border-blue-200/70 dark:border-blue-800/40 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-blue-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 font-bold text-[#0B5ED7] dark:text-[#60A5FA] text-sm">
                   <Shield size={16} />
                   <span>Phe Ủng Hộ (PRO)</span>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300">
                   {proParticipants.length}/{seatsPerSide}
                 </span>
               </div>
@@ -3729,10 +3750,10 @@ const DebateRoom: React.FC = () => {
                 {proParticipants.map((p, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-emerald-100 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm"
+                    className="p-3 bg-white dark:bg-[#0F1726] rounded-xl border border-blue-100 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm"
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-[#008A64] text-white font-bold flex items-center justify-center text-xs">
+                      <div className="w-8 h-8 rounded-lg bg-[#0B5ED7] text-white font-bold flex items-center justify-center text-xs">
                         {p.isAI ? "AI" : p.speakerName?.slice(0, 2).toUpperCase() || "U"}
                       </div>
                       <div>
@@ -3758,7 +3779,7 @@ const DebateRoom: React.FC = () => {
                   </div>
                 ))}
                 {proParticipants.length < seatsPerSide && (
-                  <div className="p-3 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-emerald-700/70 py-4">
+                  <div className="p-3 rounded-xl border border-dashed border-blue-300 text-center text-xs text-blue-700/70 py-4">
                     Đang chờ Debater tham gia slot PRO...
                   </div>
                 )}
@@ -3779,7 +3800,7 @@ const DebateRoom: React.FC = () => {
                 {conParticipants.map((p, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-rose-100 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm"
+                    className="p-3 bg-white dark:bg-[#0F1726] rounded-xl border border-rose-100 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-rose-600 text-white font-bold flex items-center justify-center text-xs">
@@ -3836,7 +3857,7 @@ const DebateRoom: React.FC = () => {
                   type="button"
                   onClick={handleStartDebateSession}
                   disabled={!canHostStart || isStarting}
-                  className="w-full sm:w-auto px-6 py-3 bg-[#008A64] hover:bg-[#007457] text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-[#008A64]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-3 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-[#0B5ED7]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isStarting ? <Loader2 size={16} className="animate-spin" /> : <Swords size={16} />}
                   <span>
@@ -3924,6 +3945,16 @@ const DebateRoom: React.FC = () => {
               />
             )}
 
+            {taskSide && hasTaskGuides && !isAiDeviceSetup && (
+              <TaskGuidePanel
+                className="mx-4 mt-3"
+                side={taskSide}
+                proGuide={sessionDetails?.proGuide}
+                conGuide={sessionDetails?.conGuide}
+                defaultOpen={isPreparing}
+              />
+            )}
+
             {isPreparing && (
               <PreparationPanel
                 motion={motionText}
@@ -3963,7 +3994,7 @@ const DebateRoom: React.FC = () => {
                     aria-expanded={isRateMenuOpen}
                     aria-label={`Tốc độ đọc của AI: ${readRate}×`}
                     data-testid="ai-read-rate-btn"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
                   >
                     Tốc độ: {readRate}×
                   </button>
@@ -3975,7 +4006,7 @@ const DebateRoom: React.FC = () => {
                       onKeyDown={(e) => {
                         if (e.key === "Escape") setIsRateMenuOpen(false);
                       }}
-                      className="absolute right-0 z-30 mt-1 min-w-[7rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12231C] shadow-lg py-1"
+                      className="absolute right-0 z-30 mt-1 min-w-[7rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F1726] shadow-lg py-1"
                     >
                       {READ_RATE_CHOICES.map((choice) => (
                         <button
@@ -3989,7 +4020,7 @@ const DebateRoom: React.FC = () => {
                             setIsRateMenuOpen(false);
                           }}
                           className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                            choice === readRate ? "font-bold text-[#008A64] dark:text-emerald-400" : "text-slate-700 dark:text-slate-200"
+                            choice === readRate ? "font-bold text-[#0B5ED7] dark:text-blue-400" : "text-slate-700 dark:text-slate-200"
                           }`}
                         >
                           {choice}×
@@ -4004,7 +4035,7 @@ const DebateRoom: React.FC = () => {
                   aria-pressed={readAloud}
                   data-testid="ai-read-aloud-toggle"
                   title={`Đọc to bài nói của Đối thủ AI bằng giọng ${hasServerVoice ? "Azure (tiếng Việt) đã chọn" : viVoice?.name ?? ""}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
                 >
                   {readAloud ? <Volume2 size={14} aria-hidden="true" /> : <VolumeX size={14} aria-hidden="true" />}
                   {readAloud ? "AI đọc to: bật" : "AI đọc to: tắt"}

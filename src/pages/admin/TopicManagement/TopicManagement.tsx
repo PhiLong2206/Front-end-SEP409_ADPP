@@ -15,6 +15,14 @@ import {
   ChevronRight,
   BookOpen,
 } from "lucide-react";
+import TopicGuideFields from "../../../components/admin/TopicGuideFields";
+import {
+  defaultGuidePlaceholders,
+  guidesForCreate,
+  guidesForUpdate,
+  initialGuideValues,
+  type GuidePair,
+} from "../../../utils/topicGuides";
 import topicApi from "../../../api/topicApi";
 import { Topic, CreateTopicDto, UpdateTopicDto } from "../../../types";
 import { normalizeTopicCategory, TOPIC_CATEGORIES, topicCategoryLabel } from "../../../constants/topicCategories";
@@ -59,6 +67,9 @@ const AdminTopicManagement: React.FC = () => {
     difficulty: "Medium",
     isActive: true,
   });
+  // The task of each side. `guideInitial` is what the edit form opened with: only a changed field is sent.
+  const [guides, setGuides] = useState<GuidePair>({ pro: "", con: "" });
+  const [guideInitial, setGuideInitial] = useState<GuidePair>({ pro: "", con: "" });
 
   // The fixed categories: the option value is the code the backend stores, the text its label
   const categoriesList = TOPIC_CATEGORIES;
@@ -112,6 +123,8 @@ const AdminTopicManagement: React.FC = () => {
       difficulty: "Medium",
       isActive: true,
     });
+    setGuides({ pro: "", con: "" });
+    setGuideInitial({ pro: "", con: "" });
     setIsCreateModalOpen(true);
   };
 
@@ -126,6 +139,11 @@ const AdminTopicManagement: React.FC = () => {
       difficulty: t.difficulty || "Medium",
       isActive: t.isActive !== false,
     });
+    // A topic on the default text starts with empty fields (the default is only the placeholder): saving never
+    // writes the default into the database
+    const startGuides = initialGuideValues(t);
+    setGuides(startGuides);
+    setGuideInitial(startGuides);
   };
 
   // Submit Create Topic: POST /api/topics
@@ -145,6 +163,7 @@ const AdminTopicManagement: React.FC = () => {
         description: formData.description.trim() || undefined,
         category: formData.category,
         difficulty: formData.difficulty,
+        ...guidesForCreate(guides),
       };
 
       const res = await topicApi.create(payload);
@@ -186,6 +205,8 @@ const AdminTopicManagement: React.FC = () => {
         category: formData.category,
         difficulty: formData.difficulty,
         isActive: formData.isActive,
+        // Only a field that changed: left out = keep the current text, "" = back to the default text
+        ...guidesForUpdate(guideInitial, guides),
       };
 
       const res = await topicApi.update(topicId, payload);
@@ -247,7 +268,7 @@ const AdminTopicManagement: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
           >
             <Plus size={14} />
             <span>Thêm chủ đề mới</span>
@@ -257,9 +278,9 @@ const AdminTopicManagement: React.FC = () => {
             type="button"
             onClick={fetchTopics}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#1A2E26] hover:bg-slate-100 dark:hover:bg-[#233F34] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#162032] hover:bg-slate-100 dark:hover:bg-[#1D2B45] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
             <span>Làm mới</span>
           </button>
         </div>
@@ -279,19 +300,19 @@ const AdminTopicManagement: React.FC = () => {
       )}
 
       {success && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
+        <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-[#008A64] shrink-0" />
+            <CheckCircle2 size={16} className="text-[#0B5ED7] shrink-0" />
             <span>{success}</span>
           </div>
-          <button type="button" onClick={() => setSuccess("")} className="text-emerald-500 hover:text-emerald-700">
+          <button type="button" onClick={() => setSuccess("")} className="text-blue-500 hover:text-blue-700">
             <X size={14} />
           </button>
         </div>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-[#12231C] p-4 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#0F1726] p-4 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
         <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -299,7 +320,7 @@ const AdminTopicManagement: React.FC = () => {
             placeholder="Tìm theo tiêu đề... (Enter)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] text-slate-800 dark:text-slate-200"
+            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] text-slate-800 dark:text-slate-200"
           />
         </form>
 
@@ -315,7 +336,7 @@ const AdminTopicManagement: React.FC = () => {
               setSelectedCategory(e.target.value);
               setPageNumber(1);
             }}
-            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
           >
             <option value="ALL">Tất cả danh mục</option>
             {categoriesList.map((c) => (
@@ -331,7 +352,7 @@ const AdminTopicManagement: React.FC = () => {
               setSelectedDifficulty(e.target.value);
               setPageNumber(1);
             }}
-            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
           >
             <option value="ALL">Mọi độ khó</option>
             <option value="Easy">Dễ</option>
@@ -345,7 +366,7 @@ const AdminTopicManagement: React.FC = () => {
               setStatusFilter(e.target.value);
               setPageNumber(1);
             }}
-            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            className="px-3 py-2 text-xs bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="ACTIVE">Kích hoạt</option>
@@ -355,10 +376,10 @@ const AdminTopicManagement: React.FC = () => {
       </div>
 
       {/* Topics Table */}
-      <div className="bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400">
-            <RefreshCw size={24} className="animate-spin text-[#008A64] mx-auto mb-2" />
+            <RefreshCw size={24} className="animate-spin text-[#0B5ED7] mx-auto mb-2" />
             <span>Đang tải danh sách chủ đề từ máy chủ Backend...</span>
           </div>
         ) : topics.length === 0 ? (
@@ -368,7 +389,7 @@ const AdminTopicManagement: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-[#0B1713] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+              <thead className="bg-slate-50 dark:bg-[#090E19] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-5 py-3.5">Mã ID</th>
                   <th className="px-5 py-3.5">Tiêu đề kiến nghị</th>
@@ -393,7 +414,7 @@ const AdminTopicManagement: React.FC = () => {
                   return (
                     <tr
                       key={String(topicId)}
-                      className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors"
+                      className="hover:bg-slate-50/60 dark:hover:bg-[#162032]/40 transition-colors"
                     >
                       <td className="px-5 py-3.5 font-mono text-slate-400">#{topicId}</td>
                       <td className="px-5 py-3.5 max-w-sm">
@@ -418,7 +439,7 @@ const AdminTopicManagement: React.FC = () => {
                               ? "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
                               : topic.difficulty === "Hard"
                               ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
-                              : "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : "bg-blue-50 text-[#0B5ED7] dark:bg-blue-950/60 dark:text-blue-300"
                           }`}
                         >
                           {difficultyLabel}
@@ -426,7 +447,7 @@ const AdminTopicManagement: React.FC = () => {
                       </td>
                       <td className="px-5 py-3.5">
                         {isActive ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
                             <CheckCircle2 size={12} /> Hoạt động
                           </span>
                         ) : (
@@ -453,7 +474,7 @@ const AdminTopicManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(topic)}
-                            className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-[#008A64] dark:text-emerald-300 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-[#0B5ED7] dark:text-blue-300 transition-colors cursor-pointer"
                             title="Chỉnh sửa chủ đề"
                           >
                             <Edit3 size={13} />
@@ -479,11 +500,11 @@ const AdminTopicManagement: React.FC = () => {
         )}
 
         {/* Pagination Bar */}
-        <div className="p-4 bg-slate-50 dark:bg-[#0B1713] border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div className="p-4 bg-slate-50 dark:bg-[#090E19] border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <span className="text-slate-500 dark:text-slate-400">
             Hiển thị trang <span className="font-bold text-slate-800 dark:text-slate-200">{pageNumber}</span> /{" "}
             <span className="font-bold text-slate-800 dark:text-slate-200">{totalPages}</span> (Tổng cộng{" "}
-            <span className="font-bold text-[#008A64]">{totalCount}</span> chủ đề)
+            <span className="font-bold text-[#0B5ED7]">{totalCount}</span> chủ đề)
           </span>
 
           <div className="flex items-center gap-1.5">
@@ -491,7 +512,7 @@ const AdminTopicManagement: React.FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
               disabled={pageNumber <= 1 || loading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
             >
               <ChevronLeft size={14} />
               <span>Trang trước</span>
@@ -501,7 +522,7 @@ const AdminTopicManagement: React.FC = () => {
               type="button"
               onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
               disabled={pageNumber >= totalPages || loading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#12231C] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-[#0F1726] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold transition-all disabled:opacity-40 cursor-pointer"
             >
               <span>Trang sau</span>
               <ChevronRight size={14} />
@@ -513,10 +534,10 @@ const AdminTopicManagement: React.FC = () => {
       {/* Modal: Thêm chủ đề mới (POST /api/topics) */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)]">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] flex items-center justify-center">
                   <BookOpen size={16} />
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -543,7 +564,7 @@ const AdminTopicManagement: React.FC = () => {
                   placeholder="Ví dụ: Chúng tôi tin rằng Trí tuệ Nhân tạo nên được quản lý chặt chẽ..."
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                 />
               </div>
 
@@ -556,9 +577,18 @@ const AdminTopicManagement: React.FC = () => {
                   placeholder="Cung cấp bối cảnh, thông tin nền hoặc gợi ý trọng tâm cho phiên tranh biện..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                 />
               </div>
+
+              <TopicGuideFields
+                idPrefix="topic-create"
+                proValue={guides.pro}
+                conValue={guides.con}
+                onProChange={(v) => setGuides((g) => ({ ...g, pro: v }))}
+                onConChange={(v) => setGuides((g) => ({ ...g, con: v }))}
+                hint="Để trống để dùng nội dung mặc định của hệ thống."
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -570,7 +600,7 @@ const AdminTopicManagement: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     required
                     data-testid="topic-category-select"
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                   >
                     <option value="" disabled>
                       Chọn danh mục
@@ -590,7 +620,7 @@ const AdminTopicManagement: React.FC = () => {
                   <select
                     value={formData.difficulty}
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                   >
                     <option value="Easy">Dễ</option>
                     <option value="Medium">Trung bình</option>
@@ -610,7 +640,7 @@ const AdminTopicManagement: React.FC = () => {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] text-white font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {actionLoading && <RefreshCw size={13} className="animate-spin" />}
                   <span>Tạo chủ đề</span>
@@ -624,10 +654,10 @@ const AdminTopicManagement: React.FC = () => {
       {/* Modal: Chỉnh sửa chủ đề (PATCH /api/topics/{id}) */}
       {editingTopic && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)]">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] flex items-center justify-center">
                   <Edit3 size={16} />
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -653,7 +683,7 @@ const AdminTopicManagement: React.FC = () => {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                 />
               </div>
 
@@ -665,9 +695,24 @@ const AdminTopicManagement: React.FC = () => {
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                 />
               </div>
+
+              <TopicGuideFields
+                idPrefix="topic-edit"
+                proValue={guides.pro}
+                conValue={guides.con}
+                onProChange={(v) => setGuides((g) => ({ ...g, pro: v }))}
+                onConChange={(v) => setGuides((g) => ({ ...g, con: v }))}
+                proPlaceholder={defaultGuidePlaceholders(editingTopic).pro}
+                conPlaceholder={defaultGuidePlaceholders(editingTopic).con}
+                hint={
+                  editingTopic?.hasCustomGuides === false
+                    ? "Chủ đề đang dùng nội dung mặc định (chữ mờ). Nhập nội dung để tạo nhiệm vụ riêng; để trống thì giữ nguyên."
+                    : "Xoá hết nội dung rồi lưu để quay về nội dung mặc định."
+                }
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -679,7 +724,7 @@ const AdminTopicManagement: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     required
                     data-testid="topic-category-select"
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                   >
                     <option value="" disabled>
                       Chọn danh mục
@@ -699,7 +744,7 @@ const AdminTopicManagement: React.FC = () => {
                   <select
                     value={formData.difficulty}
                     onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7]"
                   >
                     <option value="Easy">Dễ</option>
                     <option value="Medium">Trung bình</option>
@@ -714,7 +759,7 @@ const AdminTopicManagement: React.FC = () => {
                     type="checkbox"
                     checked={formData.isActive}
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="w-4 h-4 accent-[#008A64] rounded cursor-pointer"
+                    className="w-4 h-4 accent-[#0B5ED7] rounded cursor-pointer"
                   />
                   <span className="font-bold text-slate-700 dark:text-slate-300">
                     Kích hoạt chủ đề (Khả dụng cho các phiên tranh biện)
@@ -733,7 +778,7 @@ const AdminTopicManagement: React.FC = () => {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] text-white font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {actionLoading && <RefreshCw size={13} className="animate-spin" />}
                   <span>Lưu thay đổi</span>
@@ -747,7 +792,7 @@ const AdminTopicManagement: React.FC = () => {
       {/* Modal: Xác nhận xóa (DELETE /api/topics/{id}) */}
       {deletingTopic && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-[#12231C] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
+          <div className="bg-white dark:bg-[#0F1726] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 size={20} />
