@@ -110,3 +110,57 @@ export interface RewardClaimResponse {
   newBalance: number;
   claimedAt: string;
 }
+
+export interface CreditPricesResponse {
+  aiPracticeRag: number;
+  aiPracticeNoRag: number;
+  isAiPracticeNoRagSupported: boolean;
+  aiHint: number;
+  competitionSmall: number;
+  competitionMedium: number;
+  competitionLarge: number;
+  customTopUpUnitPriceVnd: number;
+  customTopUpMinCredits: number;
+  customTopUpMaxCredits: number;
+}
+
+export interface CompetitionPriceResponse {
+  scale: string;
+  requiredCredits: number;
+  maxParticipantsOrTeams: number;
+  ruleCode: string;
+}
+
+export interface CustomTopUpQuoteResponse {
+  creditAmount: number;
+  unitPriceVnd: number;
+  totalAmountVnd: number;
+  currency: string;
+  minCredits: number;
+  maxCredits: number;
+}
+
+export interface CustomTopUpPaymentRequest {
+  creditAmount: number;
+  frontendOrigin?: string;
+}
+
+export interface ArgumentHintRequest {
+  sessionId: number;
+  argumentId?: number;
+  roundNumber?: number;
+  draftText?: string;
+  requestId?: string;
+}
+
+export interface ArgumentHintResponse {
+  creditsCharged: number;
+  remainingBalance: number;
+  hint: string;
+}
+
+export interface InsufficientCreditsErrorData {
+  requiredCredits?: number;
+  currentCredits?: number;
+  missingCredits?: number;
+}

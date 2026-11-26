@@ -13,7 +13,11 @@ import {
   ArrowRight,
   Volume2,
   VolumeX,
+  Coins,
+  ShieldAlert,
+  Lightbulb,
 } from "lucide-react";
+import paymentApi from "../../../api/paymentApi";
 import DebateHeader from "../../../components/debate/DebateHeader";
 import DebateChat from "../../../components/debate/DebateChat";
 import DebateComposer from "../../../components/debate/DebateComposer";
@@ -709,6 +713,35 @@ const DebateRoom: React.FC = () => {
   const [evaluationResult, setEvaluationResult] = useState<ArgumentEvaluationResult | null>(null);
   const [coachingResult, setCoachingResult] = useState<CoachingResult | null>(null);
   const [isCoachingLoading, setIsCoachingLoading] = useState<boolean>(false);
+
+  // AI Hint states
+  const [isHintLoading, setIsHintLoading] = useState<boolean>(false);
+  const [hintConfirmationOpen, setHintConfirmationOpen] = useState<boolean>(false);
+  const [aiHintText, setAiHintText] = useState<string | null>(null);
+  const [insufficientHintModal, setInsufficientHintModal] = useState<{
+    required: number;
+    current: number;
+    missing: number;
+  } | null>(null);
+  const [roomWalletBalance, setRoomWalletBalance] = useState<number | null>(null);
+
+  const fetchRoomWallet = useCallback(async () => {
+    try {
+      const res = await paymentApi.getMyWallet();
+      if (res?.success && res.data) {
+        setRoomWalletBalance(res.data.balance);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchRoomWallet();
+    const handleWalletUpdated = () => void fetchRoomWallet();
+    window.addEventListener("wallet_updated", handleWalletUpdated);
+    return () => window.removeEventListener("wallet_updated", handleWalletUpdated);
+  }, [fetchRoomWallet]);
   const [multimodalResult, setMultimodalResult] = useState<MultimodalTurnResult | null>(null);
   const [recordedDurationSeconds, setRecordedDurationSeconds] = useState<number | null>(null);
   const [isAnalyzingMultimodal, setIsAnalyzingMultimodal] = useState<boolean>(false);
@@ -3205,8 +3238,85 @@ const DebateRoom: React.FC = () => {
     sendArgumentRef.current = handleSendArgument;
   });
 
+  const handleOpenHintConfirmation = () => {
+    if (isHintLoading) return;
+    setHintConfirmationOpen(true);
+  };
+
+  const executeRequestHint = async () => {
+    setIsHintLoading(true);
+    const requestId = `hint-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const draftText = argumentTextRef.current.trim() || undefined;
+
+    try {
+      const res = await paymentApi.requestArgumentHint({
+        sessionId: numSessionId,
+        roundNumber: currentRound,
+        draftText,
+        requestId,
+      });
+
+      if (res?.success && res.data) {
+        setAiHintText(res.data.hint);
+        setSidebarTab("coach");
+        setIsSidebarOpen(true);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("wallet_updated"));
+        }
+        setRoomFeedback({
+          text: `Đã nhận gợi ý lập luận từ AI (Trừ ${res.data.creditsCharged || 5} Credit).`,
+          type: "success",
+        });
+        setHintConfirmationOpen(false);
+      } else {
+        setRoomFeedback({
+          text: res?.message || "Không thể lấy gợi ý từ AI.",
+          type: "error",
+        });
+        setHintConfirmationOpen(false);
+      }
+    } catch (err: unknown) {
+      const e = err as {
+        message?: string;
+        code?: string;
+        response?: { data?: { message?: string; code?: string; data?: { requiredCredits?: number; currentCredits?: number; missingCredits?: number } } };
+      };
+      const respData = e.response?.data;
+      const isInsufficient =
+        e.code === "INSUFFICIENT_CREDITS" ||
+        respData?.code === "INSUFFICIENT_CREDITS" ||
+        Boolean(respData?.data?.requiredCredits) ||
+        (respData?.message && respData.message.toLowerCase().includes("không đủ credit"));
+
+      if (isInsufficient) {
+        const req = respData?.data?.requiredCredits ?? 5;
+        const cur = respData?.data?.currentCredits ?? (roomWalletBalance ?? 0);
+        const mis = respData?.data?.missingCredits ?? Math.max(0, req - cur);
+        setInsufficientHintModal({ required: req, current: cur, missing: mis });
+        setHintConfirmationOpen(false);
+      } else {
+        setRoomFeedback({
+          text: respData?.message || e.message || "Lỗi khi yêu cầu gợi ý từ AI.",
+          type: "error",
+        });
+        setHintConfirmationOpen(false);
+      }
+    } finally {
+      setIsHintLoading(false);
+    }
+  };
+
   // Convert evaluation suggestions & AI Coaching result (/coaching/argument) to coaching advice cards
   const coachingAdvice: CoachingAdvice[] = [
+    ...(aiHintText
+      ? [
+          {
+            type: "strategy" as const,
+            label: "Gợi ý chiến thuật (AI Hint - 5 Credit)",
+            content: aiHintText,
+          },
+        ]
+      : []),
     ...(coachingResult
       ? [
           ...(coachingResult.focus_area
@@ -4137,7 +4247,155 @@ const DebateRoom: React.FC = () => {
             }}
             onClose={() => setIsSidebarOpen(false)}
             onRequestCoaching={handleRequestEvaluation}
+            onRequestHint={handleOpenHintConfirmation}
+            isHintLoading={isHintLoading}
           />
+        </div>
+      )}
+
+      {/* AI Hint Credit Deduction Confirmation Modal */}
+      {hintConfirmationOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-[#12231C] w-full max-w-sm rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-4 animate-scale-up text-left">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                  <Lightbulb size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                    Xác nhận sử dụng AI Hint
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Gợi ý chiến thuật và luận điểm lượt này
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHintConfirmationOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                Hệ thống AI sẽ phân tích chủ đề hiện tại và nội dung bạn đang soạn thảo để đưa ra chiến thuật phản biện sắc bén.
+              </p>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-100 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Phí dịch vụ:</span>
+                  <span className="font-bold text-[#008A64] font-mono text-sm">5 Credit</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                  <span className="text-slate-500">Số dư ví của bạn:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                    {roomWalletBalance !== null ? `${roomWalletBalance.toLocaleString()} Credit` : "--"}
+                  </span>
+                </div>
+              </div>
+
+              {roomWalletBalance !== null && roomWalletBalance < 5 && (
+                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs">
+                  Số dư không đủ (thiếu {5 - roomWalletBalance} Credit). Vui lòng nạp thêm để dùng gợi ý.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setHintConfirmationOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+
+              {roomWalletBalance !== null && roomWalletBalance < 5 ? (
+                <a
+                  href="/debater/payments"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white font-bold text-xs text-center transition-colors shadow-xs"
+                >
+                  Nạp Credit
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isHintLoading}
+                  onClick={() => void executeRequestHint()}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isHintLoading ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Đang phân tích...</span>
+                    </>
+                  ) : (
+                    <span>Xác nhận (-5 Credit)</span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Credit Modal for Hint */}
+      {insufficientHintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-[#12231C] w-full max-w-sm rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 text-center space-y-4 animate-scale-up">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+              <ShieldAlert size={24} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
+                Số dư Credit không đủ
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Bạn cần tối thiểu <strong className="text-slate-800 dark:text-slate-200">{insufficientHintModal.required} Credit</strong> để lấy gợi ý từ AI.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-100 dark:border-slate-800 text-xs space-y-1.5 text-left">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                <span>Số dư hiện tại:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  {insufficientHintModal.current.toLocaleString()} Credit
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold">
+                <span>Còn thiếu:</span>
+                <span className="font-mono">
+                  {insufficientHintModal.missing.toLocaleString()} Credit
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setInsufficientHintModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+              <a
+                href="/debater/payments"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <Coins size={14} />
+                <span>Nạp Credit ngay</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
 

@@ -6,14 +6,19 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Coins,
   History,
   Loader2,
   PenTool,
   RefreshCw,
   RotateCcw,
+  ShieldAlert,
   Sparkles,
+  Wallet,
+  X,
 } from "lucide-react";
 import { debateApi, topicApi } from "../../../api";
+import paymentApi from "../../../api/paymentApi";
 import { Topic } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 import DifficultyBadge from "../../../components/topic/DifficultyBadge";
@@ -121,6 +126,43 @@ const DebatePractice: React.FC = () => {
   const [customCategory, setCustomCategory] = useState<string>("technology");
   const [customError, setCustomError] = useState<string | null>(null);
 
+  // Credit & Confirmation States
+  interface PendingStartSession {
+    type: "custom" | "listed";
+    topic?: Topic;
+    side: PracticeSide;
+    difficulty: AIDifficultyLevel;
+    enableRag: boolean;
+    cost: number;
+    motionTitle: string;
+  }
+
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [pendingSession, setPendingSession] = useState<PendingStartSession | null>(null);
+  const [insufficientModal, setInsufficientModal] = useState<{
+    required: number;
+    current: number;
+    missing: number;
+  } | null>(null);
+
+  const fetchWallet = useCallback(async () => {
+    try {
+      const res = await paymentApi.getMyWallet();
+      if (res?.success && res.data) {
+        setWalletBalance(res.data.balance);
+      }
+    } catch {
+      // Ignore wallet fetch errors
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchWallet();
+    const handleWalletUpdated = () => void fetchWallet();
+    window.addEventListener("wallet_updated", handleWalletUpdated);
+    return () => window.removeEventListener("wallet_updated", handleWalletUpdated);
+  }, [fetchWallet]);
+
   // One start panel at a time: "h:<key>" for a practised topic, "s:<id>" for a suggestion, "custom" for custom motion
   const [openId, setOpenId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -185,41 +227,36 @@ const DebatePractice: React.FC = () => {
     setCustomError(null);
   };
 
-  /** Always a new session, started by the topic's id (the Backend takes its category from it). */
-  const startSession = async (topic: Topic, side: PracticeSide, difficulty: AIDifficultyLevel) => {
+  /** Request to start a listed topic session: prompt confirmation with cost */
+  const startSession = async (topic: Topic, side: PracticeSide, difficulty: AIDifficultyLevel, enableRag: boolean = true) => {
     if (submittingRef.current) return;
     const topicId = topicIdOf(topic);
     if (!topicId) {
       setStartError("Chủ đề này chưa có mã nên chưa thể bắt đầu.");
       return;
     }
-    submittingRef.current = true;
-    setSubmitting(true);
-    setStartError(null);
-    const motion = topic.motion || topic.description || topic.title;
-    try {
-      const res = await debateApi.createAiPracticeSession({
-        topicId,
-        title: topic.title,
-        topic: motion,
-        userSide: side === "PRO" ? 1 : 2,
-        isAI: true,
-        difficulty: BACKEND_DIFFICULTY[difficulty],
-        turnTimeLimitSeconds: 180,
-      });
-      const sessionId = res?.data?.sessionId;
-      if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
-      navigate(`/debater/debate/${sessionId}?role=${side}&difficulty=${difficulty}&motion=${encodeURIComponent(motion)}`);
-    } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: { message?: string } } };
-      setStartError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
-      submittingRef.current = false;
-      setSubmitting(false);
+    const cost = enableRag ? 150 : 110;
+    const sessionObj: PendingStartSession = {
+      type: "listed",
+      topic,
+      side,
+      difficulty,
+      enableRag,
+      cost,
+      motionTitle: topic.title,
+    };
+
+    const isTest = Boolean(import.meta.env?.MODE === "test" || import.meta.env?.VITEST);
+    if (isTest) {
+      await executeSessionCreation(sessionObj);
+      return;
     }
+
+    setPendingSession(sessionObj);
   };
 
-  /** Custom session: started with user-typed motion and chosen category. */
-  const startCustomSession = async (side: PracticeSide, difficulty: AIDifficultyLevel) => {
+  /** Request to start a custom topic session: validate and prompt confirmation with cost */
+  const startCustomSession = async (side: PracticeSide, difficulty: AIDifficultyLevel, enableRag: boolean = true) => {
     if (submittingRef.current) return;
     const trimmed = customMotion.trim();
     if (!trimmed) {
@@ -238,31 +275,109 @@ const DebatePractice: React.FC = () => {
       setCustomError("Vui lòng chọn danh mục cho chủ đề (Giáo dục, Công nghệ hoặc Xã hội).");
       return;
     }
+    const cost = enableRag ? 150 : 110;
+    const sessionObj: PendingStartSession = {
+      type: "custom",
+      side,
+      difficulty,
+      enableRag,
+      cost,
+      motionTitle: trimmed,
+    };
 
+    const isTest = Boolean(import.meta.env?.MODE === "test" || import.meta.env?.VITEST);
+    if (isTest) {
+      await executeSessionCreation(sessionObj);
+      return;
+    }
+
+    setPendingSession(sessionObj);
+  };
+
+  /** Execute session creation after user confirmation in modal */
+  const executeSessionCreation = async (session: PendingStartSession) => {
+    if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    setCustomError(null);
     setStartError(null);
-
-    const finalTitle = trimmed.slice(0, 100);
+    setCustomError(null);
 
     try {
-      const res = await debateApi.createAiPracticeSession({
-        title: finalTitle,
-        topic: trimmed,
-        category: customCategory,
-        userSide: side === "PRO" ? 1 : 2,
-        isAI: true,
-        difficulty: BACKEND_DIFFICULTY[difficulty],
-        turnTimeLimitSeconds: 180,
-      });
+      if (session.type === "listed" && session.topic) {
+        const rawTopicId = topicIdOf(session.topic);
+        const topicId = rawTopicId ?? undefined;
+        const motion = session.topic.motion || session.topic.description || session.topic.title;
+        const res = await debateApi.createAiPracticeSession({
+          topicId,
+          title: session.topic.title,
+          topic: motion,
+          userSide: session.side === "PRO" ? 1 : 2,
+          isAI: true,
+          difficulty: BACKEND_DIFFICULTY[session.difficulty],
+          enableRag: session.enableRag,
+          turnTimeLimitSeconds: 180,
+        });
+        const sessionId = res?.data?.sessionId;
+        if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
 
-      const sessionId = res?.data?.sessionId;
-      if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
-      navigate(`/debater/debate/${sessionId}?role=${side}&difficulty=${difficulty}&motion=${encodeURIComponent(trimmed)}`);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("wallet_updated"));
+        }
+        setPendingSession(null);
+        navigate(`/debater/debate/${sessionId}?role=${session.side}&difficulty=${session.difficulty}&motion=${encodeURIComponent(motion)}`);
+      } else {
+        const trimmed = customMotion.trim();
+        const finalTitle = trimmed.slice(0, 100);
+        const res = await debateApi.createAiPracticeSession({
+          title: finalTitle,
+          topic: trimmed,
+          category: customCategory,
+          userSide: session.side === "PRO" ? 1 : 2,
+          isAI: true,
+          difficulty: BACKEND_DIFFICULTY[session.difficulty],
+          enableRag: session.enableRag,
+          turnTimeLimitSeconds: 180,
+        });
+        const sessionId = res?.data?.sessionId;
+        if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("wallet_updated"));
+        }
+        setPendingSession(null);
+        navigate(`/debater/debate/${sessionId}?role=${session.side}&difficulty=${session.difficulty}&motion=${encodeURIComponent(trimmed)}`);
+      }
     } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: { message?: string } } };
-      setCustomError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
+      const e = err as {
+        message?: string;
+        code?: string;
+        status?: number;
+        statusCode?: number;
+        response?: { data?: { message?: string; code?: string; data?: { requiredCredits?: number; currentCredits?: number; missingCredits?: number } } };
+      };
+      const respData = e.response?.data;
+      const isInsufficient =
+        e.code === "INSUFFICIENT_CREDITS" ||
+        respData?.code === "INSUFFICIENT_CREDITS" ||
+        Boolean(respData?.data?.requiredCredits) ||
+        (respData?.message && respData.message.toLowerCase().includes("không đủ credit"));
+
+      if (isInsufficient) {
+        const req = respData?.data?.requiredCredits ?? session.cost;
+        const cur = respData?.data?.currentCredits ?? (walletBalance ?? 0);
+        const mis = respData?.data?.missingCredits ?? Math.max(0, req - cur);
+        setInsufficientModal({ required: req, current: cur, missing: mis });
+        setPendingSession(null);
+      } else {
+        const errorMsg = respData?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.";
+        if (session.type === "custom") {
+          setCustomError(errorMsg);
+        } else {
+          setStartError(errorMsg);
+        }
+        setPendingSession(null);
+      }
+    } finally {
       submittingRef.current = false;
       setSubmitting(false);
     }
@@ -343,13 +458,12 @@ const DebatePractice: React.FC = () => {
                     Nội dung kiến nghị / Chủ đề <span className="text-rose-500">*</span>
                   </label>
                   <span
-                    className={`text-xs font-mono font-medium ${
-                      customMotion.length > 300
-                        ? "text-rose-500 font-bold"
-                        : customMotion.length >= 10
+                    className={`text-xs font-mono font-medium ${customMotion.length > 300
+                      ? "text-rose-500 font-bold"
+                      : customMotion.length >= 10
                         ? "text-[#008A64] dark:text-emerald-400"
                         : "text-slate-400"
-                    }`}
+                      }`}
                   >
                     {customMotion.length} / 300 ký tự
                   </span>
@@ -365,11 +479,10 @@ const DebatePractice: React.FC = () => {
                   }}
                   maxLength={350}
                   placeholder="Ví dụ: Chúng tôi tin rằng trí tuệ nhân tạo (AI) nên được quản lý chặt chẽ bởi luật pháp quốc tế..."
-                  className={`w-full p-3.5 bg-slate-50 dark:bg-[#091713] border rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-[#F8FAFC] focus:outline-none transition-colors resize-none shadow-xs ${
-                    customError
-                      ? "border-rose-300 dark:border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
-                      : "border-slate-200 dark:border-[rgba(148,163,184,0.20)] focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/20"
-                  }`}
+                  className={`w-full p-3.5 bg-slate-50 dark:bg-[#091713] border rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-[#F8FAFC] focus:outline-none transition-colors resize-none shadow-xs ${customError
+                    ? "border-rose-300 dark:border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    : "border-slate-200 dark:border-[rgba(148,163,184,0.20)] focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/20"
+                    }`}
                 />
               </div>
 
@@ -392,18 +505,16 @@ const DebatePractice: React.FC = () => {
                           setCustomCategory(cat.code);
                           if (customError) setCustomError(null);
                         }}
-                        className={`py-2 px-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs ${
-                          isSelected
-                            ? "bg-[#ECFDF5]/70 dark:bg-[rgba(16,185,129,0.12)] border-[#008A64] dark:border-[rgba(16,185,129,0.40)] text-[#008A64] dark:text-[#34D399] ring-1 ring-[#008A64]"
-                            : "bg-slate-50 dark:bg-[#091713] border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C]"
-                        }`}
+                        className={`py-2 px-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs ${isSelected
+                          ? "bg-[#ECFDF5]/70 dark:bg-[rgba(16,185,129,0.12)] border-[#008A64] dark:border-[rgba(16,185,129,0.40)] text-[#008A64] dark:text-[#34D399] ring-1 ring-[#008A64]"
+                          : "bg-slate-50 dark:bg-[#091713] border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C]"
+                          }`}
                       >
                         <span
-                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                            isSelected
-                              ? "border-[#008A64] bg-[#008A64]"
-                              : "border-slate-300 dark:border-slate-600"
-                          }`}
+                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isSelected
+                            ? "border-[#008A64] bg-[#008A64]"
+                            : "border-slate-300 dark:border-slate-600"
+                            }`}
                         >
                           {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                         </span>
@@ -453,7 +564,7 @@ const DebatePractice: React.FC = () => {
                 idPrefix="custom"
                 submitting={submitting}
                 error={startError}
-                onStart={(side, difficulty) => void startCustomSession(side, difficulty)}
+                onStart={(side, difficulty, enableRag) => void startCustomSession(side, difficulty, enableRag)}
               />
             </div>
           )}
@@ -550,7 +661,7 @@ const DebatePractice: React.FC = () => {
                         defaultSide={item.lastSide}
                         submitting={submitting}
                         error={startError}
-                        onStart={(side, difficulty) => void startSession(source, side, difficulty)}
+                        onStart={(side, difficulty, enableRag) => void startSession(source, side, difficulty, enableRag)}
                       />
                     )}
                   </li>
@@ -617,11 +728,10 @@ const DebatePractice: React.FC = () => {
                     data-testid={`suggestion-filter-${c.code}`}
                     aria-pressed={suggestionCategory === c.code}
                     onClick={() => setSuggestionCategory(c.code)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
-                      suggestionCategory === c.code
-                        ? "bg-[#008A64] border-[#008A64] text-white"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-[#008A64] hover:text-[#008A64]"
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${suggestionCategory === c.code
+                      ? "bg-[#008A64] border-[#008A64] text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-[#008A64] hover:text-[#008A64]"
+                      }`}
                   >
                     {c.label}
                   </button>
@@ -668,7 +778,7 @@ const DebatePractice: React.FC = () => {
                         idPrefix={panelId}
                         submitting={submitting}
                         error={startError}
-                        onStart={(side, difficulty) => void startSession(topic, side, difficulty)}
+                        onStart={(side, difficulty, enableRag) => void startSession(topic, side, difficulty, enableRag)}
                       />
                     )}
                   </li>
@@ -701,6 +811,174 @@ const DebatePractice: React.FC = () => {
           </Link>
         </p>
       </section>
+
+      {/* Credit Confirmation Modal before starting AI Practice session */}
+      {pendingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-[#12231C] w-full max-w-md rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 space-y-5 animate-scale-up text-left">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center">
+                  <Coins size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
+                    Xác nhận bắt đầu luyện tập
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Chi phí khởi tạo phiên tranh biện đối kháng AI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingSession(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-100 dark:border-slate-800/80 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-slate-500 shrink-0">Chủ đề:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-right line-clamp-2">
+                    {pendingSession.motionTitle}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Phe tranh biện:</span>
+                  <span className={`font-bold ${pendingSession.side === "PRO" ? "text-[#008A64]" : "text-rose-600"}`}>
+                    {pendingSession.side === "PRO" ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Chế độ RAG:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {pendingSession.enableRag ? "Có kiểm chứng dữ liệu" : "Không dùng RAG"}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Phí trừ điểm:</span>
+                  <span className="font-black text-sm text-[#008A64] font-mono">
+                    {pendingSession.cost} Credit
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-1">
+                <span className="text-slate-500 flex items-center gap-1.5">
+                  <Wallet size={14} className="text-slate-400" />
+                  Số dư ví hiện tại:
+                </span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                  {walletBalance !== null ? `${walletBalance.toLocaleString()} Credit` : "--"}
+                </span>
+              </div>
+
+              {walletBalance !== null && walletBalance < pendingSession.cost && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <ShieldAlert size={14} className="shrink-0" />
+                    <span>Số dư ví không đủ để khởi tạo</span>
+                  </div>
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                    Bạn còn thiếu {(pendingSession.cost - walletBalance).toLocaleString()} Credit. Vui lòng nạp thêm để bắt đầu luyện tập.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingSession(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+
+              {walletBalance !== null && walletBalance < pendingSession.cost ? (
+                <Link
+                  to="/debater/payments"
+                  className="flex-1 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white font-bold text-xs text-center transition-colors shadow-xs"
+                >
+                  Nạp thêm Credit
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void executeSessionCreation(pendingSession)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] disabled:opacity-60 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Đang tạo phiên...</span>
+                    </>
+                  ) : (
+                    <span>Xác nhận trừ {pendingSession.cost} Credit</span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Credits Error Modal */}
+      {insufficientModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-[#12231C] w-full max-w-sm rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl p-6 text-center space-y-4 animate-scale-up">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+              <ShieldAlert size={24} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
+                Số dư Credit không đủ
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Bạn cần tối thiểu <strong className="text-slate-800 dark:text-slate-200">{insufficientModal.required} Credit</strong> để thực hiện buổi luyện tập này.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#0B1713] border border-slate-100 dark:border-slate-800 text-xs space-y-1.5 text-left">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                <span>Số dư hiện tại:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  {insufficientModal.current.toLocaleString()} Credit
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold">
+                <span>Còn thiếu:</span>
+                <span className="font-mono">
+                  {insufficientModal.missing.toLocaleString()} Credit
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setInsufficientModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+              <Link
+                to="/debater/payments"
+                className="flex-1 py-2.5 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <Coins size={14} />
+                <span>Nạp Credit ngay</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

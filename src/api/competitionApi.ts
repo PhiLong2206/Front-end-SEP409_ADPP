@@ -5,6 +5,7 @@ import {
   CompetitionDetail,
   CompetitionJudge,
   CompetitionListItem,
+  CompetitionPriceResponse,
   CompetitionQueryFilter,
   CompetitionRegistration,
   CompetitionTeam,
@@ -37,6 +38,12 @@ const competitionApi = {
     id: number | string
   ): Promise<ApiResponse<CompetitionDetail>> =>
     axiosClient.get(`/competitions/${id}`),
+
+  getCompetitionPrice: (params: {
+    type?: string;
+    maxParticipants?: number;
+  }): Promise<ApiResponse<CompetitionPriceResponse>> =>
+    axiosClient.get("/credits/competition-price", { params }),
 
   createCompetition: (
     data: CreateCompetitionDto

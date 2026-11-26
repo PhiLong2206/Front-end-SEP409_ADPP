@@ -9,10 +9,62 @@ import {
   PaymentStatusResponse,
   RewardStatusResponse,
   RewardClaimResponse,
+  CreditPricesResponse,
+  CompetitionPriceResponse,
+  CustomTopUpQuoteResponse,
+  CustomTopUpPaymentRequest,
+  ArgumentHintRequest,
+  ArgumentHintResponse,
 } from "../types";
 
 const paymentApi = {
   // Real Backend .NET 8 Credit Packages & Wallets
+  /**
+   * GET /api/credits/prices
+   * Lấy cấu hình bảng giá credit động toàn hệ thống (AI practice, Hint, Giải đấu, nạp tự do)
+   */
+  getPrices: (): Promise<ApiResponse<CreditPricesResponse>> =>
+    axiosClient.get("/credits/prices"),
+
+  /**
+   * GET /api/credits/competition-price
+   * Báo giá credit cho việc tạo giải đấu dựa trên quy mô và phân loại
+   */
+  getCompetitionPrice: (params: {
+    type?: string;
+    maxParticipants?: number;
+  }): Promise<ApiResponse<CompetitionPriceResponse>> =>
+    axiosClient.get("/credits/competition-price", { params }),
+
+  /**
+   * POST /api/credits/hint/argument
+   * Trừ 5 Credit và yêu cầu AI sinh gợi ý lập luận/chiến thuật phản biện cho lượt nói
+   */
+  requestArgumentHint: (
+    data: ArgumentHintRequest
+  ): Promise<ApiResponse<ArgumentHintResponse>> =>
+    axiosClient.post("/credits/hint/argument", data),
+
+  /**
+   * GET /api/payments/custom-topup/quote?creditAmount=...
+   * Lấy báo giá nạp credit số lượng tự chọn (12 VNĐ/credit)
+   */
+  getCustomTopUpQuote: (
+    creditAmount: number
+  ): Promise<ApiResponse<CustomTopUpQuoteResponse>> =>
+    axiosClient.get("/payments/custom-topup/quote", {
+      params: { creditAmount },
+    }),
+
+  /**
+   * POST /api/payments/custom-topup
+   * Tạo yêu cầu nạp điểm tín chỉ tự do theo số lượng mong muốn
+   */
+  createCustomTopUp: (
+    data: CustomTopUpPaymentRequest
+  ): Promise<ApiResponse<PaymentLinkResponse>> =>
+    axiosClient.post("/payments/custom-topup", data),
+
   /**
    * GET /api/credit-packages
    * Lấy danh sách các gói nạp credit đang mở bán cho học viên
