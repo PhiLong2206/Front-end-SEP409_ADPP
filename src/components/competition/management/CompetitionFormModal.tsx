@@ -3,6 +3,7 @@ import Modal from "../../common/Modal";
 import Button from "../../common/Button";
 import competitionApi from "../../../api/competitionApi";
 import paymentApi from "../../../api/paymentApi";
+import { useCredit } from "../../../hooks/useCredit";
 import { CompetitionDetail, CreateCompetitionDto, PatchCompetitionDto, CompetitionType } from "../../../types";
 import { toDateInputString, parseApiDate } from "../../../utils/formatDate";
 
@@ -47,11 +48,22 @@ const CompetitionFormModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [walletLoading, setWalletLoading] = useState(false);
+  const { balance: liveBalance, loading: creditLoading } = useCredit();
+  const [walletBalance, setWalletBalance] = useState<number | null>(liveBalance);
+  const [walletLoading, setWalletLoading] = useState(creditLoading);
 
   useEffect(() => {
-    if (isOpen && !isEditing) {
+    if (typeof liveBalance === "number") {
+      setWalletBalance(liveBalance);
+    }
+  }, [liveBalance]);
+
+  useEffect(() => {
+    setWalletLoading(creditLoading);
+  }, [creditLoading]);
+
+  useEffect(() => {
+    if (isOpen && !isEditing && walletBalance === null) {
       setWalletLoading(true);
       paymentApi
         .getMyWallet()
@@ -67,7 +79,7 @@ const CompetitionFormModal: React.FC<Props> = ({
           setWalletLoading(false);
         });
     }
-  }, [isOpen, isEditing]);
+  }, [isOpen, isEditing, walletBalance]);
 
   const participantCount = Number(maxParticipants) || 16;
   const [dynamicRequiredCredits, setDynamicRequiredCredits] = useState<number | null>(null);

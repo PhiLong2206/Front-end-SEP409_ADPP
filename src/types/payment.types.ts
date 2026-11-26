@@ -89,11 +89,21 @@ export interface PaymentLinkResponse {
 
 export interface PaymentStatusResponse {
   paymentId: number;
-  packageCode?: string;
-  packageName?: string;
+  topUpType?: string;
+  packageCode?: string | null;
+  packageName?: string | null;
   amount: number;
+  currency?: string;
+  creditAmount?: number;
+  provider?: string;
+  providerOrderCode?: number;
   status: string;
   isCompleted: boolean;
+  isCancelled?: boolean;
+  createdAt?: string;
+  paidAt?: string | null;
+  cancelledAt?: string | null;
+  expiredAt?: string | null;
 }
 
 export interface RewardStatusResponse {

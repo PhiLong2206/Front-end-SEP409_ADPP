@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { Bell, Menu, Sun, Moon, Coins } from "lucide-react";
 import UserAvatarDropdown from "./UserAvatarDropdown";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../hooks/useAuth";
-import paymentApi from "../../api/paymentApi";
+import { useCredit } from "../../hooks/useCredit";
 
 export interface DashboardHeaderProps {
   title?: string;
@@ -19,24 +19,7 @@ const iconButton =
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({ title, subtitle, action, onMenuClick }) => {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { user } = useAuth();
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    let isMounted = true;
-    paymentApi
-      .getMyWallet()
-      .then((res) => {
-        if (isMounted && res && res.success && res.data) {
-          setWalletBalance(res.data.balance);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
+  const { balance: walletBalance } = useCredit();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-(--s-3) border-b border-separator bg-(--glass-bg) px-4 backdrop-blur-xl sm:px-6 lg:px-8">

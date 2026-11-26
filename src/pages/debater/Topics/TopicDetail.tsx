@@ -5,6 +5,7 @@ import { difficultyOf } from "../../../utils/topicDifficulty";
 import { ArrowRight, BookOpen, ChevronLeft, FileText, Loader2, Play } from "lucide-react";
 import topicApi from "../../../api/topicApi";
 import { debateApi } from "../../../api";
+import { useCredit } from "../../../hooks/useCredit";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 import AiVoicePicker from "../../../components/debate/AiVoicePicker";
 import { topicCategoryLabel } from "../../../constants/topicCategories";
@@ -14,6 +15,7 @@ const TopicDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { setBalance } = useCredit();
 
   const [topic, setTopic] = useState<Topic | null>(
     (location.state as { topic?: Topic })?.topic || null
@@ -69,8 +71,14 @@ const TopicDetail: React.FC = () => {
     );
   }
 
-  // With a topicId the Backend debates Topic.Description, or the title when there is none.
-  const motion = topic.motion || topic.description || topic.title;
+  // Resolve the canonical debatable Motion matching Backend DebateSideGuide.ResolveMotion
+  const rawDesc = topic.description?.trim() || "";
+  const rawTitle = topic.title?.trim() || "";
+  const isMetaPrompt = /^(discuss|debate whether|analyze|explore|examine)\s+/i.test(rawDesc);
+  const motion =
+    topic.motion ||
+    (isMetaPrompt ? rawTitle || rawDesc : rawDesc || rawTitle) ||
+    "";
 
   // Always a new Backend session: continuing an unfinished one is the user's choice, through the banner below.
   const handleStartDebate = async () => {
@@ -96,6 +104,9 @@ const TopicDetail: React.FC = () => {
       const sessionId = res?.data?.sessionId;
       if (!sessionId) {
         throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
+      }
+      if (typeof res?.data?.currentUserBalance === "number") {
+        setBalance(res.data.currentUserBalance);
       }
       navigate(
         `/debater/debate/${sessionId}?role=${role}&difficulty=${selectedDifficulty}&motion=${encodeURIComponent(motion)}`

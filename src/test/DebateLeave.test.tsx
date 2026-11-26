@@ -85,6 +85,7 @@ describe("leaveDebateRoom", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("does not call the Backend and keeps the room's state until the endpoint is enabled", async () => {
+    vi.stubEnv("VITE_DEBATE_LEAVE_ENABLED", "false");
     seedRoom("42");
 
     await leaveDebateRoom("42", 42);
@@ -274,6 +275,7 @@ describe("DebateRoom: leaving", () => {
   });
 
   it("with the endpoint off, confirming keeps the Backend session and its state", async () => {
+    vi.stubEnv("VITE_DEBATE_LEAVE_ENABLED", "false");
     mockGetSessionDetails.mockResolvedValue(session({ status: 2 }));
     await renderRoom("/debater/debate/42");
 

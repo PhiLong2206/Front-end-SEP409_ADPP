@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
+  Info,
   ExternalLink,
   RefreshCw,
   Wallet,
@@ -16,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import paymentApi from "../../../api/paymentApi";
+import { useCredit } from "../../../hooks/useCredit";
 import {
   DebaterCreditPackage,
   WalletInfo,
@@ -138,9 +141,31 @@ const QUICK_AMOUNTS = [100, 500, 1000, 3000];
 
 const Payments: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { balance: liveBalance, latestTransaction } = useCredit();
 
   // Data states
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
+
+  // Sync wallet balance when live SignalR event arrives
+  useEffect(() => {
+    if (typeof liveBalance === "number") {
+      setWallet((curr) => (curr ? { ...curr, balance: liveBalance } : { walletId: 0, balance: liveBalance }));
+    }
+  }, [liveBalance]);
+
+  // Sync transaction history when new transaction event arrives
+  useEffect(() => {
+    if (latestTransaction) {
+      paymentApi
+        .getMyWalletTransactions({ page: 1, pageSize: 20 })
+        .then((res) => {
+          if (res && res.success && res.data) {
+            setTransactions(res.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [latestTransaction]);
   const [packages, setPackages] = useState<DebaterCreditPackage[]>([]);
   const [transactions, setTransactions] = useState<WalletTransactionItem[]>([]);
   const [rewardStatus, setRewardStatus] = useState<RewardStatusResponse | null>(null);
@@ -168,6 +193,15 @@ const Payments: React.FC = () => {
   // Messages
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
+  const [cancelMsg, setCancelMsg] = useState<string>("");
+  const [infoMsg, setInfoMsg] = useState<string>("");
+
+  const clearPaymentAlerts = useCallback(() => {
+    setErrorMsg("");
+    setSuccessMsg("");
+    setCancelMsg("");
+    setInfoMsg("");
+  }, []);
 
   // Active Tab: Gói nạp vs Lịch sử giao dịch
   const [activeTab, setActiveTab] = useState<"PACKAGES" | "HISTORY">("PACKAGES");
@@ -254,42 +288,128 @@ const Payments: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Handle PayOS redirect return params (?status=PAID / ?cancel=true / ?code=00 / ?paymentId=123)
+  // Handle PayOS redirect return params (?status=PAID / ?cancel=true / ?code=00 / ?orderCode=... / ?paymentId=123)
   useEffect(() => {
     const status = searchParams.get("status");
     const cancel = searchParams.get("cancel");
     const code = searchParams.get("code");
     const orderCode = searchParams.get("orderCode");
     const paymentId = searchParams.get("paymentId");
+    const payosRoute = searchParams.get("payos_route");
 
-    if (paymentId) {
-      paymentApi
-        .getPaymentStatus(paymentId)
-        .then((res) => {
-          if (res?.success && (res.data?.isCompleted || res.data?.status === "Paid")) {
-            setSuccessMsg(
-              `Thanh toán giao dịch #${paymentId} thành công qua PayOS! Điểm tín chỉ đã được cộng vào ví của bạn.`
-            );
-            fetchData();
-          } else if (res?.data?.status === "Cancelled" || res?.data?.status === "Expired") {
-            setErrorMsg(`Giao dịch #${paymentId} đã bị hủy hoặc hết hạn.`);
-          }
-        })
-        .catch(() => {
-          // Fallback to query param checks below
-        });
+    const hasAnyPaymentParam = Boolean(status || cancel || code || orderCode || paymentId || payosRoute);
+    if (!hasAnyPaymentParam) {
+      return;
     }
 
-    if (status === "PAID" || code === "00") {
-      setSuccessMsg(
-        `Thanh toán đơn hàng ${orderCode ? `#${orderCode} ` : ""}thành công qua PayOS! Điểm tín chỉ đã được cộng vào ví của bạn.`
+    const isCancelRequest =
+      cancel === "true" ||
+      status === "CANCELLED" ||
+      status === "CANCELED" ||
+      payosRoute === "cancel";
+
+    // 1. User cancelled or PayOS reports cancellation
+    if (isCancelRequest) {
+      setCancelMsg(
+        `Bạn đã hủy thanh toán đơn hàng ${orderCode ? `#${orderCode}` : ""}. Số dư Credit của bạn không thay đổi.`
       );
-      fetchData();
+      setErrorMsg("");
+      setSuccessMsg("");
+      setInfoMsg("");
+
+      // Notify backend to mark order as Cancelled if orderCode is present
+      if (orderCode) {
+        paymentApi.cancelOrderByOrderCode(orderCode).catch(() => {
+          // Non-blocking sync with backend
+        });
+      } else if (paymentId) {
+        paymentApi.getPaymentStatus(paymentId).catch(() => {});
+      }
+
       setSearchParams({}, { replace: true });
-    } else if (cancel === "true" || status === "CANCELLED") {
-      setErrorMsg(`Giao dịch đơn hàng ${orderCode ? `#${orderCode} ` : ""}đã bị hủy.`);
-      setSearchParams({}, { replace: true });
+      return;
     }
+
+    // 2. Potential success or processing: NEVER trust code="00" blindly without checking status
+    const isPaidCandidate = status === "PAID" || (code === "00" && !cancel);
+
+    if (isPaidCandidate) {
+      if (orderCode) {
+        setInfoMsg(`Giao dịch đơn hàng #${orderCode} đang được xác minh với PayOS. Vui lòng đợi trong giây lát...`);
+        setErrorMsg("");
+        setSuccessMsg("");
+        setCancelMsg("");
+
+        paymentApi
+          .getPaymentStatusByOrderCode(orderCode)
+          .then((res) => {
+            if (res?.success && (res.data?.isCompleted || res.data?.status === "Paid")) {
+              const credited = res.data?.creditAmount
+                ? `+${res.data.creditAmount.toLocaleString("vi-VN")} Credit`
+                : "Điểm tín chỉ";
+              setSuccessMsg(
+                `Thanh toán đơn hàng #${orderCode} thành công qua PayOS! ${credited} đã được cộng vào ví của bạn.`
+              );
+              setInfoMsg("");
+              fetchData();
+            } else if (res?.data?.status === "Cancelled" || res?.data?.status === "Expired") {
+              setCancelMsg(
+                `Giao dịch đơn hàng #${orderCode} đã bị ${res.data.status === "Cancelled" ? "hủy" : "hết hạn"}. Số dư Credit không thay đổi.`
+              );
+              setInfoMsg("");
+            } else {
+              setInfoMsg(
+                `Giao dịch #${orderCode} đang được xử lý. Hệ thống sẽ tự động cập nhật khi thanh toán hoàn tất.`
+              );
+            }
+          })
+          .catch(() => {
+            setErrorMsg(`Không thể xác minh giao dịch đơn hàng #${orderCode}. Vui lòng kiểm tra lại lịch sử giao dịch.`);
+            setInfoMsg("");
+          })
+          .finally(() => {
+            setSearchParams({}, { replace: true });
+          });
+        return;
+      }
+
+      if (paymentId) {
+        setInfoMsg(`Đang xác minh giao dịch #${paymentId}...`);
+        paymentApi
+          .getPaymentStatus(paymentId)
+          .then((res) => {
+            if (res?.success && (res.data?.isCompleted || res.data?.status === "Paid")) {
+              const credited = res.data?.creditAmount
+                ? `+${res.data.creditAmount.toLocaleString("vi-VN")} Credit`
+                : "Điểm tín chỉ";
+              setSuccessMsg(
+                `Thanh toán giao dịch #${paymentId} thành công qua PayOS! ${credited} đã được cộng vào ví của bạn.`
+              );
+              setInfoMsg("");
+              fetchData();
+            } else if (res?.data?.status === "Cancelled" || res?.data?.status === "Expired") {
+              setCancelMsg(`Giao dịch #${paymentId} đã bị ${res.data.status === "Cancelled" ? "hủy" : "hết hạn"}.`);
+              setInfoMsg("");
+            } else {
+              setInfoMsg(`Giao dịch #${paymentId} đang được xử lý. Hệ thống sẽ cập nhật khi thanh toán hoàn tất.`);
+            }
+          })
+          .catch(() => {
+            setErrorMsg(`Không thể xác minh giao dịch #${paymentId}. Vui lòng kiểm tra lại.`);
+            setInfoMsg("");
+          })
+          .finally(() => {
+            setSearchParams({}, { replace: true });
+          });
+        return;
+      }
+    }
+
+    // 3. Fallback for other errors / statuses
+    if (code && code !== "00") {
+      setErrorMsg(`Giao dịch không thành công (Mã lỗi: ${code}).`);
+    }
+    setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams, fetchData]);
 
   // Debounced quote fetch for custom top-up
@@ -306,13 +426,27 @@ const Payments: React.FC = () => {
     latestQuoteReqIdRef.current = reqId;
 
     const timer = setTimeout(() => {
-      paymentApi
-        .getCustomTopUpQuote(credits)
-        .then((res) => {
-          if (latestQuoteReqIdRef.current !== reqId) return;
-          if (res?.success && res.data) {
-            setCustomQuote(res.data);
-          } else {
+      if (typeof paymentApi.getCustomTopUpQuote === "function") {
+        paymentApi
+          .getCustomTopUpQuote(credits)
+          .then((res) => {
+            if (latestQuoteReqIdRef.current !== reqId) return;
+            if (res?.success && res.data) {
+              setCustomQuote(res.data);
+            } else {
+              setCustomQuote({
+                creditAmount: credits,
+                unitPriceVnd: unitPriceVnd,
+                totalAmountVnd: credits * unitPriceVnd,
+                currency: "VND",
+                minCredits,
+                maxCredits,
+              });
+            }
+          })
+          .catch(() => {
+            if (latestQuoteReqIdRef.current !== reqId) return;
+            // Fallback client calculation at unit price
             setCustomQuote({
               creditAmount: credits,
               unitPriceVnd: unitPriceVnd,
@@ -321,25 +455,23 @@ const Payments: React.FC = () => {
               minCredits,
               maxCredits,
             });
-          }
-        })
-        .catch(() => {
-          if (latestQuoteReqIdRef.current !== reqId) return;
-          // Fallback client calculation at unit price
-          setCustomQuote({
-            creditAmount: credits,
-            unitPriceVnd: unitPriceVnd,
-            totalAmountVnd: credits * unitPriceVnd,
-            currency: "VND",
-            minCredits,
-            maxCredits,
+          })
+          .finally(() => {
+            if (latestQuoteReqIdRef.current === reqId) {
+              setCustomQuoteLoading(false);
+            }
           });
-        })
-        .finally(() => {
-          if (latestQuoteReqIdRef.current === reqId) {
-            setCustomQuoteLoading(false);
-          }
+      } else {
+        setCustomQuote({
+          creditAmount: credits,
+          unitPriceVnd: unitPriceVnd,
+          totalAmountVnd: credits * unitPriceVnd,
+          currency: "VND",
+          minCredits,
+          maxCredits,
         });
+        setCustomQuoteLoading(false);
+      }
     }, 300);
 
     return () => clearTimeout(timer);
@@ -347,6 +479,7 @@ const Payments: React.FC = () => {
 
   // Handle Input Change for Custom Credits
   const handleInputChange = (raw: string) => {
+    clearPaymentAlerts();
     setCustomCreditsInput(raw);
     const res = parseCreditString(raw, minCredits, maxCredits);
     setValidationResult(res);
@@ -357,6 +490,7 @@ const Payments: React.FC = () => {
 
   // Quick select / add buttons (+100, +500, +1.000, +3.000)
   const handleQuickAdd = (amt: number) => {
+    clearPaymentAlerts();
     const clean = customCreditsInput.replace(/[.,]/g, "").trim();
     let currentVal = 0;
     if (/^\d+$/.test(clean)) {
@@ -377,6 +511,7 @@ const Payments: React.FC = () => {
 
   // Handle Custom Top-Up Payment
   const handleCustomTopUp = async () => {
+    clearPaymentAlerts();
     if (
       !validationResult.isValid ||
       validationResult.value === null ||
@@ -391,8 +526,6 @@ const Payments: React.FC = () => {
 
     const credits = validationResult.value;
     setIsCustomPaying(true);
-    setErrorMsg("");
-    setSuccessMsg("");
 
     try {
       const res = await paymentApi.createCustomTopUp({
@@ -431,9 +564,8 @@ const Payments: React.FC = () => {
 
   // Handle Select Package to Top Up: POST /api/payments/top-up -> trực tiếp chuyển hướng sang PayOS
   const handleSelectPackage = async (pkg: DebaterCreditPackage) => {
+    clearPaymentAlerts();
     setRedirectingPackageId(pkg.packageId);
-    setErrorMsg("");
-    setSuccessMsg("");
 
     try {
       const res = await paymentApi.createTopUpPayment({ packageId: pkg.packageId });
@@ -477,6 +609,30 @@ const Payments: React.FC = () => {
       </div>
 
       {/* Alerts */}
+      {infoMsg && (
+        <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Info size={16} className="text-blue-500 shrink-0 animate-pulse" />
+            <span>{infoMsg}</span>
+          </div>
+          <button type="button" onClick={() => setInfoMsg("")} className="text-blue-400 hover:text-blue-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {cancelMsg && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+            <span>{cancelMsg}</span>
+          </div>
+          <button type="button" onClick={() => setCancelMsg("")} className="text-amber-400 hover:text-amber-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {errorMsg && (
         <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
@@ -894,7 +1050,46 @@ const Payments: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[rgba(148,163,184,0.12)]">
                   {transactions.map((tx) => {
-                    const isCredit = tx.amount > 0 || tx.transactionType?.toLowerCase().includes("topup") || tx.transactionType?.toLowerCase().includes("credit");
+                    const isDebit =
+                      tx.transactionType?.toLowerCase() === "debit" ||
+                      tx.transactionType?.toLowerCase() === "deduct" ||
+                      (!tx.transactionType && tx.sourceType === "AiUsage");
+                    const isCredit = !isDebit;
+
+                    let typeLabel = tx.transactionType;
+                    if (tx.transactionType === "TopUp" || (isCredit && tx.sourceType === "PayOS")) {
+                      typeLabel = "Nạp Credit";
+                    } else if (tx.sourceType === "Refund") {
+                      typeLabel = "Hoàn Credit";
+                    } else if (tx.sourceType === "Reward") {
+                      typeLabel = "Thưởng Credit";
+                    } else if (isDebit) {
+                      typeLabel = "Trừ Credit";
+                    } else if (isCredit) {
+                      typeLabel = "Cộng Credit";
+                    }
+
+                    const formatDescription = (desc?: string, source?: string) => {
+                      if (!desc) return "Giao dịch Credit";
+                      if (desc.includes("AI_PRACTICE_MATCH") || desc.includes("Start AI Practice debate session")) {
+                        return desc.includes("AI_PRACTICE_NO_RAG")
+                          ? "Phí tranh biện AI (No RAG)"
+                          : "Phí tranh biện AI (Có RAG)";
+                      }
+                      if (desc.includes("AI_HINT") || desc.includes("AI Hint")) {
+                        return "Gợi ý chiến thuật AI";
+                      }
+                      if (desc.includes("Refund") || desc.includes("Hoàn") || source === "Refund") {
+                        return "Hoàn trả Credit";
+                      }
+                      if (desc.includes("TopUp") || desc.includes("Nạp") || source === "PayOS") {
+                        return desc;
+                      }
+                      if (desc.includes("Competition") || desc.includes("giải đấu")) {
+                        return "Phí tạo giải đấu";
+                      }
+                      return desc;
+                    };
 
                     return (
                       <tr key={tx.walletTransactionId} className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors">
@@ -906,16 +1101,16 @@ const Payments: React.FC = () => {
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md font-bold text-[11px] ${
                               isCredit
                                 ? "bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-300"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400"
                             }`}
                           >
                             {isCredit ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
-                            {tx.transactionType === "TopUp" ? "Nạp điểm tín chỉ" : tx.transactionType}
+                            {typeLabel}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 font-bold font-mono">
-                          <span className={isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}>
-                            {isCredit ? `+${tx.amount.toLocaleString()}` : `-${Math.abs(tx.amount).toLocaleString()}`} Credit
+                          <span className={isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                            {isCredit ? `+${Math.abs(tx.amount).toLocaleString()}` : `-${Math.abs(tx.amount).toLocaleString()}`} Credit
                           </span>
                         </td>
                         <td className="px-5 py-3.5 font-bold font-mono text-slate-700 dark:text-slate-300">
@@ -924,8 +1119,8 @@ const Payments: React.FC = () => {
                         <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
                           {new Date(tx.createdAt).toLocaleString("vi-VN")}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-600 dark:text-slate-400 max-w-xs truncate">
-                          {tx.description || "Giao dịch nạp điểm tín chỉ"}
+                        <td className="px-5 py-3.5 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={tx.description ?? undefined}>
+                          {formatDescription(tx.description ?? undefined, tx.sourceType)}
                         </td>
                       </tr>
                     );

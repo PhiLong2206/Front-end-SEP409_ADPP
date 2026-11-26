@@ -83,10 +83,28 @@ const paymentApi = {
 
   /**
    * GET /api/payments/{paymentId}
-   * Kiểm tra trạng thái giao dịch nạp tiền
+   * Kiểm tra trạng thái giao dịch nạp tiền theo paymentId
    */
   getPaymentStatus: (paymentId: number | string): Promise<ApiResponse<PaymentStatusResponse>> =>
     axiosClient.get(`/payments/${paymentId}`),
+
+  /**
+   * GET /api/payments/order/{orderCode}/status
+   * Kiểm tra và đồng bộ trạng thái giao dịch nạp tiền qua PayOS theo orderCode
+   */
+  getPaymentStatusByOrderCode: (
+    orderCode: number | string
+  ): Promise<ApiResponse<PaymentStatusResponse>> =>
+    axiosClient.get(`/payments/order/${orderCode}/status`),
+
+  /**
+   * POST /api/payments/order/{orderCode}/cancel
+   * Hủy giao dịch nạp tiền qua PayOS theo orderCode
+   */
+  cancelOrderByOrderCode: (
+    orderCode: number | string
+  ): Promise<ApiResponse<PaymentStatusResponse>> =>
+    axiosClient.post(`/payments/order/${orderCode}/cancel`),
 
   /**
    * GET /api/wallets/me

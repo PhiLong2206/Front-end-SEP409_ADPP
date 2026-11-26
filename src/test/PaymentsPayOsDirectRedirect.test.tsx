@@ -11,6 +11,8 @@ vi.mock("../api/paymentApi", () => ({
     getMyWalletTransactions: vi.fn(),
     createTopUpPayment: vi.fn(),
     getPaymentStatus: vi.fn(),
+    getPaymentStatusByOrderCode: vi.fn(),
+    cancelOrderByOrderCode: vi.fn(),
   },
 }));
 
@@ -99,7 +101,22 @@ describe("Payments - Direct PayOS Checkout Redirect", () => {
     });
   });
 
-  it("hiển thị thông báo thành công khi PayOS redirect về với status=PAID", async () => {
+  it("hiển thị thông báo thành công khi PayOS redirect về với status=PAID và backend xác nhận Paid", async () => {
+    vi.mocked(paymentApi.getPaymentStatusByOrderCode).mockResolvedValue({
+      success: true,
+      message: "Success",
+      data: {
+        paymentId: 1001,
+        providerOrderCode: 1793707175147,
+        amount: 50000,
+        currency: "VND",
+        creditAmount: 55,
+        status: "Paid",
+        isCompleted: true,
+        isCancelled: false,
+      },
+    });
+
     render(
       <MemoryRouter initialEntries={["/debater/payments?status=PAID&orderCode=1793707175147"]}>
         <Payments />
@@ -113,18 +130,40 @@ describe("Payments - Direct PayOS Checkout Redirect", () => {
     });
   });
 
-  it("hiển thị thông báo hủy khi PayOS redirect về với cancel=true", async () => {
+  it("hiển thị thông báo hủy khi PayOS redirect về với cancel=true và không hiển thị thành công", async () => {
+    vi.mocked(paymentApi.cancelOrderByOrderCode).mockResolvedValue({
+      success: true,
+      message: "Payment cancelled successfully.",
+      data: {
+        paymentId: 1001,
+        providerOrderCode: 1793707175147,
+        amount: 50000,
+        currency: "VND",
+        creditAmount: 55,
+        status: "Cancelled",
+        isCompleted: false,
+        isCancelled: true,
+      },
+    });
+
     render(
-      <MemoryRouter initialEntries={["/debater/payments?cancel=true&orderCode=1793707175147"]}>
+      <MemoryRouter initialEntries={["/debater/payments?code=00&cancel=true&status=CANCELLED&orderCode=1793707175147"]}>
         <Payments />
       </MemoryRouter>
     );
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Giao dịch đơn hàng #1793707175147 đã bị hủy/i)
+        screen.getByText(/Bạn đã hủy thanh toán đơn hàng #1793707175147/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Số dư Credit của bạn không thay đổi/i)
       ).toBeInTheDocument();
     });
+
+    expect(
+      screen.queryByText(/thành công qua PayOS/i)
+    ).not.toBeInTheDocument();
   });
 });
 
