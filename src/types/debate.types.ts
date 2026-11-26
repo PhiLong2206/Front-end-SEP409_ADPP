@@ -308,6 +308,7 @@ export interface DebateTranscriptResponse {
 
 export interface DebateHistoryItemDto {
   sessionId: number;
+  roomCode?: string | null;
   title: string;
   topic: string;
   debateType: BackendDebateType | number;
@@ -316,6 +317,7 @@ export interface DebateHistoryItemDto {
   createdAt: string;
   endedAt?: string;
   maxParticipants?: number;
+  participantCount?: number;
   isTeamDebate?: boolean;
 }
 

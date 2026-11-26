@@ -398,6 +398,83 @@ const Debate1v1: React.FC = () => {
           </p>
         </div>
 
+        {/* Active / Waiting 1v1 P2P Rooms Banner */}
+        {(() => {
+          const active1v1Rooms = historyList.filter((item) => {
+            const isP2p = item.debateType === 2 || String(item.debateType) === "P2pMatch";
+            const isTeam =
+              item.isTeamDebate === true ||
+              (typeof item.maxParticipants === "number" && item.maxParticipants > 2) ||
+              item.title?.toLowerCase().includes("2v2") ||
+              item.title?.toLowerCase().includes("2 vs 2");
+            const isActiveStatus =
+              item.status === 1 ||
+              String(item.status) === "Waiting" ||
+              item.status === 2 ||
+              String(item.status) === "InProgress";
+            return isP2p && !isTeam && isActiveStatus;
+          });
+
+          if (active1v1Rooms.length === 0) return null;
+
+          return (
+            <div className="space-y-2.5" data-testid="active-1v1-rooms-section">
+              <p className="text-xs font-bold uppercase tracking-wider text-accent">
+                Phòng 1 vs 1 của bạn đang mở ({active1v1Rooms.length})
+              </p>
+              <div className="space-y-2">
+                {active1v1Rooms.map((room) => {
+                  const isWaiting = room.status === 1 || String(room.status) === "Waiting";
+                  return (
+                    <div
+                      key={room.sessionId}
+                      className="flex flex-col gap-3 rounded-ap-lg border border-accent/25 bg-accent-soft/80 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                              isWaiting
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+                                isWaiting ? "bg-amber-500" : "bg-emerald-500"
+                              }`}
+                            />
+                            {isWaiting ? "Đang chờ đối thủ" : "Chuẩn bị / Đang thi đấu"}
+                          </span>
+                          <span className="rounded-md bg-elevated px-2 py-0.5 font-mono text-xs font-bold text-accent">
+                            Mã phòng: {room.roomCode || `#${room.sessionId}`}
+                          </span>
+                          {typeof room.participantCount === "number" && (
+                            <span className="text-xs text-label-secondary">
+                              ({room.participantCount}/{room.maxParticipants || 2} người)
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-sm font-semibold text-label">
+                          {room.title || room.topic}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/debater/debate/${room.sessionId}?mode=1v1`)}
+                        className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-ap-pill bg-accent px-4 text-xs font-semibold text-accent-contrast transition-colors hover:bg-accent-hover"
+                      >
+                        <span>Vào lại phòng</span>
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="flex flex-wrap items-center gap-x-(--s-5) gap-y-(--s-2)">
           <button
             type="button"
