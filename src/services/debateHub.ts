@@ -108,50 +108,111 @@ export interface DebateHubCallbacks {
   onSessionStatusChanged?: (data: SessionStatusEvent) => void;
   onTeamCallSignal?: (data: TeamCallSignalEvent) => void;
   onTeamCallEnded?: (data: TeamCallEndedEvent) => void;
+  onReconnecting?: () => void;
+  onReconnected?: () => void;
 }
 
 export class DebateHubService {
   private connection: signalR.HubConnection | null = null;
   private currentSessionId: number | null = null;
   private callbacks: DebateHubCallbacks = {};
+  private startPromise: Promise<void> | null = null;
+  private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private opQueue: Promise<void> = Promise.resolve();
+  private connectGeneration = 0;
 
-  public async connect(sessionId: number, callbacks: DebateHubCallbacks): Promise<void> {
+  public connect(sessionId: number, callbacks: DebateHubCallbacks): Promise<void> {
+    if (this.disconnectTimer !== null) {
+      clearTimeout(this.disconnectTimer);
+      this.disconnectTimer = null;
+    }
+
+    this.callbacks = callbacks;
+
+    // Fast path for React StrictMode remount on the same session: reuse the active/negotiating connection
+    if (
+      this.connection &&
+      this.currentSessionId === sessionId &&
+      this.connection.state !== signalR.HubConnectionState.Disconnected
+    ) {
+      return this.opQueue;
+    }
+
+    const gen = ++this.connectGeneration;
+    this.opQueue = this.opQueue
+      .catch(() => {})
+      .then(() => this.connectInternal(sessionId, callbacks, gen));
+    return this.opQueue;
+  }
+
+  private async connectInternal(
+    sessionId: number,
+    callbacks: DebateHubCallbacks,
+    gen: number
+  ): Promise<void> {
+    if (gen !== this.connectGeneration) return;
+
+    this.callbacks = callbacks;
+
+    if (
+      this.connection &&
+      this.currentSessionId === sessionId &&
+      this.connection.state !== signalR.HubConnectionState.Disconnected
+    ) {
+      return;
+    }
+
     if (this.connection) {
-      await this.disconnect();
+      await this.stopInternal();
+      if (gen !== this.connectGeneration) return;
     }
 
     this.currentSessionId = sessionId;
-    this.callbacks = callbacks;
-
     const hubUrl = `${window.location.origin}/hubs/debate`;
 
-    this.connection = new signalR.HubConnectionBuilder()
+    const conn = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: () => getToken() || "",
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
       })
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 1000, 3000, 5000, 10000])
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    this.registerEvents();
+    this.connection = conn;
+    this.registerEvents(conn);
 
-    try {
-      await this.connection.start();
-      await this.connection.invoke("JoinRoom", sessionId);
-    } catch (err) {
-      console.warn("SignalR connection failed, falling back to REST/polling:", err);
-    }
+    conn.onreconnecting(() => {
+      if (this.connection === conn) {
+        this.callbacks.onReconnecting?.();
+      }
+    });
 
-    this.connection.onreconnected(async () => {
-      if (this.currentSessionId) {
+    conn.onreconnected(async () => {
+      if (this.connection === conn && this.currentSessionId) {
         try {
-          await this.connection?.invoke("JoinRoom", this.currentSessionId);
+          await conn.invoke("JoinRoom", this.currentSessionId);
         } catch (e) {
           console.error("Failed to rejoin debate room on reconnect", e);
         }
+        this.callbacks.onReconnected?.();
       }
     });
+
+    const startOp = conn.start();
+    this.startPromise = startOp;
+    try {
+      await startOp;
+      if (this.connection === conn && conn.state === signalR.HubConnectionState.Connected) {
+        await conn.invoke("JoinRoom", sessionId);
+      }
+    } catch (err: unknown) {
+      console.warn("SignalR connection failed, falling back to REST/polling:", err);
+    } finally {
+      if (this.startPromise === startOp) {
+        this.startPromise = null;
+      }
+    }
   }
 
   public async sendSpeakingStatus(isSpeaking: boolean): Promise<void> {
@@ -205,72 +266,113 @@ export class DebateHubService {
     }
   }
 
-  public async disconnect(): Promise<void> {
-    if (this.connection) {
+  public disconnect(): Promise<void> {
+    if (this.disconnectTimer !== null) {
+      clearTimeout(this.disconnectTimer);
+    }
+
+    return new Promise<void>((resolve) => {
+      this.disconnectTimer = setTimeout(() => {
+        this.disconnectTimer = null;
+        this.connectGeneration++;
+        this.opQueue = this.opQueue
+          .catch(() => {})
+          .then(() => this.stopInternal())
+          .finally(resolve);
+      }, 150);
+    });
+  }
+
+  private async stopInternal(): Promise<void> {
+    if (this.startPromise) {
       try {
-        if (this.currentSessionId && this.connection.state === signalR.HubConnectionState.Connected) {
-          await this.connection.invoke("LeaveRoom", this.currentSessionId);
+        await this.startPromise;
+      } catch {
+        // Wait for negotiation to settle before stopping so SignalR never aborts mid-negotiation
+      }
+    }
+
+    const conn = this.connection;
+    const sessionId = this.currentSessionId;
+    this.connection = null;
+    this.currentSessionId = null;
+
+    if (conn) {
+      try {
+        if (sessionId && conn.state === signalR.HubConnectionState.Connected) {
+          await conn.invoke("LeaveRoom", sessionId);
         }
-        await this.connection.stop();
+        if (conn.state !== signalR.HubConnectionState.Disconnected) {
+          await conn.stop();
+        }
       } catch (e) {
         console.warn("Error while disconnecting SignalR:", e);
-      } finally {
-        this.connection = null;
-        this.currentSessionId = null;
       }
     }
   }
 
-  private registerEvents(): void {
-    if (!this.connection) return;
-
-    this.connection.on("UserJoinedRoom", (data: UserJoinedEvent) => {
+  private registerEvents(conn: signalR.HubConnection): void {
+    conn.on("UserJoinedRoom", (data: UserJoinedEvent) => {
       this.callbacks.onUserJoined?.(data);
     });
 
-    this.connection.on("ParticipantJoined", (data: UserJoinedEvent) => {
+    conn.on("ParticipantJoined", (data: UserJoinedEvent) => {
       this.callbacks.onUserJoined?.(data);
     });
 
-    this.connection.on("UserLeftRoom", (data: UserLeftEvent) => {
+    conn.on("UserLeftRoom", (data: UserLeftEvent) => {
       this.callbacks.onUserLeft?.(data);
     });
 
-    this.connection.on("ParticipantLeft", (data: UserLeftEvent) => {
+    conn.on("ParticipantLeft", (data: UserLeftEvent) => {
       this.callbacks.onUserLeft?.(data);
     });
 
-    this.connection.on("UserSpeakingStatusChanged", (data: SpeakingStatusEvent) => {
+    conn.on("UserSpeakingStatusChanged", (data: SpeakingStatusEvent) => {
       this.callbacks.onSpeakingStatusChanged?.(data);
     });
 
-    this.connection.on("LiveTranscriptUpdated", (data: LiveTranscriptEvent) => {
+    conn.on("LiveTranscriptUpdated", (data: LiveTranscriptEvent) => {
       this.callbacks.onLiveTranscriptUpdated?.(data);
     });
 
-    this.connection.on("ArgumentSubmitted", (data: ArgumentSubmittedEvent) => {
+    conn.on("ArgumentSubmitted", (data: ArgumentSubmittedEvent) => {
       this.callbacks.onArgumentSubmitted?.(data);
     });
 
-    this.connection.on("SessionStarted", (data: unknown) => {
+    conn.on("SessionStarted", (data: unknown) => {
       this.callbacks.onSessionStarted?.(data);
     });
 
-    this.connection.on("RoundStarted", (data: RoundStartedEvent) => {
+    conn.on("RoundStarted", (data: RoundStartedEvent) => {
       this.callbacks.onRoundStarted?.(data);
     });
 
-    this.connection.on("SessionStatusChanged", (data: SessionStatusEvent) => {
+    conn.on("SessionStatusChanged", (data: SessionStatusEvent) => {
       this.callbacks.onSessionStatusChanged?.(data);
     });
 
-    this.connection.on("TeamCallSignal", (data: TeamCallSignalEvent) => {
+    conn.on("TeamCallSignal", (data: TeamCallSignalEvent) => {
       this.callbacks.onTeamCallSignal?.(data);
     });
 
-    this.connection.on("TeamCallEnded", (data: TeamCallEndedEvent) => {
+    conn.on("TeamCallEnded", (data: TeamCallEndedEvent) => {
       this.callbacks.onTeamCallEnded?.(data);
     });
+
+    const onBalanceUpdate = (data: unknown) => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("wallet_updated", { detail: data }));
+      }
+    };
+    conn.on("CreditBalanceUpdated", onBalanceUpdate);
+
+    const onTxCreated = (data: unknown) => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("wallet_tx_created", { detail: data }));
+      }
+    };
+    conn.on("CreditTransactionCreated", onTxCreated);
   }
 }
 

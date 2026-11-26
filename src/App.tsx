@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { CreditProvider } from "./context/CreditContext";
 import AppRoutes from "./routes/AppRoutes";
 
 const App: React.FC = () => {
@@ -9,7 +10,9 @@ const App: React.FC = () => {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppRoutes />
+          <CreditProvider>
+            <AppRoutes />
+          </CreditProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

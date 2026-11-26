@@ -235,6 +235,8 @@ export interface DebateSessionResponse {
   sessionId: number;
   title: string;
   topic: string;
+  /** Canonical debatable resolution (motion) shared across UI, guides, AI Opponent, AI Hint, and Evaluator. */
+  motion?: string;
   /** Fact-base topic for the evaluator's evidence check (from Topic.Category); null when the category has none. */
   evidenceTopic?: string | null;
   debateType: BackendDebateType | number;
@@ -268,6 +270,7 @@ export interface DebateSessionResponse {
   totalRounds?: number;
   /** UTC ISO: when the server built this response (to read the countdown on the server clock). */
   serverTime?: string;
+  currentUserBalance?: number | null;
 }
 
 /** SignalR "RoundStarted": a new round began (Round 2 or 3, or preparation skipped). Not sent when the 60 s run out. */

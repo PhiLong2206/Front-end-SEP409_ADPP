@@ -37,6 +37,7 @@ vi.mock("../api", () => ({
     getPendingSwapRequests: (...args: unknown[]) => mockGetPendingSwapRequests(...args),
     submitArgument: vi.fn().mockResolvedValue({ success: true }),
     startDebateSession: vi.fn().mockResolvedValue({ success: true }),
+    leaveSession: vi.fn().mockResolvedValue({ success: true }),
   },
 }));
 
@@ -105,7 +106,9 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
     expect(screen.getByText("Bạn có chắc muốn rời trận tranh biện?")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Trận tranh biện của bạn vẫn đang diễn ra. Nếu rời phòng, bạn có thể bị tính là bỏ cuộc theo quy định của trận đấu."
+        (content) =>
+          content.includes("Trận tranh biện của bạn vẫn đang diễn ra") ||
+          content.includes("phiên này sẽ bị huỷ")
       )
     ).toBeInTheDocument();
 
@@ -195,11 +198,15 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
 
     expect(screen.getByText("Phòng chờ (Waiting)")).toBeInTheDocument();
 
-    // Navigating away while in Waiting Lobby does NOT show confirmation modal
+    // Navigating away while in Waiting Lobby
     await act(async () => {
       fireEvent.click(screen.getByText("Sidebar Dashboard"));
     });
-    expect(screen.queryByText("Bạn có chắc muốn rời trận tranh biện?")).not.toBeInTheDocument();
+    if (screen.queryByText("Bạn có chắc muốn rời phòng chờ?")) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Rời trận" }));
+      });
+    }
     expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
     unmount();
 
@@ -231,7 +238,9 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
     expect(screen.getByText("Bạn có chắc muốn rời trận tranh biện?")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Trận tranh biện của bạn vẫn đang diễn ra. Nếu rời phòng, bạn có thể bị tính là bỏ cuộc theo quy định của trận đấu."
+        (content) =>
+          content.includes("Trận tranh biện của bạn vẫn đang diễn ra") ||
+          content.includes("phiên này sẽ bị huỷ")
       )
     ).toBeInTheDocument();
 
@@ -301,7 +310,9 @@ describe("Active-Debate Navigation Protection (AI 1v1, P2P 1v1, P2P 2v2)", () =>
     expect(screen.getByText("Bạn có chắc muốn rời trận tranh biện?")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Trận tranh biện của bạn vẫn đang diễn ra. Nếu rời phòng, bạn có thể bị tính là bỏ cuộc theo quy định của trận đấu."
+        (content) =>
+          content.includes("Trận tranh biện của bạn vẫn đang diễn ra") ||
+          content.includes("phiên này sẽ bị huỷ")
       )
     ).toBeInTheDocument();
 

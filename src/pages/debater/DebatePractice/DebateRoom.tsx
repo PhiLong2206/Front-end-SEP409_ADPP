@@ -18,6 +18,8 @@ import {
   Lightbulb,
 } from "lucide-react";
 import paymentApi from "../../../api/paymentApi";
+import { formatAiHintContent } from "../../../utils/aiHintFormatter";
+import { useCredit } from "../../../hooks/useCredit";
 import DebateHeader from "../../../components/debate/DebateHeader";
 import DebateChat from "../../../components/debate/DebateChat";
 import DebateComposer from "../../../components/debate/DebateComposer";
@@ -81,10 +83,12 @@ import {
   clearActiveDebateSession,
 } from "../../../hooks/useDebateNavigationGuard";
 import {
+  AI_HINT_STORAGE_PREFIX,
   COMPLETED_STORAGE_PREFIX,
   CURRENT_ROUND_PREFIX,
   DEADLINE_STORAGE_PREFIX,
   DIFFICULTY_STORAGE_PREFIX,
+  DRAFT_ARGUMENT_PREFIX,
   EXPIRED_STORAGE_PREFIX,
   MESSAGES_STORAGE_PREFIX,
   TIMED_OUT_ROUNDS_PREFIX,
@@ -326,7 +330,25 @@ const DebateRoom: React.FC = () => {
       return [];
     }
   });
-  const [argumentText, setArgumentText] = useState("");
+  const [argumentText, setArgumentText] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem(DRAFT_ARGUMENT_PREFIX + sessionId) || "";
+    } catch {
+      return "";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (argumentText) {
+        sessionStorage.setItem(DRAFT_ARGUMENT_PREFIX + sessionId, argumentText);
+      } else {
+        sessionStorage.removeItem(DRAFT_ARGUMENT_PREFIX + sessionId);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [argumentText, sessionId]);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(ROUND_1_DEFAULT_SECONDS);
   const [isTurnExpired, setIsTurnExpired] = useState<boolean>(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -375,7 +397,7 @@ const DebateRoom: React.FC = () => {
   const teamCallHandlersRef = useRef<{
     handleSignal: (e: TeamCallSignalEvent) => void;
     handleEnded: (e: TeamCallEndedEvent) => void;
-  }>({ handleSignal: () => {}, handleEnded: () => {} });
+  }>({ handleSignal: () => { }, handleEnded: () => { } });
   // While the call carries voice, the live transcript and the speaking status are not sent to the room
   const teamCallBusyRef = useRef(false);
   const readProgressFrameRef = useRef<number | null>(null);
@@ -694,7 +716,7 @@ const DebateRoom: React.FC = () => {
   const messagesRef = useRef<DebateRoomMessage[]>([]);
   // Latest input text and submit function, read by the timeout handler (which runs from a timer)
   const argumentTextRef = useRef("");
-  const sendArgumentRef = useRef<(opts?: SendArgumentOptions) => Promise<void>>(async () => {});
+  const sendArgumentRef = useRef<(opts?: SendArgumentOptions) => Promise<void>>(async () => { });
   const opponentReadyRef = useRef<{ sessionId: string; promise: Promise<void> } | null>(null);
   const casePlanRequestedRef = useRef<string | null>(null);
   // The AI's opening is asked for once per opponent session; reset when it fails so the retry button can ask again
@@ -718,13 +740,38 @@ const DebateRoom: React.FC = () => {
   // AI Hint states
   const [isHintLoading, setIsHintLoading] = useState<boolean>(false);
   const [hintConfirmationOpen, setHintConfirmationOpen] = useState<boolean>(false);
-  const [aiHintText, setAiHintText] = useState<string | null>(null);
+  const [aiHintText, setAiHintText] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(AI_HINT_STORAGE_PREFIX + sessionId);
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (aiHintText) {
+        sessionStorage.setItem(AI_HINT_STORAGE_PREFIX + sessionId, aiHintText);
+      } else {
+        sessionStorage.removeItem(AI_HINT_STORAGE_PREFIX + sessionId);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [aiHintText, sessionId]);
   const [insufficientHintModal, setInsufficientHintModal] = useState<{
     required: number;
     current: number;
     missing: number;
   } | null>(null);
-  const [roomWalletBalance, setRoomWalletBalance] = useState<number | null>(null);
+  const { balance: liveWalletBalance } = useCredit();
+  const [roomWalletBalance, setRoomWalletBalance] = useState<number | null>(liveWalletBalance);
+
+  useEffect(() => {
+    if (typeof liveWalletBalance === "number") {
+      setRoomWalletBalance(liveWalletBalance);
+    }
+  }, [liveWalletBalance]);
 
   const fetchRoomWallet = useCallback(async () => {
     try {
@@ -738,7 +785,9 @@ const DebateRoom: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    void fetchRoomWallet();
+    if (roomWalletBalance === null) {
+      void fetchRoomWallet();
+    }
     const handleWalletUpdated = () => void fetchRoomWallet();
     window.addEventListener("wallet_updated", handleWalletUpdated);
     return () => window.removeEventListener("wallet_updated", handleWalletUpdated);
@@ -853,19 +902,19 @@ const DebateRoom: React.FC = () => {
 
   const is2v2 = Boolean(
     sessionDetails &&
-      !hasAiParticipant &&
-      isTeamDebateSession({
-        isTeamDebate: sessionDetails.isTeamDebate,
-        maxParticipants: sessionDetails.maxParticipants,
-        title: sessionDetails.title,
-        participantCount: sessionDetails.participants.length,
-      })
+    !hasAiParticipant &&
+    isTeamDebateSession({
+      isTeamDebate: sessionDetails.isTeamDebate,
+      maxParticipants: sessionDetails.maxParticipants,
+      title: sessionDetails.title,
+      participantCount: sessionDetails.participants.length,
+    })
   );
   const seatCount = sessionDetails
     ? roomSeatCount({
-        isTeamDebate: is2v2 ? true : sessionDetails.isTeamDebate,
-        maxParticipants: sessionDetails.maxParticipants,
-      })
+      isTeamDebate: is2v2 ? true : sessionDetails.isTeamDebate,
+      maxParticipants: sessionDetails.maxParticipants,
+    })
     : 2;
   const seatsPerSide = Math.max(1, Math.floor(seatCount / 2));
   // The server says whether Round 1 has begun: the room stays locked until a response says so, not by its own clock
@@ -894,33 +943,33 @@ const DebateRoom: React.FC = () => {
     lastRoundEvent && lastRoundEvent.round === displayRound
       ? lastRoundEvent.label
       : sessionDetails?.currentTurn?.roundLabel && sessionDetails.currentTurn.turnOrder === displayRound
-      ? sessionDetails.currentTurn.roundLabel
-      : roundLabelOf(displayRound);
+        ? sessionDetails.currentTurn.roundLabel
+        : roundLabelOf(displayRound);
   const myParticipant = sessionDetails?.participants.find((p) => isSameUserId(p.userId, currentUserId));
   const isParticipant = Boolean(myParticipant);
   const queryRole = searchParams.get("role")?.toLowerCase();
   const userRoleInRoom: DebateRoleInRoom = !isBackendSession
     ? "Debater"
     : isParticipant
-    ? "Debater"
-    : queryRole === "judge"
-    ? "Judge"
-    : "Spectator";
+      ? "Debater"
+      : queryRole === "judge"
+        ? "Judge"
+        : "Spectator";
 
   const isCompetition =
     searchParams.get("mode") === "competition" ||
     Boolean(
       sessionDetails &&
-        (sessionDetails.debateType === 4 ||
-          (sessionDetails.title && sessionDetails.title.includes("[Giải đấu]")))
+      (sessionDetails.debateType === 4 ||
+        (sessionDetails.title && sessionDetails.title.includes("[Giải đấu]")))
     );
   const roomMode: DebateRoomMode = isCompetition
     ? "competition"
     : is2v2
-    ? "2v2"
-    : isP2pOr2v2
-    ? "1v1"
-    : "ai";
+      ? "2v2"
+      : isP2pOr2v2
+        ? "1v1"
+        : "ai";
 
   const isHost = Boolean(sessionDetails && isSameUserId(sessionDetails.createdByUserId, currentUserId));
   const proParticipants =
@@ -929,7 +978,7 @@ const DebateRoom: React.FC = () => {
     sessionDetails?.participants.filter((p) => p.side === 2 || String(p.side) === "CON") || [];
   const canHostStart = Boolean(
     sessionDetails &&
-      proParticipants.length >= seatsPerSide && conParticipants.length >= seatsPerSide
+    proParticipants.length >= seatsPerSide && conParticipants.length >= seatsPerSide
   );
 
   const mySide = myParticipant?.side;
@@ -940,8 +989,8 @@ const DebateRoom: React.FC = () => {
       ? mySide === 1 || String(mySide) === "PRO"
         ? "pro"
         : mySide === 2 || String(mySide) === "CON"
-        ? "con"
-        : null
+          ? "con"
+          : null
       : null;
   const hasTaskGuides = Boolean(sessionDetails?.proGuide?.trim() || sessionDetails?.conGuide?.trim());
 
@@ -968,15 +1017,17 @@ const DebateRoom: React.FC = () => {
     storedDifficulty ??
     parseDifficulty(sessionDetails?.difficulty) ??
     "medium";
-  const resolvedMotion = normalizeMotion(sessionDetails?.topic || motionParam);
+  const resolvedMotion = normalizeMotion(
+    sessionDetails?.motion || sessionDetails?.topic || sessionDetails?.title || motionParam
+  );
   const isMyP2pTurn =
     !isP2pOr2v2 || !sessionDetails
       ? true
       : sessionDetails.currentTurnSide === mySide ||
-        (String(sessionDetails.currentTurnSide) === "PRO" &&
-          (mySide === 1 || String(mySide) === "PRO")) ||
-        (String(sessionDetails.currentTurnSide) === "CON" &&
-          (mySide === 2 || String(mySide) === "CON"));
+      (String(sessionDetails.currentTurnSide) === "PRO" &&
+        (mySide === 1 || String(mySide) === "PRO")) ||
+      (String(sessionDetails.currentTurnSide) === "CON" &&
+        (mySide === 2 || String(mySide) === "CON"));
 
   // Who a speech counts as when grading the current user. In P2P every human is a "Debater" message, so
   // the author must be identified; a teammate's or unidentifiable speech gets no role (null) and is not sent.
@@ -1059,9 +1110,9 @@ const DebateRoom: React.FC = () => {
 
   const isBackendCompleted = Boolean(
     sessionDetails &&
-      (sessionDetails.status === 3 ||
-        String(sessionDetails.status) === "Completed" ||
-        Boolean(sessionDetails.endedAt))
+    (sessionDetails.status === 3 ||
+      String(sessionDetails.status) === "Completed" ||
+      Boolean(sessionDetails.endedAt))
   );
 
   // Round 3 is genuinely complete when both PRO and CON have spoken in Round 3, or Round 3 timed out before Debater spoke
@@ -1128,40 +1179,40 @@ const DebateRoom: React.FC = () => {
   const cannotSpeakReason = userRoleInRoom === "Judge"
     ? "Bạn đang ở chế độ Giám khảo theo dõi trận đấu (Read-only)."
     : userRoleInRoom === "Spectator"
-    ? "Bạn đang ở chế độ Giám sát/Khán giả theo dõi trận đấu (Read-only)."
-    : EffectiveDebateCompleted
-    ? "Đã hoàn thành 3 vòng tranh biện. Nhấn 'Nộp bài' ở góc trên để xem kết quả."
-    : isPreparing
-    ? "Đang trong thời gian chuẩn bị. Vòng 1 sẽ bắt đầu khi hết giờ chuẩn bị."
-    : opponentInitFailed
-    ? "Chưa kết nối được Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
-    : opponentError === OPPONENT_SESSION_ID_ERROR
-    ? OPPONENT_SESSION_ID_ERROR
-    : isOpponentDataConflict
-    ? "Phiên này không thể tiếp tục. Vui lòng quay lại và tạo phiên tranh biện mới."
-    : !isP2pOr2v2 && !opponentReady
-    ? "AI đang chuẩn bị lập luận..."
-    : pendingTurnEvaluation
-    ? "Chưa chấm được lượt phát biểu trước. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
-    : isAiGenerating || isWaitingForAiFirstTurn
-    ? "Đối thủ AI đang phản hồi..."
-    : isSubmitting
-    ? "Đang gửi lập luận..."
-    : isOpponentSpeechMismatch
-    ? "Phiên này không thể tiếp tục. Vui lòng quay lại và tạo phiên tranh biện mới."
-    : isWaitingForOpponentInAiMode
-    ? opponentError
-      ? "Chưa nhận được phản hồi từ Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
-      : "Đang chờ Đối thủ AI hoàn tất lượt phát biểu trong vòng này..."
-    : EffectiveExpired
-    ? isP2pOr2v2
-      ? "Đã hết thời gian phát biểu (00:00). Đang chờ máy chủ cập nhật lượt tiếp theo..."
-      : currentRound < 3
-      ? `Đã hết thời gian phát biểu (00:00). Nhấn "Sang Vòng ${currentRound + 1}" ở trên để tiếp tục.`
-      : "Đã hết thời gian phát biểu (00:00). Phiên tranh biện đã hoàn tất."
-    : !isMyP2pTurn
-    ? "Đang chờ lượt phát biểu của đối thủ..."
-    : undefined;
+      ? "Bạn đang ở chế độ Giám sát/Khán giả theo dõi trận đấu (Read-only)."
+      : EffectiveDebateCompleted
+        ? "Đã hoàn thành 3 vòng tranh biện. Nhấn 'Nộp bài' ở góc trên để xem kết quả."
+        : isPreparing
+          ? "Đang trong thời gian chuẩn bị. Vòng 1 sẽ bắt đầu khi hết giờ chuẩn bị."
+          : opponentInitFailed
+            ? "Chưa kết nối được Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
+            : opponentError === OPPONENT_SESSION_ID_ERROR
+              ? OPPONENT_SESSION_ID_ERROR
+              : isOpponentDataConflict
+                ? "Phiên này không thể tiếp tục. Vui lòng quay lại và tạo phiên tranh biện mới."
+                : !isP2pOr2v2 && !opponentReady
+                  ? "AI đang chuẩn bị lập luận..."
+                  : pendingTurnEvaluation
+                    ? "Chưa chấm được lượt phát biểu trước. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
+                    : isAiGenerating || isWaitingForAiFirstTurn
+                      ? "Đối thủ AI đang phản hồi..."
+                      : isSubmitting
+                        ? "Đang gửi lập luận..."
+                        : isOpponentSpeechMismatch
+                          ? "Phiên này không thể tiếp tục. Vui lòng quay lại và tạo phiên tranh biện mới."
+                          : isWaitingForOpponentInAiMode
+                            ? opponentError
+                              ? "Chưa nhận được phản hồi từ Đối thủ AI. Vui lòng nhấn 'Thử lại' ở thanh thông báo phía trên."
+                              : "Đang chờ Đối thủ AI hoàn tất lượt phát biểu trong vòng này..."
+                            : EffectiveExpired
+                              ? isP2pOr2v2
+                                ? "Đã hết thời gian phát biểu (00:00). Đang chờ máy chủ cập nhật lượt tiếp theo..."
+                                : currentRound < 3
+                                  ? `Đã hết thời gian phát biểu (00:00). Nhấn "Sang Vòng ${currentRound + 1}" ở trên để tiếp tục.`
+                                  : "Đã hết thời gian phát biểu (00:00). Phiên tranh biện đã hoàn tất."
+                              : !isMyP2pTurn
+                                ? "Đang chờ lượt phát biểu của đối thủ..."
+                                : undefined;
 
   /** Takes the server clock offset and the start of Round 1 from a session response. */
   const syncServerClock = useCallback((data: DebateSessionResponse) => {
@@ -1205,10 +1256,10 @@ const DebateRoom: React.FC = () => {
         setIsReconnecting(false);
         syncServerClock(res.data);
         setSessionDetails(res.data);
-        if (res.data.topic || res.data.title) {
-          setMotionText(res.data.topic || res.data.title);
+        if (res.data.motion || res.data.topic || res.data.title) {
+          setMotionText(res.data.motion || res.data.topic || res.data.title);
         }
-        // Sync server-owned status and round ONLY for P2P/2v2 sessions.
+        // Sync server-owned status and round for both AI and P2P/2v2 sessions.
         // Note: Backend MapToSessionResponse currently returns debateType=1 for all sessions,
         // so check `participants.some(p => p.isAI)` as the authoritative indicator of AI vs P2P/2v2.
         const serverHasAi = Boolean(res.data.participants?.some((p) => p.isAI));
@@ -1236,13 +1287,17 @@ const DebateRoom: React.FC = () => {
             res.data.currentStage === 1 || String(res.data.currentStage) === "Opening"
               ? 1
               : res.data.currentStage === 2 || String(res.data.currentStage) === "Rebuttal"
-              ? 2
-              : 3;
+                ? 2
+                : 3;
           setCurrentRound(stageNum);
-          if (res.data.status === 3 || String(res.data.status) === "Completed") {
-            setIsDebateCompleted(true);
-            setSecondsRemaining(0);
-          }
+        }
+
+        if (res.data.status === 3 || String(res.data.status) === "Completed") {
+          setIsDebateCompleted(true);
+          setSecondsRemaining(0);
+        } else if (res.data.status === 4 || String(res.data.status) === "Cancelled") {
+          setSecondsRemaining(0);
+          setIsRecording(false);
         }
         return res.data;
       }
@@ -1285,8 +1340,8 @@ const DebateRoom: React.FC = () => {
               arg.stage === 1 || String(arg.stage) === "Opening"
                 ? 1
                 : arg.stage === 2 || String(arg.stage) === "Rebuttal"
-                ? 2
-                : 3;
+                  ? 2
+                  : 3;
             return {
               id: `arg-${arg.argumentId}`,
               argumentId: arg.argumentId,
@@ -1297,9 +1352,9 @@ const DebateRoom: React.FC = () => {
               roundNumber: stageNum,
               timestamp: arg.submittedAt
                 ? new Date(arg.submittedAt).toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
                 : "",
               content: arg.content,
               isCurrentUser:
@@ -1321,6 +1376,19 @@ const DebateRoom: React.FC = () => {
             );
             return waiting.length > 0 ? [...loadedMsgs, ...waiting] : loadedMsgs;
           });
+          if (!isP2pOr2v2) {
+            let recoveredRound = 1;
+            for (let r = 1; r <= 2; r++) {
+              const hasDebater = loadedMsgs.some((m) => m.roundNumber === r && m.speaker === "Debater");
+              const hasAi = loadedMsgs.some((m) => m.roundNumber === r && m.speaker === "AI");
+              if (hasDebater && hasAi) {
+                recoveredRound = r + 1;
+              } else {
+                break;
+              }
+            }
+            setCurrentRound((prev) => (prev < recoveredRound ? recoveredRound : prev));
+          }
           return loadedMsgs;
         }
         return [];
@@ -1502,15 +1570,15 @@ const DebateRoom: React.FC = () => {
   const callTeammate =
     myCallParticipant && !myCallParticipant.isAI
       ? sessionDetails?.participants?.find(
-          (p) =>
-            !p.isAI &&
-            p.userId !== null &&
-            p.userId !== undefined &&
-            !isSameUserId(p.userId, currentUserId) &&
-            p.side !== null &&
-            p.side !== undefined &&
-            p.side === myCallParticipant.side
-        )
+        (p) =>
+          !p.isAI &&
+          p.userId !== null &&
+          p.userId !== undefined &&
+          !isSameUserId(p.userId, currentUserId) &&
+          p.side !== null &&
+          p.side !== undefined &&
+          p.side === myCallParticipant.side
+      )
       : undefined;
   const teamCall = useTeamCall({
     eligible: isBackendSession && userRoleInRoom === "Debater" && Boolean(callTeammate),
@@ -1669,18 +1737,25 @@ const DebateRoom: React.FC = () => {
       isP2pOr2v2 && sessionDetails?.currentTurn?.timeLimitSeconds
         ? sessionDetails.currentTurn.timeLimitSeconds
         : currentRound === 1
-        ? ROUND_1_DEFAULT_SECONDS
-        : SUBSEQUENT_ROUND_SECONDS;
+          ? ROUND_1_DEFAULT_SECONDS
+          : SUBSEQUENT_ROUND_SECONDS;
 
     let deadlineMs = readStoredNumber(DEADLINE_STORAGE_PREFIX + activeTurnKey);
     if (!deadlineMs || deadlineMs <= 0) {
-      // The learner's Round 1 turn began when the preparation ended (on the server clock), not when this page opened.
-      // When the AI speaks first, the turn only begins after the AI has finished: that stays counted from now.
+      // Prefer official server turn start timestamp if available; fallback to Round 1 server start or local now.
+      const serverTurnStartMs =
+        sessionDetails?.currentTurn?.startedAt
+          ? serverTimeToLocalMs(sessionDetails.currentTurn.startedAt, serverOffsetRef.current)
+          : null;
       const roundOneStartMs =
         currentRound === 1 && roundOneStartIsoRef.current && (isP2pOr2v2 || aiSide !== "pro")
           ? serverTimeToLocalMs(roundOneStartIsoRef.current, serverOffsetRef.current)
           : null;
-      deadlineMs = (roundOneStartMs ?? Date.now()) + defaultDurationSec * 1000;
+      const authoritativeStartMs =
+        isP2pOr2v2 && serverTurnStartMs
+          ? serverTurnStartMs
+          : roundOneStartMs ?? Date.now();
+      deadlineMs = authoritativeStartMs + defaultDurationSec * 1000;
       writeStoredValue(DEADLINE_STORAGE_PREFIX + activeTurnKey, String(deadlineMs));
     }
 
@@ -1721,13 +1796,14 @@ const DebateRoom: React.FC = () => {
     timedOutRounds,
   ]);
 
-  // Polling for backend sessions — only overwrite transcript in P2P/2v2 mode
+  // Polling & initial recovery for backend sessions
   useEffect(() => {
     if (!isBackendSession) return;
 
     loadBackendSession(numSessionId);
-    // While the session is loading its type is unknown: an AI room's messages must not be replaced by the transcript
-    if (isP2pOr2v2 && !isLoadingBackendSession) {
+    // Recover submitted speeches on mount/refresh for both P2P and AI sessions
+    // (`loadBackendTranscript` preserves any pending local AI speeches not yet recorded).
+    if (!isLoadingBackendSession) {
       loadBackendTranscript(numSessionId);
     }
 
@@ -1747,7 +1823,7 @@ const DebateRoom: React.FC = () => {
               setPendingSwapRequests(res.data);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } else if (sessionDetails?.status === 2) {
         loadBackendTranscript(numSessionId);
       }
@@ -1914,118 +1990,136 @@ const DebateRoom: React.FC = () => {
     }
   }, [isBackendSession, numSessionId, syncServerClock, loadBackendSession]);
 
+  // Keep SignalR callbacks in a ref so the connection effect only depends on [isBackendSession, numSessionId]
+  const hubCallbacksRef = useRef<Parameters<typeof debateHubService.connect>[1]>({});
+  hubCallbacksRef.current = {
+    onUserJoined: (data) => {
+      if (!isSameUserId(data.userId, currentUserId)) {
+        setRoomFeedback({
+          text: `${data.fullName} vừa tham gia phòng tranh biện.`,
+          type: "info",
+        });
+      }
+      loadBackendSession(numSessionId);
+    },
+    onUserLeft: (data) => {
+      if (!isSameUserId(data.userId, currentUserId)) {
+        setRoomFeedback({
+          text: `${data.fullName} đã rời phòng tranh biện.`,
+          type: "warning",
+        });
+      }
+      loadBackendSession(numSessionId);
+    },
+    onSpeakingStatusChanged: (data) => {
+      if (!isSameUserId(data.userId, currentUserId)) {
+        if (data.isSpeaking) {
+          setRemoteSpeakingUser({ userId: data.userId, fullName: data.fullName });
+        } else {
+          setRemoteSpeakingUser((prev) => (prev?.userId === data.userId ? null : prev));
+          setRemoteLiveTranscript((prev) => (prev?.userId === data.userId ? null : prev));
+        }
+      }
+    },
+    onLiveTranscriptUpdated: (data) => {
+      if (!isSameUserId(data.userId, currentUserId)) {
+        setRemoteLiveTranscript((prev) => {
+          const sameUser = prev && prev.userId === data.userId;
+          const baseConfirmed = sameUser ? prev.confirmedText : "";
+          if (data.isFinal) {
+            const nextConfirmed = data.text.trim()
+              ? `${baseConfirmed} ${data.text.trim()}`.trim()
+              : baseConfirmed;
+            return {
+              userId: data.userId,
+              fullName: data.fullName,
+              confirmedText: nextConfirmed,
+              interimText: "",
+            };
+          }
+          return {
+            userId: data.userId,
+            fullName: data.fullName,
+            confirmedText: baseConfirmed,
+            interimText: data.text,
+          };
+        });
+      }
+    },
+    onArgumentSubmitted: (data) => {
+      setRemoteSpeakingUser(null);
+      setRemoteLiveTranscript(null);
+      loadBackendTranscript(numSessionId);
+      loadBackendSession(numSessionId);
+      if (!isSameUserId(data.argument.userId, currentUserId)) {
+        setRoomFeedback({
+          text: `${data.argument.speakerName || "Đối thủ"} vừa gửi bài tranh biện.`,
+          type: "info",
+        });
+      }
+    },
+    onTeamCallSignal: (data) => teamCallHandlersRef.current.handleSignal(data),
+    onTeamCallEnded: (data) => teamCallHandlersRef.current.handleEnded(data),
+    onSessionStarted: () => {
+      loadBackendSession(numSessionId);
+      setRoomFeedback({
+        text: "Trận tranh biện đã chính thức bắt đầu!",
+        type: "success",
+      });
+    },
+    onRoundStarted: (data: RoundStartedEvent) => {
+      setLastRoundEvent({ round: data.roundNumber, label: data.roundLabel, totalRounds: data.totalRounds });
+      announceRound(data.roundNumber, data.roundLabel);
+      loadBackendSession(numSessionId);
+    },
+    onSessionStatusChanged: (data) => {
+      loadBackendSession(numSessionId);
+      if (data.status === "Completed") {
+        setIsDebateCompleted(true);
+      } else if (data.status === "Cancelled") {
+        setSecondsRemaining(0);
+        setIsRecording(false);
+        setRemoteSpeakingUser(null);
+        setSessionDetails((prev) => (prev ? { ...prev, status: 4 } : prev));
+        setRoomFeedback({
+          text: "Phiên tranh biện đã bị huỷ vì có người rời trận.",
+          type: "warning",
+        });
+      }
+    },
+    onReconnecting: () => {
+      setIsReconnecting(true);
+    },
+    onReconnected: () => {
+      setIsReconnecting(false);
+      loadBackendSession(numSessionId);
+      loadBackendTranscript(numSessionId);
+    },
+  };
+
   // Real-time synchronization via SignalR for debate rooms
   useEffect(() => {
     if (!isBackendSession) return;
 
     debateHubService.connect(numSessionId, {
-      onUserJoined: (data) => {
-        if (!isSameUserId(data.userId, currentUserId)) {
-          setRoomFeedback({
-            text: `${data.fullName} vừa tham gia phòng tranh biện.`,
-            type: "info",
-          });
-        }
-        loadBackendSession(numSessionId);
-      },
-      onUserLeft: (data) => {
-        if (!isSameUserId(data.userId, currentUserId)) {
-          setRoomFeedback({
-            text: `${data.fullName} đã rời phòng tranh biện.`,
-            type: "warning",
-          });
-        }
-        loadBackendSession(numSessionId);
-      },
-      onSpeakingStatusChanged: (data) => {
-        if (!isSameUserId(data.userId, currentUserId)) {
-          if (data.isSpeaking) {
-            setRemoteSpeakingUser({ userId: data.userId, fullName: data.fullName });
-          } else {
-            setRemoteSpeakingUser((prev) => (prev?.userId === data.userId ? null : prev));
-            setRemoteLiveTranscript((prev) => (prev?.userId === data.userId ? null : prev));
-          }
-        }
-      },
-      onLiveTranscriptUpdated: (data) => {
-        if (!isSameUserId(data.userId, currentUserId)) {
-          setRemoteLiveTranscript((prev) => {
-            const sameUser = prev && prev.userId === data.userId;
-            const baseConfirmed = sameUser ? prev.confirmedText : "";
-            if (data.isFinal) {
-              const nextConfirmed = data.text.trim()
-                ? `${baseConfirmed} ${data.text.trim()}`.trim()
-                : baseConfirmed;
-              return {
-                userId: data.userId,
-                fullName: data.fullName,
-                confirmedText: nextConfirmed,
-                interimText: "",
-              };
-            }
-            return {
-              userId: data.userId,
-              fullName: data.fullName,
-              confirmedText: baseConfirmed,
-              interimText: data.text,
-            };
-          });
-        }
-      },
-      onArgumentSubmitted: (data) => {
-        setRemoteSpeakingUser(null);
-        setRemoteLiveTranscript(null);
-        loadBackendTranscript(numSessionId);
-        loadBackendSession(numSessionId);
-        if (!isSameUserId(data.argument.userId, currentUserId)) {
-          setRoomFeedback({
-            text: `${data.argument.speakerName || "Đối thủ"} vừa gửi bài tranh biện.`,
-            type: "info",
-          });
-        }
-      },
-      onTeamCallSignal: (data) => teamCallHandlersRef.current.handleSignal(data),
-      onTeamCallEnded: (data) => teamCallHandlersRef.current.handleEnded(data),
-      onSessionStarted: () => {
-        loadBackendSession(numSessionId);
-        setRoomFeedback({
-          text: "Trận tranh biện đã chính thức bắt đầu!",
-          type: "success",
-        });
-      },
-      onRoundStarted: (data: RoundStartedEvent) => {
-        setLastRoundEvent({ round: data.roundNumber, label: data.roundLabel, totalRounds: data.totalRounds });
-        announceRound(data.roundNumber, data.roundLabel);
-        loadBackendSession(numSessionId);
-      },
-      onSessionStatusChanged: (data) => {
-        loadBackendSession(numSessionId);
-        if (data.status === "Completed") {
-          setIsDebateCompleted(true);
-        } else if (data.status === "Cancelled") {
-          setSecondsRemaining(0);
-          setIsRecording(false);
-          setRemoteSpeakingUser(null);
-          setSessionDetails((prev) => (prev ? { ...prev, status: 4 } : prev));
-          setRoomFeedback({
-            text: "Phiên tranh biện đã bị huỷ vì có người rời trận.",
-            type: "warning",
-          });
-        }
-      },
+      onUserJoined: (d) => hubCallbacksRef.current.onUserJoined?.(d),
+      onUserLeft: (d) => hubCallbacksRef.current.onUserLeft?.(d),
+      onSpeakingStatusChanged: (d) => hubCallbacksRef.current.onSpeakingStatusChanged?.(d),
+      onLiveTranscriptUpdated: (d) => hubCallbacksRef.current.onLiveTranscriptUpdated?.(d),
+      onArgumentSubmitted: (d) => hubCallbacksRef.current.onArgumentSubmitted?.(d),
+      onTeamCallSignal: (d) => hubCallbacksRef.current.onTeamCallSignal?.(d),
+      onTeamCallEnded: (d) => hubCallbacksRef.current.onTeamCallEnded?.(d),
+      onSessionStarted: (d) => hubCallbacksRef.current.onSessionStarted?.(d),
+      onRoundStarted: (d) => hubCallbacksRef.current.onRoundStarted?.(d),
+      onSessionStatusChanged: (d) => hubCallbacksRef.current.onSessionStatusChanged?.(d),
+      onReconnecting: () => hubCallbacksRef.current.onReconnecting?.(),
+      onReconnected: () => hubCallbacksRef.current.onReconnected?.(),
     });
 
     return () => {
       debateHubService.disconnect();
     };
-  }, [
-    isBackendSession,
-    numSessionId,
-    currentUserId,
-    loadBackendSession,
-    loadBackendTranscript,
-    announceRound,
-  ]);
+  }, [isBackendSession, numSessionId]);
 
   // Broadcast current user's live speaking status to other debaters in real-time
   useEffect(() => {
@@ -2224,13 +2318,13 @@ const DebateRoom: React.FC = () => {
             const firstTurnRes: { speech_text?: string; liveTurn?: object | null } = written
               ? { speech_text: written }
               : await retryWhilePlanning(
-                  () =>
-                    requestOpponentTurn(opponentSessionId, {
-                      turn_index: toOpponentTurnIndex(0),
-                      new_learner_speeches: [],
-                    }),
-                  { isCancelled: () => unmountedRef.current }
-                );
+                () =>
+                  requestOpponentTurn(opponentSessionId, {
+                    turn_index: toOpponentTurnIndex(0),
+                    new_learner_speeches: [],
+                  }),
+                { isCancelled: () => unmountedRef.current }
+              );
             const speechText = firstTurnRes?.speech_text?.trim();
             if (!speechText) {
               clearLive(firstTurnRes?.liveTurn);
@@ -2619,7 +2713,7 @@ const DebateRoom: React.FC = () => {
       micMeterIntervalRef.current = null;
     }
     if (audioCtxRef.current) {
-      void audioCtxRef.current.close().catch(() => {});
+      void audioCtxRef.current.close().catch(() => { });
       audioCtxRef.current = null;
     }
     // The tracks belong to the shared device stream (useSharedDeviceStream): only this recording lets go of them
@@ -3106,8 +3200,8 @@ const DebateRoom: React.FC = () => {
       opts.multimodal !== undefined
         ? opts.multimodal
         : multimodalResult !== consumedMultimodalRef.current
-        ? multimodalResult
-        : null;
+          ? multimodalResult
+          : null;
     const normalizedAnalytics = normalizeDeliveryAnalytics(currentMultimodal?.delivery_analytics);
     const computedWordCount = currentText ? currentText.split(/\s+/).length : 0;
 
@@ -3269,7 +3363,7 @@ const DebateRoom: React.FC = () => {
       });
 
       if (res?.success && res.data) {
-        setAiHintText(res.data.hint);
+        setAiHintText(formatAiHintContent(res.data.hint));
         setSidebarTab("coach");
         setIsSidebarOpen(true);
         if (typeof window !== "undefined") {
@@ -3322,58 +3416,58 @@ const DebateRoom: React.FC = () => {
   const coachingAdvice: CoachingAdvice[] = [
     ...(aiHintText
       ? [
-          {
-            type: "strategy" as const,
-            label: "Gợi ý chiến thuật (AI Hint - 5 Credit)",
-            content: aiHintText,
-          },
-        ]
+        {
+          type: "strategy" as const,
+          label: "Gợi ý chiến thuật (AI Hint - 5 Credit)",
+          content: aiHintText,
+        },
+      ]
       : []),
     ...(coachingResult
       ? [
-          ...(coachingResult.focus_area
-            ? [
-                {
-                  type: "weakness" as const,
-                  label: "Trọng tâm cần cải thiện (AI Coach)",
-                  content: `${coachingResult.focus_area} — ${coachingResult.summary}`,
-                },
-              ]
-            : []),
-          ...(coachingResult.rewritten_example
-            ? [
-                {
-                  type: "evidence" as const,
-                  label: "Ví dụ viết lại mẫu từ AI Coach",
-                  content: coachingResult.rewritten_example,
-                },
-              ]
-            : []),
-          ...(coachingResult.drills?.map((d) => ({
-            type: "strategy" as const,
-            label: "Bài tập rèn luyện lập luận",
-            content: d,
-          })) || []),
-          ...(coachingResult.next_turn_advice?.map((a) => ({
-            type: "strategy" as const,
-            label: "Chiến thuật lượt tiếp theo",
-            content: a,
-          })) || []),
-        ]
+        ...(coachingResult.focus_area
+          ? [
+            {
+              type: "weakness" as const,
+              label: "Trọng tâm cần cải thiện (AI Coach)",
+              content: `${coachingResult.focus_area} — ${coachingResult.summary}`,
+            },
+          ]
+          : []),
+        ...(coachingResult.rewritten_example
+          ? [
+            {
+              type: "evidence" as const,
+              label: "Ví dụ viết lại mẫu từ AI Coach",
+              content: coachingResult.rewritten_example,
+            },
+          ]
+          : []),
+        ...(coachingResult.drills?.map((d) => ({
+          type: "strategy" as const,
+          label: "Bài tập rèn luyện lập luận",
+          content: d,
+        })) || []),
+        ...(coachingResult.next_turn_advice?.map((a) => ({
+          type: "strategy" as const,
+          label: "Chiến thuật lượt tiếp theo",
+          content: a,
+        })) || []),
+      ]
       : []),
     ...(evaluationResult
       ? [
-          ...(evaluationResult.weaknesses?.map((w) => ({
-            type: "weakness" as const,
-            label: "Điểm yếu cần khắc phục",
-            content: w,
-          })) || []),
-          ...(evaluationResult.suggestions?.map((s) => ({
-            type: "strategy" as const,
-            label: "Gợi ý chiến lược tiếp theo",
-            content: s,
-          })) || []),
-        ]
+        ...(evaluationResult.weaknesses?.map((w) => ({
+          type: "weakness" as const,
+          label: "Điểm yếu cần khắc phục",
+          content: w,
+        })) || []),
+        ...(evaluationResult.suggestions?.map((s) => ({
+          type: "strategy" as const,
+          label: "Gợi ý chiến lược tiếp theo",
+          content: s,
+        })) || []),
+      ]
       : []),
   ];
 
@@ -3484,7 +3578,7 @@ const DebateRoom: React.FC = () => {
     }
     // The Backend says Completed only once the last turn is recorded (and the evaluation has started)
     if (!openedCompletedRef.current && backendCompleted && EffectiveDebateCompleted && !isSubmitting && !isAiGenerating
-        && !autoFinishTriedRef.current) {
+      && !autoFinishTriedRef.current) {
       autoFinishTriedRef.current = true;
       void finishDebateRef.current();
     }
@@ -3496,19 +3590,19 @@ const DebateRoom: React.FC = () => {
     members:
       proParticipants.length > 0
         ? proParticipants.map((p, idx) => ({
-            speakerName: p.speakerName || `Debater PRO ${idx + 1}`,
-            isCurrentUser: isSameUserId(p.userId, currentUserId),
-            roleTag: isSameUserId(p.userId, sessionDetails?.createdByUserId) ? "Chủ phòng" : `PRO ${idx + 1}`,
-            isAI: p.isAI,
-          }))
+          speakerName: p.speakerName || `Debater PRO ${idx + 1}`,
+          isCurrentUser: isSameUserId(p.userId, currentUserId),
+          roleTag: isSameUserId(p.userId, sessionDetails?.createdByUserId) ? "Chủ phòng" : `PRO ${idx + 1}`,
+          isAI: p.isAI,
+        }))
         : [
-            {
-              speakerName: debaterSide === "pro" ? "Bạn" : "Đối thủ AI",
-              isCurrentUser: debaterSide === "pro",
-              roleTag: "PRO 1",
-              isAI: debaterSide !== "pro",
-            },
-          ],
+          {
+            speakerName: debaterSide === "pro" ? "Bạn" : "Đối thủ AI",
+            isCurrentUser: debaterSide === "pro",
+            roleTag: "PRO 1",
+            isAI: debaterSide !== "pro",
+          },
+        ],
   };
 
   const conTeamGroup: DebateTeamGroup = {
@@ -3516,19 +3610,19 @@ const DebateRoom: React.FC = () => {
     members:
       conParticipants.length > 0
         ? conParticipants.map((p, idx) => ({
-            speakerName: p.speakerName || `Debater CON ${idx + 1}`,
-            isCurrentUser: isSameUserId(p.userId, currentUserId),
-            roleTag: isSameUserId(p.userId, sessionDetails?.createdByUserId) ? "Chủ phòng" : `CON ${idx + 1}`,
-            isAI: p.isAI,
-          }))
+          speakerName: p.speakerName || `Debater CON ${idx + 1}`,
+          isCurrentUser: isSameUserId(p.userId, currentUserId),
+          roleTag: isSameUserId(p.userId, sessionDetails?.createdByUserId) ? "Chủ phòng" : `CON ${idx + 1}`,
+          isAI: p.isAI,
+        }))
         : [
-            {
-              speakerName: debaterSide === "con" ? "Bạn" : "Đối thủ AI",
-              isCurrentUser: debaterSide === "con",
-              roleTag: "CON 1",
-              isAI: debaterSide !== "con",
-            },
-          ],
+          {
+            speakerName: debaterSide === "con" ? "Bạn" : "Đối thủ AI",
+            isCurrentUser: debaterSide === "con",
+            roleTag: "CON 1",
+            isAI: debaterSide !== "con",
+          },
+        ],
   };
 
   // An AI speech on screen that the Backend has not recorded yet says why (waiting for the minute, or the record failed)
@@ -3537,8 +3631,8 @@ const DebateRoom: React.FC = () => {
     const pendingLabel = isWaitingToRecordAi
       ? "Đang chờ ghi…"
       : !isAiGenerating && (opponentError || opponentInitFailed)
-      ? "Chưa ghi lên máy chủ"
-      : undefined;
+        ? "Chưa ghi lên máy chủ"
+        : undefined;
     return pendingLabel ? { ...m, pendingLabel } : m;
   });
 
@@ -3637,15 +3731,14 @@ const DebateRoom: React.FC = () => {
       {bannerText && (
         <div
           data-testid="debate-feedback-banner"
-          className={`px-4 py-2 border-b text-xs flex items-center justify-between gap-2 shrink-0 ${
-            roomFeedback?.type === "success"
-              ? "bg-blue-50/80 dark:bg-blue-950/30 border-blue-200/70 dark:border-blue-800/50"
-              : roomFeedback?.type === "warning"
+          className={`px-4 py-2 border-b text-xs flex items-center justify-between gap-2 shrink-0 ${roomFeedback?.type === "success"
+            ? "bg-blue-50/80 dark:bg-blue-950/30 border-blue-200/70 dark:border-blue-800/50"
+            : roomFeedback?.type === "warning"
               ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-200/70 dark:border-amber-800/50"
               : roomFeedback?.type === "info"
-              ? "bg-sky-50/80 dark:bg-sky-950/30 border-sky-200/70 dark:border-sky-800/50"
-              : "bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/70 dark:border-rose-800/50"
-          }`}
+                ? "bg-sky-50/80 dark:bg-sky-950/30 border-sky-200/70 dark:border-sky-800/50"
+                : "bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/70 dark:border-rose-800/50"
+            }`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <AlertCircle
@@ -3654,10 +3747,10 @@ const DebateRoom: React.FC = () => {
                 roomFeedback?.type === "success"
                   ? "text-[#0B5ED7] shrink-0"
                   : roomFeedback?.type === "warning"
-                  ? "text-amber-600 dark:text-amber-400 shrink-0"
-                  : roomFeedback?.type === "info"
-                  ? "text-sky-600 dark:text-sky-400 shrink-0"
-                  : "text-rose-600 dark:text-rose-400 shrink-0"
+                    ? "text-amber-600 dark:text-amber-400 shrink-0"
+                    : roomFeedback?.type === "info"
+                      ? "text-sky-600 dark:text-sky-400 shrink-0"
+                      : "text-rose-600 dark:text-rose-400 shrink-0"
               }
             />
             <span className="text-slate-800 dark:text-slate-200 font-medium truncate">
@@ -4073,21 +4166,21 @@ const DebateRoom: React.FC = () => {
                   opponentReady
                     ? "done"
                     : aiOpponentStatus === "error"
-                    ? "error"
-                    : aiOpponentStatus === "planning"
-                    ? "loading"
-                    : "waiting"
+                      ? "error"
+                      : aiOpponentStatus === "planning"
+                        ? "loading"
+                        : "waiting"
                 }
                 openingState={
                   !aiNeedsPreparedOpening
                     ? null
                     : openingPrep === "ready"
-                    ? "done"
-                    : openingPrep === "error"
-                    ? "error"
-                    : openingPrep === "writing"
-                    ? "loading"
-                    : "waiting"
+                      ? "done"
+                      : openingPrep === "error"
+                        ? "error"
+                        : openingPrep === "writing"
+                          ? "loading"
+                          : "waiting"
                 }
                 onRetryOpponent={() => setOpponentInitNonce((n) => n + 1)}
               />
@@ -4167,9 +4260,8 @@ const DebateRoom: React.FC = () => {
                             changeReadRate(choice);
                             setIsRateMenuOpen(false);
                           }}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                            choice === readRate ? "font-bold text-[#0B5ED7] dark:text-blue-400" : "text-slate-700 dark:text-slate-200"
-                          }`}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${choice === readRate ? "font-bold text-[#0B5ED7] dark:text-blue-400" : "text-slate-700 dark:text-slate-200"
+                            }`}
                         >
                           {choice}×
                         </button>
@@ -4206,11 +4298,11 @@ const DebateRoom: React.FC = () => {
                 liveTurnStage !== null && readProgress[liveTurnStage] === READ_PROGRESS_DONE
                   ? null
                   : liveTurnStage !== null && readProgress[liveTurnStage] !== undefined
-                  ? readProgress[liveTurnStage]
-                  : // Voice not made yet (it starts a moment after the first words): grey until it speaks
-                  liveTurnStage !== null && readAloud && (hasServerVoice || viVoice)
-                  ? 0
-                  : null
+                    ? readProgress[liveTurnStage]
+                    : // Voice not made yet (it starts a moment after the first words): grey until it speaks
+                    liveTurnStage !== null && readAloud && (hasServerVoice || viVoice)
+                      ? 0
+                      : null
               }
               aiSide={aiSide}
               timedOutRounds={timedOutRounds}
@@ -4438,11 +4530,11 @@ const DebateRoom: React.FC = () => {
         onConfirmLeave={confirmLeave}
         {...(isDebateLeaveEnabled() && isBackendSession
           ? {
-              title: isWaitingInLobby ? "Bạn có chắc muốn rời phòng chờ?" : "Bạn có chắc muốn rời trận tranh biện?",
-              description: isP2pOr2v2
-                ? "Nếu rời đi, phiên này sẽ bị huỷ cho tất cả người chơi và không thể tiếp tục."
-                : "Nếu rời đi, phiên này sẽ bị huỷ và không thể tiếp tục. Lần sau vào lại chủ đề sẽ là một phiên mới.",
-            }
+            title: isWaitingInLobby ? "Bạn có chắc muốn rời phòng chờ?" : "Bạn có chắc muốn rời trận tranh biện?",
+            description: isP2pOr2v2
+              ? "Nếu rời đi, phiên này sẽ bị huỷ cho tất cả người chơi và không thể tiếp tục."
+              : "Nếu rời đi, phiên này sẽ bị huỷ và không thể tiếp tục. Lần sau vào lại chủ đề sẽ là một phiên mới.",
+          }
           : {})}
       />
     </div>

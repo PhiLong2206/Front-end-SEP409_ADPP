@@ -10,6 +10,8 @@ export const CURRENT_ROUND_PREFIX = "adpp_current_round_";
 export const COMPLETED_STORAGE_PREFIX = "adpp_debate_completed_";
 export const MESSAGES_STORAGE_PREFIX = "adpp_messages_";
 export const DIFFICULTY_STORAGE_PREFIX = "adpp_difficulty_";
+export const DRAFT_ARGUMENT_PREFIX = "adpp_draft_argument_";
+export const AI_HINT_STORAGE_PREFIX = "adpp_ai_hint_";
 
 /** Off until the Backend has POST /debate/{id}/leave: see .env.example. */
 export const isDebateLeaveEnabled = (): boolean => import.meta.env.VITE_DEBATE_LEAVE_ENABLED === "true";
@@ -26,6 +28,8 @@ export const clearDebateRoomStorage = (roomId: string): void => {
       MESSAGES_STORAGE_PREFIX,
       DIFFICULTY_STORAGE_PREFIX,
       ROUND_BANNER_PREFIX,
+      DRAFT_ARGUMENT_PREFIX,
+      AI_HINT_STORAGE_PREFIX,
     ].forEach((prefix) => sessionStorage.removeItem(prefix + roomId));
     // Turn keys are `${roomId}_...`: the separator keeps room 1 from matching room 11
     const turnKeyPrefixes = [DEADLINE_STORAGE_PREFIX, EXPIRED_STORAGE_PREFIX].map((prefix) => `${prefix}${roomId}_`);

@@ -4,7 +4,49 @@ import { Bot, ChevronDown, ChevronUp, Lightbulb, Target, AlertTriangle, Zap, Ref
 export interface CoachingAdvice {
   type: "weakness" | "strategy" | "evidence" | "logic_error";
   label: string;
-  content: string;
+  content: string | unknown;
+}
+
+export class AICoachingErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("AICoachingPanel error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 space-y-2">
+          <div className="flex items-center gap-2 font-bold text-[14px]">
+            <AlertTriangle size={16} />
+            <span>Không thể hiển thị gợi ý AI</span>
+          </div>
+          <p className="text-[13px] leading-relaxed">
+            Đã có sự cố khi kết xuất nội dung gợi ý. Vui lòng thử yêu cầu lại hoặc tiếp tục tranh biện.
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-3 py-1 bg-white dark:bg-slate-800 rounded-md text-xs font-semibold border border-rose-300 hover:bg-rose-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            Thử lại
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 
@@ -184,7 +226,9 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
                       <Icon size={14} className={cfg.color} />
                       <span className={`text-[14px] font-bold ${cfg.color}`}>{item.label}</span>
                     </div>
-                    <p className={`text-[15px] leading-[1.65] ${cfg.textColor}`}>{item.content}</p>
+                    <p className={`text-[15px] leading-[1.65] whitespace-pre-line ${cfg.textColor}`}>
+                      {typeof item.content === "string" ? item.content : JSON.stringify(item.content, null, 2)}
+                    </p>
                   </div>
                 );
               })}
@@ -213,4 +257,10 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
   );
 };
 
-export default AICoachingPanel;
+const SafeAICoachingPanel: React.FC<AICoachingPanelProps> = (props) => (
+  <AICoachingErrorBoundary>
+    <AICoachingPanel {...props} />
+  </AICoachingErrorBoundary>
+);
+
+export default SafeAICoachingPanel;

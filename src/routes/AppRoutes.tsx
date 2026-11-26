@@ -50,9 +50,16 @@ const ProfileRedirect: React.FC = () => {
 /**
  * PayOS redirect handler: forwards user back to /debater/payments with query params intact.
  */
-const PaymentReturnRedirect: React.FC = () => {
+const PaymentReturnRedirect: React.FC<{ defaultRoute?: "success" | "cancel" }> = ({ defaultRoute }) => {
   const [searchParams] = useSearchParams();
-  const query = searchParams.toString();
+  const nextParams = new URLSearchParams(searchParams);
+  if (defaultRoute === "cancel") {
+    nextParams.set("cancel", "true");
+    nextParams.set("payos_route", "cancel");
+  } else if (defaultRoute === "success") {
+    nextParams.set("payos_route", "success");
+  }
+  const query = nextParams.toString();
   return <Navigate to={`/debater/payments${query ? `?${query}` : ""}`} replace />;
 };
 
@@ -70,8 +77,8 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* PayOS Return & Cancel redirects */}
-      <Route path="/payment/success" element={<PaymentReturnRedirect />} />
-      <Route path="/payment/cancel" element={<PaymentReturnRedirect />} />
+      <Route path="/payment/success" element={<PaymentReturnRedirect defaultRoute="success" />} />
+      <Route path="/payment/cancel" element={<PaymentReturnRedirect defaultRoute="cancel" />} />
 
       {/* Public Pages wrapped in PublicLayout */}
       <Route element={<PublicLayout />}>
