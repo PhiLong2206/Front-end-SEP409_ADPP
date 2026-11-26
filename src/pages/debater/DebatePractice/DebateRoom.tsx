@@ -3172,6 +3172,11 @@ const DebateRoom: React.FC = () => {
       setRoomFeedback({ text: PREPARATION_IN_PROGRESS_MESSAGE, type: "info" });
       return;
     }
+    // Clicking Send (or pressing Enter) while recording stops recording, runs multimodal analysis, and sends the turn
+    if (!isAutoSubmit && opts.multimodal === undefined && isRecording) {
+      await handleToggleRecording();
+      return;
+    }
     if (
       isSubmittingRef.current ||
       isAiGeneratingRef.current ||
@@ -3673,7 +3678,7 @@ const DebateRoom: React.FC = () => {
     (finishEvaluationFailed ? FINISH_EVALUATION_ERROR : null);
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#080F1B] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+    <div className={`${!isP2pOr2v2 ? "w-full" : "max-w-6xl mx-auto"} flex flex-col h-[calc(100vh-5.5rem)] min-h-[580px] bg-white dark:bg-[#080F1B] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden`}>
       {/* 1. COMPACT STICKY HEADER */}
       <DebateHeader
         motionText={motionText}

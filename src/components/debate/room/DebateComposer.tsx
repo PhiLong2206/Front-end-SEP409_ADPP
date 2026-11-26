@@ -81,7 +81,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!isLocked && argumentText.trim()) {
+      if (!isLocked && !isAnalyzingMultimodal && (isRecording || argumentText.trim())) {
         onSend();
       }
     }
@@ -211,7 +211,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isLocked && argumentText.trim()) {
+            if (!isLocked && !isAnalyzingMultimodal && (isRecording || argumentText.trim())) {
               onSend();
             }
           }}
@@ -300,7 +300,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
             }
             disabled={isLocked}
             rows={1}
-            className="flex-1 text-sm sm:text-[15px] leading-[1.5] bg-transparent outline-none resize-none text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 dark:placeholder:text-slate-500 max-h-[140px] min-h-[36px] py-1.5 px-1.5 disabled:cursor-not-allowed"
+            className="flex-1 min-w-0 text-sm sm:text-[15px] leading-[1.5] bg-transparent outline-none resize-none text-slate-900 dark:text-[#F8FAFC] placeholder:text-slate-400 dark:placeholder:text-slate-500 max-h-[140px] min-h-[36px] py-1.5 px-1.5 disabled:cursor-not-allowed"
           />
 
           {/* Right Controls: Character Count (only near limit) + Mic + Emphasized Send Button */}
@@ -364,7 +364,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
             <button
               type="submit"
               // While the recording is analysed it is sent by itself: a manual send now would carry the wrong analysis
-              disabled={isLocked || isAnalyzingMultimodal || !argumentText.trim()}
+              disabled={isLocked || isAnalyzingMultimodal || (!isRecording && !argumentText.trim())}
               aria-label="Gửi lập luận"
               title="Gửi lập luận (Enter)"
               className="w-9 h-9 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white inline-flex items-center justify-center transition-all shadow-xs disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"

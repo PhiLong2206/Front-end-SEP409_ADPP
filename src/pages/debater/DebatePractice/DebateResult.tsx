@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import ScoreBreakdown from "../../../components/debate/ScoreBreakdown";
 import EvidenceCheckPanel from "../../../components/debate/EvidenceCheckPanel";
+import DeliveryEvaluationPanel from "../../../components/debate/grading/DeliveryEvaluationPanel";
 import GradingOverlay from "../../../components/debate/GradingOverlay";
 import { CheckCircle2, AlertCircle, RotateCcw, ArrowRight, FileText } from "lucide-react";
 import { debateApi } from "../../../api";
 import { useAuth } from "../../../hooks/useAuth";
 import { isSameUserId } from "../../../utils/debateSpeaker";
+import { buildSessionDeliverySummary, SessionDeliverySummary } from "../../../utils/deliverySummary";
 import {
   DebateResultData,
   MatchOutcome,
@@ -17,14 +19,21 @@ import {
 
 const LOAD_ERROR = "Không tải được kết quả tranh biện.";
 
+type DebateResultViewData = DebateResultData & {
+  deliverySummary?: SessionDeliverySummary | null;
+};
+
 /**
  * The result of the debate the user took part in, from the official result (GET /evaluation) when the page is
  * opened without the room's navigation state: F5 in a new tab, the history page, a shared link.
  */
-async function loadOfficialResult(sessionId: number, userId: number | string | null): Promise<DebateResultData> {
-  const [sessionRes, evaluationRes] = await Promise.all([
+async function loadOfficialResult(sessionId: number, userId: number | string | null): Promise<DebateResultViewData> {
+  const [sessionRes, evaluationRes, transcriptRes] = await Promise.all([
     debateApi.getSessionDetails(sessionId),
     debateApi.getEvaluation(sessionId),
+    typeof debateApi.getTranscript === "function"
+      ? debateApi.getTranscript(sessionId).catch(() => null)
+      : Promise.resolve(null),
   ]);
   if (!sessionRes?.success || !sessionRes.data) throw new Error(sessionRes?.message || "không tải được phiên tranh biện");
   if (!evaluationRes?.success || !evaluationRes.data) throw new Error(evaluationRes?.message || "chưa có kết quả chấm");
@@ -47,7 +56,10 @@ async function loadOfficialResult(sessionId: number, userId: number | string | n
     isMatch ? { opponentNames } : undefined
   );
   if (!result) throw new Error("AI Evaluator không trả về điểm tổng kết");
-  return result;
+  return {
+    ...result,
+    deliverySummary: buildSessionDeliverySummary(transcriptRes?.data?.arguments, userId),
+  };
 }
 
 function sideOf(value: unknown): "pro" | "con" | null {
@@ -114,11 +126,11 @@ const DebateResult: React.FC = () => {
   const { sessionId } = useParams();
   const { user } = useAuth();
   const currentUserId = user?.userId ?? user?.id ?? null;
-  const stateResult: DebateResultData | null = (location.state as { result?: DebateResultData })?.result || null;
+  const stateResult: DebateResultViewData | null = (location.state as { result?: DebateResultViewData })?.result || null;
   const numSessionId = Number(sessionId);
   const canLoad = !stateResult && Number.isInteger(numSessionId) && numSessionId > 0;
 
-  const [loadedResult, setLoadedResult] = useState<DebateResultData | null>(null);
+  const [loadedResult, setLoadedResult] = useState<DebateResultViewData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(canLoad);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -362,6 +374,9 @@ const DebateResult: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Voice & facial delivery evaluation aggregated from recorded turns */}
+      <DeliveryEvaluationPanel summary={result.deliverySummary ?? null} />
 
       {/* Evidence check of the debater's figures (RAG); only the debater's own side is graded */}
       <EvidenceCheckPanel rounds={result.evidenceRounds} />

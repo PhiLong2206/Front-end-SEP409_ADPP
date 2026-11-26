@@ -48,7 +48,7 @@ const AiCameraPanel: React.FC<AiCameraPanelProps> = ({
   return (
     <aside
       data-testid="ai-camera-panel"
-      className="w-full lg:w-[44%] lg:max-w-[540px] lg:min-w-[340px] shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0A1712] p-3 sm:p-4 flex flex-col gap-3 lg:h-full overflow-y-auto"
+      className="w-full lg:w-[32%] lg:max-w-[400px] lg:min-w-[260px] shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0A1712] p-3 sm:p-4 flex flex-col gap-3 lg:h-full overflow-y-auto"
     >
       {/* Panel Header */}
       <div className="flex items-center justify-between gap-2">

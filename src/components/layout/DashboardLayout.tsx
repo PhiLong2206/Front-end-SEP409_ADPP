@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import DashboardHeader from "./DashboardHeader";
 
 const DashboardLayout: React.FC = () => {
+  const location = useLocation();
+  const isDebateRoom = /^\/debater\/debate\/[^/]+$/.test(location.pathname);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
@@ -51,7 +53,11 @@ const DashboardLayout: React.FC = () => {
         </div>
 
         <DashboardHeader onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="relative flex-1 p-5 sm:p-7 lg:p-8 max-w-7xl w-full mx-auto animate-fade-in motion-reduce:animate-none">
+        <main
+          className={`relative flex-1 w-full mx-auto animate-fade-in motion-reduce:animate-none ${
+            isDebateRoom ? "max-w-none p-2 sm:p-3 lg:p-4" : "p-5 sm:p-7 lg:p-8 max-w-7xl"
+          }`}
+        >
           <Outlet />
         </main>
       </div>

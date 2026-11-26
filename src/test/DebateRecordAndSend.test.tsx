@@ -195,6 +195,21 @@ describe("DebateRoom: 'Dừng & Gửi' sends the recorded turn, the AI answers w
     expect(mockGenerateOpponentTurn).not.toHaveBeenCalled();
   });
 
+  it("clicking the Send button while recording stops recording, runs analysis, and sends the turn", async () => {
+    mockAnalyzeTurn.mockResolvedValue(analysis("Nội dung gửi bằng nút gửi."));
+    await renderRoom();
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Ghi âm giọng nói & phân tích biểu cảm"));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Gửi lập luận"));
+    });
+    await waitFor(() => expect(mockAnalyzeTurn).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGenerateOpponentTurn).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Nội dung gửi bằng nút gửi.")).toBeInTheDocument();
+  });
+
   it("records with the microphone picked on the device check, without the camera it switched off", async () => {
     localStorage.setItem("adpp.media.micDeviceId", "mic-usb");
     localStorage.setItem("adpp.media.cameraEnabled", "0");

@@ -13,6 +13,11 @@ import {
   Send,
   Shield,
   Flame,
+  Activity,
+  Eye,
+  Gauge,
+  Mic,
+  Smile,
 } from "lucide-react";
 import RebuttalSuggestion, { RebuttalTips } from "../coaching/RebuttalSuggestion";
 import AICoachingPanel, { CoachingAdvice } from "../coaching/AICoachingPanel";
@@ -138,7 +143,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
       <aside
         className={`
           fixed lg:static top-0 right-0 bottom-0 z-50 lg:z-auto
-          w-[340px] sm:w-[380px] xl:w-[400px] h-full bg-white dark:bg-[#0B1321] border-l border-slate-200 dark:border-[rgba(148,163,184,0.18)]
+          w-[320px] sm:w-[350px] lg:w-[340px] xl:w-[360px] shrink-0 h-full bg-white dark:bg-[#0B1321] border-l border-slate-200 dark:border-[rgba(148,163,184,0.18)]
           flex flex-col transition-all duration-300 ease-in-out shadow-xl lg:shadow-none
           ${isOpen ? "translate-x-0" : "translate-x-full lg:hidden"}
         `}
@@ -505,48 +510,79 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                   0;
 
                 return (
-                  <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        Phong thái & Giọng nói (DeepFace + Whisper)
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-[#0B5ED7] dark:bg-blue-950/60 dark:text-[#60A5FA] font-black">
-                        {overallDemeanor}/100
+                  <div className="p-4 bg-white dark:bg-[#0C1627] border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA] flex items-center justify-center shrink-0">
+                        <Mic size={14} />
+                      </div>
+                      <span className="font-black text-slate-900 dark:text-[#F8FAFC]">
+                        Đánh giá giọng nói &amp; Phong thái
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
-                        <p className="text-slate-400">Điềm tĩnh (Composure)</p>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          {composure}% ({emotionLabelVi(domEmotion)})
+
+                    <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-800/40 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#0B5ED7] dark:text-[#60A5FA] flex items-center gap-1">
+                        <Sparkles size={12} />
+                        Phong thái
+                      </span>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">
+                        {Math.round(overallDemeanor)}
+                        <span className="text-[11px] font-semibold text-slate-400"> /100</span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 space-y-0.5">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Gauge size={11} />
+                          Tốc độ nói
+                        </span>
+                        <p className="text-base font-black text-slate-900 dark:text-white">
+                          {Math.round(wpmVal)}
+                          <span className="text-[11px] font-semibold text-slate-400"> WPM</span>
+                        </p>
+                        {paceEval && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{paceEval}</p>
+                        )}
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 space-y-0.5">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Activity size={11} />
+                          Độ trôi chảy
+                        </span>
+                        <p className="text-base font-black text-slate-900 dark:text-white">
+                          {Math.round(fluencyVal)}
+                          <span className="text-[11px] font-semibold text-slate-400"> /100</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{fillerCnt} từ đệm</p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 space-y-0.5">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Smile size={11} />
+                          Điềm tĩnh &amp; Cảm xúc
+                        </span>
+                        <p className="text-base font-black text-slate-900 dark:text-white">
+                          {Math.round(composure)}
+                          <span className="text-[11px] font-semibold text-slate-400">%</span>
+                        </p>
+                        <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                          {emotionLabelVi(domEmotion)}
                         </p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
-                        <p className="text-slate-400">Tương tác mắt</p>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">{eyeContact}%</p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
-                        <p className="text-slate-400">Tốc độ nói (WPM)</p>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          {wpmVal} WPM {paceEval ? `· ${paceEval}` : ""}
-                        </p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
-                        <p className="text-slate-400">Độ trôi chảy (Fluency)</p>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          {fluencyVal}/100 ({fillerCnt} từ đệm)
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#060d1a] border border-slate-200/80 dark:border-slate-800 space-y-0.5">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Eye size={11} />
+                          Tương tác mắt
+                        </span>
+                        <p className="text-base font-black text-slate-900 dark:text-white">
+                          {Math.round(eyeContact)}
+                          <span className="text-[11px] font-semibold text-slate-400">%</span>
                         </p>
                       </div>
                     </div>
-                    {multimodalResult?.report_chart_base64 && (
-                      <div className="pt-1">
-                        <img
-                          src={multimodalResult.report_chart_base64}
-                          alt="Biểu đồ phân tích Multimodal"
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-800"
-                        />
-                      </div>
-                    )}
                   </div>
                 );
               })()}
