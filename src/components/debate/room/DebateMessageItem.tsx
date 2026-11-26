@@ -2,6 +2,7 @@ import React from "react";
 import { Bot, User as UserIcon } from "lucide-react";
 import type { DeliveryAnalytics } from "../../../types";
 import ReadAlongText from "./ReadAlongText";
+import { emotionLabelVi } from "../../../utils/emotionLabels";
 
 export interface DebateMessageData {
   id: string;
@@ -137,7 +138,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
             )}
             {dominantEmotion && dominantEmotion !== "none" && (
               <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/50 font-medium">
-                😊 {dominantEmotion}
+                😊 {emotionLabelVi(dominantEmotion)}
                 {composureScore != null ? ` (${composureScore}%)` : ""}
               </span>
             )}

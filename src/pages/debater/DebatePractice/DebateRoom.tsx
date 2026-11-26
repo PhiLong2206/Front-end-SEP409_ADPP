@@ -68,6 +68,8 @@ import {
   serverTimeToLocalMs,
 } from "../../../utils/debatePreparation";
 import {
+  createPcm16WorkletNode,
+  downsampleFloat32ToInt16Pcm,
   pickSupportedAudioMimeType,
   RealtimeSttClient,
   RealtimeSttStatus,
@@ -75,6 +77,7 @@ import {
 } from "../../../services/realtimeStt";
 import { useAuth } from "../../../hooks/useAuth";
 import { getSpeakerRelation, isSameUserId } from "../../../utils/debateSpeaker";
+import { emotionLabelVi } from "../../../utils/emotionLabels";
 import {
   useDebateNavigationGuard,
   saveActiveDebateSession,
@@ -772,6 +775,7 @@ const DebateRoom: React.FC = () => {
   const totalFramesCapturedRef = useRef<number>(0);
   const recordingStartTimeRef = useRef<number>(0);
   const realtimeSttRef = useRef<RealtimeSttClient | null>(null);
+  const clonedAudioTrackRef = useRef<MediaStreamTrack | null>(null);
   const liveSeqRef = useRef<number>(0);
   // Final text of the live STT for the current recording (what was spoken, without typed text)
   const liveSpokenTextRef = useRef<string>("");
@@ -780,7 +784,14 @@ const DebateRoom: React.FC = () => {
   // Audio chunks are read and sent one after another: keeps WebM order, and stop waits for the last chunk
   const sttSendChainRef = useRef<Promise<void>>(Promise.resolve());
   const lastInterimBroadcastRef = useRef<number>(0);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micPipelineRef = useRef<{
+    trackId: string;
+    audioCtx: AudioContext;
+    analyser: AnalyserNode;
+    workletNode: AudioWorkletNode | null;
+    scriptNode: ScriptProcessorNode | null;
+  } | null>(null);
+  const isSttStreamingRef = useRef<boolean>(false);
   const micMeterIntervalRef = useRef<number | null>(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
@@ -2608,8 +2619,38 @@ const DebateRoom: React.FC = () => {
     ]
   );
 
-  // Stop media streams & frame intervals cleanly
+  const closeMicPipeline = useCallback(() => {
+    isSttStreamingRef.current = false;
+    const pipeline = micPipelineRef.current;
+    if (!pipeline) return;
+    micPipelineRef.current = null;
+    if (pipeline.workletNode) {
+      pipeline.workletNode.port.onmessage = null;
+      try {
+        pipeline.workletNode.disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
+    }
+    if (pipeline.scriptNode) {
+      pipeline.scriptNode.onaudioprocess = null;
+      try {
+        pipeline.scriptNode.disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
+    }
+    void pipeline.audioCtx.close().catch(() => {});
+  }, []);
+
+  // Stop media streams & frame intervals cleanly (keeps persistent mic pipeline & shared stream alive across turns)
   const stopMediaCaptureResources = useCallback(() => {
+    isSttStreamingRef.current = false;
+    try {
+      micPipelineRef.current?.workletNode?.port.postMessage({ type: "active", active: false });
+    } catch {
+      // Ignore postMessage errors
+    }
     if (frameIntervalRef.current) {
       window.clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
@@ -2618,9 +2659,9 @@ const DebateRoom: React.FC = () => {
       window.clearInterval(micMeterIntervalRef.current);
       micMeterIntervalRef.current = null;
     }
-    if (audioCtxRef.current) {
-      void audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
+    if (clonedAudioTrackRef.current) {
+      clonedAudioTrackRef.current.stop();
+      clonedAudioTrackRef.current = null;
     }
     // The tracks belong to the shared device stream (useSharedDeviceStream): only this recording lets go of them
     mediaStreamRef.current = null;
@@ -2639,14 +2680,18 @@ const DebateRoom: React.FC = () => {
   useEffect(() => {
     return () => {
       stopMediaCaptureResources();
+      closeMicPipeline();
     };
-  }, [stopMediaCaptureResources]);
+  }, [closeMicPipeline, stopMediaCaptureResources]);
 
   // The debate is over: give the microphone and camera back
   const releaseDevices = devices.release;
   useEffect(() => {
-    if (EffectiveDebateCompleted) releaseDevices();
-  }, [EffectiveDebateCompleted, releaseDevices]);
+    if (EffectiveDebateCompleted) {
+      closeMicPipeline();
+      releaseDevices();
+    }
+  }, [EffectiveDebateCompleted, closeMicPipeline, releaseDevices]);
 
   // A device vanished mid-debate (unplugged, permission revoked): the next recording opens it again
   useEffect(() => {
@@ -2694,7 +2739,7 @@ const DebateRoom: React.FC = () => {
             oCtx.fillStyle = "rgba(59, 130, 246, 0.85)";
             oCtx.font = "bold 11px sans-serif";
             oCtx.fillText(
-              `${res.dominant_emotion.toUpperCase()} (${res.dominant_score}%)`,
+              `${emotionLabelVi(res.dominant_emotion)} (${res.dominant_score}%)`,
               res.region.x,
               Math.max(14, res.region.y - 4)
             );
@@ -2738,6 +2783,13 @@ const DebateRoom: React.FC = () => {
         });
         recorder.stop();
         const audioBlob = await audioBlobPromise;
+        isSttStreamingRef.current = false;
+        try {
+          micPipelineRef.current?.workletNode?.port.postMessage({ type: "active", active: false });
+        } catch {
+          // Ignore flush errors
+        }
+        await new Promise((r) => window.setTimeout(r, 80));
         await sttSendChainRef.current;
         await realtimeSttRef.current?.stopAndFinalize();
         stopMediaCaptureResources();
@@ -2869,22 +2921,78 @@ const DebateRoom: React.FC = () => {
           console.warn(`Realtime STT fallback (${code}): ${message}`);
         },
       });
-      sttClient.connect();
       realtimeSttRef.current = sttClient;
 
-      const audioOnlyStream = new MediaStream(stream.getAudioTracks());
-      const activeAudioTrack = stream.getAudioTracks()[0];
-      setMicLabel(activeAudioTrack?.label || "Microphone");
+      // Reuse the shared audio track + a single persistent AudioWorklet pipeline across turns (no USB mic reopen stall)
+      const recordingAudioTrack = stream.getAudioTracks()[0];
+      const audioOnlyStream = new MediaStream(recordingAudioTrack ? [recordingAudioTrack] : []);
+      setMicLabel(recordingAudioTrack?.label || "Microphone");
 
+      let useLinear16Pcm = false;
       try {
         const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (AudioContextCtor && activeAudioTrack) {
-          const audioCtx = new AudioContextCtor();
-          audioCtxRef.current = audioCtx;
-          const src = audioCtx.createMediaStreamSource(audioOnlyStream);
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          src.connect(analyser);
+        if (AudioContextCtor && recordingAudioTrack) {
+          let pipeline = micPipelineRef.current;
+          if (!pipeline || pipeline.trackId !== recordingAudioTrack.id || pipeline.audioCtx.state === "closed") {
+            closeMicPipeline();
+            const audioCtx = new AudioContextCtor();
+            if (audioCtx.state === "suspended") {
+              void audioCtx.resume().catch(() => {});
+            }
+            const src = audioCtx.createMediaStreamSource(audioOnlyStream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+
+            let workletNode: AudioWorkletNode | null = null;
+            let scriptNode: ScriptProcessorNode | null = null;
+            const silentGain = audioCtx.createGain();
+            silentGain.gain.value = 0;
+
+            if (audioCtx.audioWorklet && typeof AudioWorkletNode !== "undefined") {
+              try {
+                workletNode = await createPcm16WorkletNode(audioCtx, 16000, 1600);
+                workletNode.port.onmessage = (ev) => {
+                  const data = ev.data as { pcm?: ArrayBuffer } | undefined;
+                  if (isSttStreamingRef.current && data?.pcm) {
+                    realtimeSttRef.current?.sendAudioChunk(data.pcm);
+                  }
+                };
+                src.connect(workletNode);
+                workletNode.connect(silentGain);
+                silentGain.connect(audioCtx.destination);
+              } catch {
+                workletNode = null;
+              }
+            }
+
+            if (!workletNode && typeof audioCtx.createScriptProcessor === "function") {
+              scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+              scriptNode.onaudioprocess = (ev) => {
+                if (!isSttStreamingRef.current) return;
+                const input = ev.inputBuffer.getChannelData(0);
+                realtimeSttRef.current?.sendAudioChunk(
+                  downsampleFloat32ToInt16Pcm(input, audioCtx.sampleRate || 44100, 16000)
+                );
+              };
+              src.connect(scriptNode);
+              scriptNode.connect(silentGain);
+              silentGain.connect(audioCtx.destination);
+            }
+
+            pipeline = {
+              trackId: recordingAudioTrack.id,
+              audioCtx,
+              analyser,
+              workletNode,
+              scriptNode,
+            };
+            micPipelineRef.current = pipeline;
+          } else if (pipeline.audioCtx.state === "suspended") {
+            void pipeline.audioCtx.resume().catch(() => {});
+          }
+
+          const analyser = pipeline.analyser;
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           micMeterIntervalRef.current = window.setInterval(() => {
             analyser.getByteTimeDomainData(dataArray);
@@ -2896,9 +3004,20 @@ const DebateRoom: React.FC = () => {
             const rms = Math.sqrt(sum / dataArray.length);
             setMicLevel(Math.min(100, Math.round(rms * 350)));
           }, 100);
+
+          if (pipeline.workletNode || pipeline.scriptNode) {
+            sttClient.connect({ encoding: "linear16", sampleRate: 16000 });
+            isSttStreamingRef.current = true;
+            pipeline.workletNode?.port.postMessage({ type: "active", active: true });
+            useLinear16Pcm = true;
+          }
         }
       } catch {
-        // Ignore AudioContext meter errors
+        // Ignore AudioContext errors; fall back to MediaRecorder WebM streaming below
+      }
+
+      if (!useLinear16Pcm) {
+        sttClient.connect();
       }
 
       const mimeType = pickSupportedAudioMimeType();
@@ -2907,15 +3026,17 @@ const DebateRoom: React.FC = () => {
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
-          const chunk = e.data;
-          sttSendChainRef.current = sttSendChainRef.current.then(async () => {
-            try {
-              const buf = await chunk.arrayBuffer();
-              realtimeSttRef.current?.sendAudioChunk(buf);
-            } catch {
-              // Ignore streaming chunk read errors; Whisper batch fallback remains intact
-            }
-          });
+          if (!useLinear16Pcm) {
+            const chunk = e.data;
+            sttSendChainRef.current = sttSendChainRef.current.then(async () => {
+              try {
+                const buf = await chunk.arrayBuffer();
+                realtimeSttRef.current?.sendAudioChunk(buf);
+              } catch {
+                // Ignore streaming chunk read errors; Whisper batch fallback remains intact
+              }
+            });
+          }
         }
       };
       recorder.start(100);
@@ -2953,7 +3074,7 @@ const DebateRoom: React.FC = () => {
         setIsAnalyzingMultimodal(false);
       }
     }
-  }, [captureAndAnalyzeWebcamFrame, devices.acquire, isRecording, stopMediaCaptureResources]);
+  }, [captureAndAnalyzeWebcamFrame, closeMicPipeline, devices.acquire, isRecording, stopMediaCaptureResources]);
 
   const handleRunSampleMultimodal = useCallback(async () => {
     stopMediaCaptureResources();
@@ -4022,7 +4143,6 @@ const DebateRoom: React.FC = () => {
               videoPreviewRef={videoPreviewRef}
               overlayCanvasRef={overlayCanvasRef}
               onToggleRecording={handleToggleRecording}
-              onRunSampleMultimodal={handleRunSampleMultimodal}
             />
           )}
 
