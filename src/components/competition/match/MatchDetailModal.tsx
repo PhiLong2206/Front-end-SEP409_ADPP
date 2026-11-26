@@ -166,16 +166,16 @@ const MatchDetailModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white dark:bg-[#12231C] w-full max-w-2xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#0F1726] w-full max-w-2xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-slate-50 dark:bg-[#0B1713] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-slate-50 dark:bg-[#090E19] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#008A64]/10 text-[#008A64] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-[#0B5ED7]/10 text-[#0B5ED7] flex items-center justify-center">
               <Swords size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-[#008A64] text-white">
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-[#0B5ED7] text-white">
                   TRẬN #{match.matchNumber || match.matchId}
                 </span>
                 <span className="text-xs font-bold text-slate-500">
@@ -206,7 +206,7 @@ const MatchDetailModal: React.FC<Props> = ({
             className={`m-4 mb-0 p-3 rounded-xl text-xs flex items-center gap-2 ${
               actionMsg.isError
                 ? "bg-rose-50 border border-rose-200 text-rose-700"
-                : "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                : "bg-blue-50 border border-blue-200 text-blue-700"
             }`}
           >
             {actionMsg.isError ? <AlertCircle size={14} className="shrink-0" /> : <CheckCircle2 size={14} className="shrink-0" />}
@@ -217,22 +217,22 @@ const MatchDetailModal: React.FC<Props> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs">
           {/* Pair Versus Card */}
-          <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-[#0B1713] rounded-2xl border border-slate-200 dark:border-slate-800">
-            <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-emerald-200 dark:border-emerald-800/40">
-              <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+          <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-[#090E19] rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="p-3 bg-white dark:bg-[#0F1726] rounded-xl border border-blue-200 dark:border-blue-800/40">
+              <span className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-wider block">
                 Phe PRO (Ủng hộ)
               </span>
               <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate mt-1">
                 {pro?.userName || pro?.teamName || "Chưa xác định (Chờ vòng trước)"}
               </p>
               {pro?.isWinner && (
-                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full">
                   Thắng trận
                 </span>
               )}
             </div>
 
-            <div className="p-3 bg-white dark:bg-[#12231C] rounded-xl border border-rose-200 dark:border-rose-800/40 text-right">
+            <div className="p-3 bg-white dark:bg-[#0F1726] rounded-xl border border-rose-200 dark:border-rose-800/40 text-right">
               <span className="text-[10px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
                 Phe CON (Phản đối)
               </span>
@@ -248,7 +248,7 @@ const MatchDetailModal: React.FC<Props> = ({
           </div>
 
           {/* Section 1: Assigned Judge */}
-          <div className="p-4 bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <div className="p-4 bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Shield size={14} className="text-purple-600" />
@@ -264,7 +264,7 @@ const MatchDetailModal: React.FC<Props> = ({
                 <select
                   value={selectedJudgeId}
                   onChange={(e) => setSelectedJudgeId(e.target.value ? Number(e.target.value) : "")}
-                  className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B1713] text-xs font-semibold focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                  className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#090E19] text-xs font-semibold focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
                 >
                   <option value="">-- Chọn Giám khảo từ Ban giám khảo giải --</option>
                   {judges.map((j) => (
@@ -288,13 +288,13 @@ const MatchDetailModal: React.FC<Props> = ({
           </div>
 
           {/* Section 2: Debate Session & Topic */}
-          <div className="p-4 bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <div className="p-4 bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <BookOpen size={14} className="text-[#008A64]" />
+                <BookOpen size={14} className="text-[#0B5ED7]" />
                 Phiên tranh biện (DebateSession):
               </span>
-              <span className="font-mono font-bold text-[#008A64]">
+              <span className="font-mono font-bold text-[#0B5ED7]">
                 {match.debateSessionId ? `#${match.debateSessionId}` : "Chưa khởi tạo"}
               </span>
             </div>
@@ -309,7 +309,7 @@ const MatchDetailModal: React.FC<Props> = ({
                     value={selectedTopicId}
                     onChange={(e) => setSelectedTopicId(e.target.value ? Number(e.target.value) : "")}
                     disabled={loadingTopics}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0B1713] text-xs font-semibold focus:ring-2 focus:ring-[#008A64] focus:outline-hidden"
+                    className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#090E19] text-xs font-semibold focus:ring-2 focus:ring-[#0B5ED7] focus:outline-hidden"
                   >
                     {loadingTopics ? (
                       <option>Đang tải danh mục chủ đề...</option>
@@ -331,7 +331,7 @@ const MatchDetailModal: React.FC<Props> = ({
                     type="button"
                     onClick={handlePrepareDebate}
                     disabled={preparingDebate || !selectedTopicId}
-                    className="px-3 py-1.5 bg-[#008A64] hover:bg-[#007454] disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
+                    className="px-3 py-1.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     {preparingDebate ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
                     <span>Chuẩn bị phòng</span>
@@ -343,7 +343,7 @@ const MatchDetailModal: React.FC<Props> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#0B1713] flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#090E19] flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
             {/* Monitor Button (Organizer / Spectators) */}
             <button
@@ -383,7 +383,7 @@ const MatchDetailModal: React.FC<Props> = ({
                 // Real numeric debateSessionId!
                 navigate(`/debater/debate/${match.debateSessionId}`);
               }}
-              className="px-4 py-2 bg-[#008A64] hover:bg-[#007454] text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Swords size={14} />
               <span>{isDebaterInMatch ? "Vào phòng thi đấu ngay" : "Xem phòng tranh biện"}</span>

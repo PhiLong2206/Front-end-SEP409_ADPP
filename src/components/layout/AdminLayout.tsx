@@ -26,7 +26,7 @@ const AdminLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#FAFBF8] dark:bg-[#07130F] text-slate-800 dark:text-slate-100 selection:bg-[#008A64] selection:text-white transition-colors duration-200">
+    <div className="min-h-screen flex bg-[#F5F8FD] dark:bg-[#050A15] text-slate-800 dark:text-slate-100 selection:bg-[#0B5ED7] selection:text-white transition-colors duration-200">
       <AdminSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

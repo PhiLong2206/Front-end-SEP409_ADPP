@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DebateRoom from "../pages/debater/DebatePractice/DebateRoom";
 import { isTeamDebateSession, roomSeatCount } from "../utils/debateRoomMode";
@@ -13,9 +13,12 @@ vi.mock("../hooks/useAuth", () => ({
   }),
 }));
 
+let hubCallbacks: { onUserJoined?: (e: unknown) => void } = {};
 vi.mock("../services/debateHub", () => ({
   debateHubService: {
-    connect: vi.fn(async () => {}),
+    connect: vi.fn(async (_id: number, callbacks: typeof hubCallbacks) => {
+      hubCallbacks = callbacks;
+    }),
     disconnect: vi.fn(async () => {}),
     sendSpeakingStatus: vi.fn(),
     sendLiveTranscript: vi.fn(),
@@ -124,3 +127,106 @@ describe("isTeamDebateSession / roomSeatCount", () => {
     expect(roomSeatCount({})).toBe(2);
   });
 });
+
+describe("the task of my side in the room (Nhiệm vụ của bạn)", () => {
+  const PRO = "Chứng minh kiến nghị đúng bằng ba luận điểm.";
+  const CON = "Chỉ ra điểm yếu của kiến nghị.";
+  const guides = { proGuide: PRO, conGuide: CON };
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const me = (side: number) => ({ userId: 1, side, isAI: false, speakerName: "Debater Test" });
+  const other = (userId: number, side: number) => ({ userId, side, isAI: false, speakerName: `Người ${userId}` });
+
+  it("waiting room, PRO: shows the PRO task, highlighted, and the CON task in a fold", async () => {
+    await renderLobby(waitingRoom({ ...guides, participants: [me(1)] }));
+    const panel = await screen.findByTestId("task-guide-panel");
+    expect(panel).toHaveAttribute("data-side", "pro");
+    expect(screen.getByTestId("task-guide-mine")).toHaveTextContent(PRO);
+    expect(screen.getByTestId("task-guide-other")).toHaveTextContent(CON);
+  });
+
+  it("waiting room, CON: shows the CON task", async () => {
+    await renderLobby(waitingRoom({ ...guides, participants: [other(2, 1), me(2)] }));
+    expect(await screen.findByTestId("task-guide-mine")).toHaveTextContent(CON);
+    expect(screen.getByTestId("task-guide-panel")).toHaveAttribute("data-side", "con");
+  });
+
+  it("2v2: a team reads one task, the one of its side", async () => {
+    await renderLobby(
+      waitingRoom({ ...guides, isTeamDebate: true, maxParticipants: 4, participants: [other(2, 1), other(3, 1), me(2), other(4, 2)] })
+    );
+    expect(await screen.findByTestId("task-guide-mine")).toHaveTextContent(CON);
+  });
+
+  it("after the swap of sides (a new session response) the task changes", async () => {
+    let side = 1;
+    mockGetSessionDetails.mockImplementation(async () => ({
+      success: true,
+      data: waitingRoom({ ...guides, participants: [me(side), other(2, side === 1 ? 2 : 1)] }),
+    }));
+    render(
+      <MemoryRouter initialEntries={["/debater/debate/123?role=PRO"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByTestId("task-guide-mine")).toHaveTextContent(PRO);
+
+    side = 2; // the Backend swapped the sides
+    await act(async () => {
+      hubCallbacks.onUserJoined?.({ userId: 2, fullName: "Người 2" });
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(await screen.findByText(CON, { selector: "[data-testid='task-guide-mine']" })).toBeInTheDocument();
+    expect(screen.getByTestId("task-guide-panel")).toHaveAttribute("data-side", "con");
+  });
+
+  it("no panel when the session has no guides", async () => {
+    await renderLobby(waitingRoom({ participants: [me(1)] }));
+    await screen.findByText("Tranh biện 2 vs 2").catch(() => undefined);
+    expect(screen.queryByTestId("task-guide-panel")).not.toBeInTheDocument();
+  });
+
+  it("the debate screen: open in the preparation minute, folded once the debate runs (and the user can open it)", async () => {
+    const running = (isPreparing: boolean) => ({
+      ...waitingRoom({ ...guides, participants: [me(1), other(2, 2)] }),
+      status: 2,
+      isPreparing,
+      preparationEndsAt: new Date(Date.now() + 60_000).toISOString(),
+      preparationSeconds: 60,
+    });
+    mockGetSessionDetails.mockResolvedValue({ success: true, data: running(true) });
+    const view = render(
+      <MemoryRouter initialEntries={["/debater/debate/123?role=PRO"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByTestId("task-guide-mine")).toHaveTextContent(PRO); // open while preparing
+    view.unmount();
+
+    mockGetSessionDetails.mockResolvedValue({ success: true, data: running(false) });
+    render(
+      <MemoryRouter initialEntries={["/debater/debate/123?role=PRO"]}>
+        <Routes>
+          <Route path="/debater/debate/:sessionId" element={<DebateRoom />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const toggle = await screen.findByTestId("task-guide-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false"); // folded: it does not take room from the debate
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("task-guide-mine")).toHaveTextContent(PRO);
+  });
+});
+

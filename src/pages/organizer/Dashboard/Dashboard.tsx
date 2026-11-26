@@ -62,7 +62,7 @@ const OrganizerDashboard: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Chủ đề đã tạo</span>
-            <div className="p-2 rounded-xl bg-[#ECFDF5] text-[#008A64]">
+            <div className="p-2 rounded-xl bg-[#EAF2FF] text-[#0B5ED7]">
               <FolderKanban size={18} />
             </div>
           </div>
@@ -73,7 +73,7 @@ const OrganizerDashboard: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Giải đấu đang diễn ra</span>
-            <div className="p-2 rounded-xl bg-[#ECFDF5] text-[#008A64]">
+            <div className="p-2 rounded-xl bg-[#EAF2FF] text-[#0B5ED7]">
               <Calendar size={18} />
             </div>
           </div>
@@ -84,7 +84,7 @@ const OrganizerDashboard: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cuộc thi & Giải đấu</span>
-            <div className="p-2 rounded-xl bg-[#ECFDF5] text-[#008A64]">
+            <div className="p-2 rounded-xl bg-[#EAF2FF] text-[#0B5ED7]">
               <Trophy size={18} />
             </div>
           </div>
@@ -95,7 +95,7 @@ const OrganizerDashboard: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Thí sinh tham gia</span>
-            <div className="p-2 rounded-xl bg-[#ECFDF5] text-[#008A64]">
+            <div className="p-2 rounded-xl bg-[#EAF2FF] text-[#0B5ED7]">
               <Users size={18} />
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import DebatePractice from "../pages/debater/DebatePractice/DebatePractice";
 import { normalizeTopicCategory, topicCategoryLabel } from "../constants/topicCategories";
@@ -55,18 +55,15 @@ describe("topic categories: every topic belongs to one of the fixed categories",
     expect(topicCategoryLabel(undefined)).toBe("Chưa phân loại");
   });
 
-  it("a suggested topic shows its label and is sent by its id, without a category", async () => {
+  it("a suggested topic shows its label and links to its topic page by id", async () => {
     renderPage();
     expect(await screen.findByText("Luật AI")).toBeInTheDocument();
     expect(screen.getAllByText("Công nghệ").length).toBeGreaterThan(0);
     // A topic outside the fixed categories is not suggested
     expect(screen.queryByText("Đề cũ")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("start-suggested-btn"));
-    fireEvent.click(screen.getByTestId("start-practice-btn"));
-    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
-    const body = mockCreate.mock.calls[0][0];
-    expect(body.topicId).toBe(5);
-    expect(body.category).toBeUndefined();
+    // "Luyện tập" goes to the topic page by the topic's id; the session is created there, with no category
+    expect(screen.getByTestId("start-suggested-btn")).toHaveAttribute("href", "/debater/topics/5");
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

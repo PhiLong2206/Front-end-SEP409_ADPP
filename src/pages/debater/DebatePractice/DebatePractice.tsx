@@ -1,29 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  AlertCircle,
-  ArrowRight,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  History,
-  Loader2,
-  PenTool,
-  RefreshCw,
-  RotateCcw,
-  Sparkles,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, ChevronDown, ChevronRight, ChevronUp, History, Loader2, RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { debateApi, topicApi } from "../../../api";
 import { Topic } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
-import DifficultyBadge from "../../../components/topic/DifficultyBadge";
-import PracticeStartPanel, { AIDifficultyLevel } from "../../../components/debate/practice/PracticeStartPanel";
+import { difficultyOf } from "../../../utils/topicDifficulty";
 import { TOPIC_CATEGORIES, normalizeTopicCategory, topicCategoryLabel } from "../../../constants/topicCategories";
 import {
   findListedTopic,
   groupPracticedTopics,
   PracticedTopic,
-  PracticeSide,
   suggestTopics,
   topicIdOf,
 } from "../../../utils/debateTopicHistory";
@@ -33,54 +19,29 @@ const SUGGESTION_PREVIEW = 6;
 const TOPIC_PAGE_SIZE = 100;
 const MAX_TOPIC_PAGES = 10;
 
-const BACKEND_DIFFICULTY: Record<AIDifficultyLevel, "Easy" | "Medium" | "Hard"> = {
-  "Dễ": "Easy",
-  "Trung bình": "Medium",
-  "Khó": "Hard",
-};
-
-interface QuickPrompt {
-  topic: string;
-  category: "technology" | "education" | "society";
-  categoryLabel: "Công nghệ" | "Giáo dục" | "Xã hội";
-}
-
-const QUICK_PROMPTS: QuickPrompt[] = [
-  {
-    topic: "Trí tuệ nhân tạo (AI) nên được kiểm soát chặt chẽ bởi luật pháp quốc tế.",
-    category: "technology",
-    categoryLabel: "Công nghệ",
-  },
-  {
-    topic: "Nên cấm sử dụng điện thoại thông minh trong các trường phổ thông.",
-    category: "education",
-    categoryLabel: "Giáo dục",
-  },
-  {
-    topic: "Năng lượng hạt nhân là giải pháp tất yếu để chống biến đổi khí hậu toàn cầu.",
-    category: "technology",
-    categoryLabel: "Công nghệ",
-  },
-  {
-    topic: "Làm việc từ xa (Remote work) mang lại hiệu quả cao hơn làm việc truyền thống.",
-    category: "society",
-    categoryLabel: "Xã hội",
-  },
-];
-
-const CATEGORY_OPTIONS = [
-  { code: "technology", label: "Công nghệ" },
-  { code: "education", label: "Giáo dục" },
-  { code: "society", label: "Xã hội" },
-] as const;
-
 const formatDate = (iso: string) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("vi-VN");
 };
 
 const cardClass =
-  "bg-white debate-panel-main rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-5 shadow-xs space-y-4";
+  "rounded-ap-xl bg-elevated p-(--s-6) shadow-ap-sm transition-shadow duration-(--t-base) ease-ap hover:shadow-ap-md";
+
+const sectionTitle = "flex items-center gap-(--s-3) text-(length:--text-headline) font-semibold leading-(--leading-snug)";
+const sectionIcon = "flex h-6 w-6 items-center justify-center text-label-tertiary";
+const loadingBox =
+  "flex items-center justify-center gap-(--s-2) py-(--s-8) text-(length:--text-callout) text-label-secondary";
+const errorBox =
+  "flex items-start gap-(--s-3) rounded-ap-xl bg-ap-danger/10 p-(--s-5) text-(length:--text-callout) text-label";
+const emptyBox =
+  "space-y-(--s-2) rounded-ap-xl bg-canvas-secondary px-(--s-6) py-(--s-7) text-center";
+const retryButton =
+  "inline-flex h-10 cursor-pointer items-center gap-(--s-2) rounded-ap-pill bg-elevated px-(--s-4) text-(length:--text-callout) font-medium shadow-[inset_0_0_0_1px_var(--separator)] transition-colors hover:bg-canvas-secondary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30";
+// The page has no filled button: each card offers one quiet action, so the eye is not pulled six ways at once
+const softPill =
+  "inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent-soft px-(--s-4) text-(length:--text-callout) font-medium text-accent transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent/15 active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50";
+const textAction =
+  "group inline-flex min-h-11 items-center gap-1 text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline";
 
 const ShowAllButton: React.FC<{ testId: string; expanded: boolean; total: number; onToggle: () => void }> = ({
   testId,
@@ -93,9 +54,9 @@ const ShowAllButton: React.FC<{ testId: string; expanded: boolean; total: number
     data-testid={testId}
     aria-expanded={expanded}
     onClick={onToggle}
-    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.25)] text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-[#008A64] hover:text-[#008A64] transition-colors cursor-pointer"
+    className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-canvas-secondary px-(--s-4) text-(length:--text-callout) font-medium text-label-secondary transition-colors duration-(--t-fast) hover:bg-accent-soft hover:text-accent focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
   >
-    {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+    {expanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
     <span>{expanded ? "Thu gọn" : `Xem toàn bộ (${total})`}</span>
   </button>
 );
@@ -115,18 +76,6 @@ const DebatePractice: React.FC = () => {
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [suggestionCategory, setSuggestionCategory] = useState<string>("all");
-
-  // Custom Topic State
-  const [customMotion, setCustomMotion] = useState("");
-  const [customCategory, setCustomCategory] = useState<string>("technology");
-  const [customError, setCustomError] = useState<string | null>(null);
-
-  // One start panel at a time: "h:<key>" for a practised topic, "s:<id>" for a suggestion, "custom" for custom motion
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  // Read synchronously: two quick clicks must not create two sessions
-  const submittingRef = useRef(false);
-  const [startError, setStartError] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -179,108 +128,17 @@ const DebatePractice: React.FC = () => {
   }, [suggestions, showAllSuggestions, suggestionCategory]);
   const visibleHistory = showAllHistory ? practiced : practiced.slice(0, HISTORY_PREVIEW);
 
-  const togglePanel = (id: string) => {
-    setOpenId((current) => (current === id ? null : id));
-    setStartError(null);
-    setCustomError(null);
-  };
-
-  /** Always a new session, started by the topic's id (the Backend takes its category from it). */
-  const startSession = async (topic: Topic, side: PracticeSide, difficulty: AIDifficultyLevel) => {
-    if (submittingRef.current) return;
-    const topicId = topicIdOf(topic);
-    if (!topicId) {
-      setStartError("Chủ đề này chưa có mã nên chưa thể bắt đầu.");
-      return;
-    }
-    submittingRef.current = true;
-    setSubmitting(true);
-    setStartError(null);
-    const motion = topic.motion || topic.description || topic.title;
-    try {
-      const res = await debateApi.createAiPracticeSession({
-        topicId,
-        title: topic.title,
-        topic: motion,
-        userSide: side === "PRO" ? 1 : 2,
-        isAI: true,
-        difficulty: BACKEND_DIFFICULTY[difficulty],
-        turnTimeLimitSeconds: 180,
-      });
-      const sessionId = res?.data?.sessionId;
-      if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
-      navigate(`/debater/debate/${sessionId}?role=${side}&difficulty=${difficulty}&motion=${encodeURIComponent(motion)}`);
-    } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: { message?: string } } };
-      setStartError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  /** Custom session: started with user-typed motion and chosen category. */
-  const startCustomSession = async (side: PracticeSide, difficulty: AIDifficultyLevel) => {
-    if (submittingRef.current) return;
-    const trimmed = customMotion.trim();
-    if (!trimmed) {
-      setCustomError("Vui lòng nhập chủ đề / kiến nghị tranh biện.");
-      return;
-    }
-    if (trimmed.length < 10) {
-      setCustomError("Chủ đề tranh biện phải có tối thiểu 10 ký tự.");
-      return;
-    }
-    if (trimmed.length > 300) {
-      setCustomError("Chủ đề tranh biện không được vượt quá 300 ký tự.");
-      return;
-    }
-    if (!customCategory) {
-      setCustomError("Vui lòng chọn danh mục cho chủ đề (Giáo dục, Công nghệ hoặc Xã hội).");
-      return;
-    }
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    setCustomError(null);
-    setStartError(null);
-
-    const finalTitle = trimmed.slice(0, 100);
-
-    try {
-      const res = await debateApi.createAiPracticeSession({
-        title: finalTitle,
-        topic: trimmed,
-        category: customCategory,
-        userSide: side === "PRO" ? 1 : 2,
-        isAI: true,
-        difficulty: BACKEND_DIFFICULTY[difficulty],
-        turnTimeLimitSeconds: 180,
-      });
-
-      const sessionId = res?.data?.sessionId;
-      if (!sessionId) throw new Error("Không nhận được mã phiên tranh biện từ máy chủ.");
-      navigate(`/debater/debate/${sessionId}?role=${side}&difficulty=${difficulty}&motion=${encodeURIComponent(trimmed)}`);
-    } catch (err: unknown) {
-      const e = err as { message?: string; response?: { data?: { message?: string } } };
-      setCustomError(e.response?.data?.message || e.message || "Lỗi khởi tạo phiên tranh biện với máy chủ.");
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  const isCustomOpen = openId === "custom";
+  /** Practising a topic opens its page (the same one the topic library uses), where the side and difficulty are picked. */
+  const topicPath = (topic: Topic) => `/debater/topics/${topicIdOf(topic)}`;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-10">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] dark:text-[#F8FAFC] tracking-tight flex items-center gap-2.5">
-          <span>Tranh biện với AI</span>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-[#ECFDF5] dark:bg-[rgba(16,185,129,0.15)] text-[#008A64] dark:text-[#34D399] font-bold border border-[#008A64]/30">
-            Luyện tập 1v1
-          </span>
+    <div className="mx-auto max-w-5xl space-y-(--s-8) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
+      <div className="space-y-(--s-2) pt-(--s-4)">
+        <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
+          Tranh biện với AI
         </h1>
-        <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1.5">
-          Học lại các chủ đề đã luyện, chọn nhanh chủ đề gợi ý hoặc tự do nhập kiến nghị của riêng bạn để tranh biện cùng AI.
+        <p className="max-w-[620px] text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+          Luyện tập một mình: học lại các chủ đề đã luyện, hoặc chọn nhanh một chủ đề mới để tranh biện cùng AI.
         </p>
       </div>
 
@@ -288,13 +146,11 @@ const DebatePractice: React.FC = () => {
       {activeDebateSession && (
         <div
           data-testid="active-debate-recovery-banner"
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-[#ECFDF5] dark:bg-emerald-950/30 border border-[#008A64]/30 text-slate-800 dark:text-slate-100 shadow-xs"
+          className="flex flex-col gap-(--s-3) rounded-ap-lg bg-accent-soft p-(--s-4) sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="space-y-0.5 min-w-0">
-            <p className="text-xs font-bold text-[#008A64] dark:text-emerald-400">
-              Bạn đang có một phiên tranh biện chưa kết thúc
-            </p>
-            <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-(length:--text-callout) font-semibold text-accent">Bạn đang có một phiên tranh biện chưa kết thúc</p>
+            <p className="truncate text-(length:--text-callout) text-label-secondary">
               &ldquo;{activeDebateSession.topicTitle}&rdquo;
             </p>
           </div>
@@ -302,314 +158,49 @@ const DebatePractice: React.FC = () => {
             type="button"
             data-testid="resume-active-debate-btn"
             onClick={() => navigate(activeDebateSession.url)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+            className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
           >
             <span>Tiếp tục trận tranh biện</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {/* ── Custom Topic: Free Input & Quick Prompts ── */}
-      <section className="space-y-3" aria-labelledby="custom-topic-title">
-        <div className={cardClass}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h2 id="custom-topic-title" className="text-base font-black text-slate-900 dark:text-[#F8FAFC] flex items-center gap-2">
-                <PenTool size={17} className="text-[#008A64]" />
-                <span>Tự nhập chủ đề & Kiến nghị riêng</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
-                Nhập bất kỳ kiến nghị nào bạn muốn hoặc chọn gợi ý nhanh để bắt đầu luyện tập ngay.
-              </p>
-            </div>
-            <button
-              type="button"
-              data-testid="toggle-custom-motion-btn"
-              aria-expanded={isCustomOpen}
-              onClick={() => togglePanel("custom")}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
-            >
-              <span>{isCustomOpen ? "Thu gọn" : "Soạn kiến nghị"}</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
-
-          {isCustomOpen && (
-            <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="custom-motion-textarea" className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F8FAFC]">
-                    Nội dung kiến nghị / Chủ đề <span className="text-rose-500">*</span>
-                  </label>
-                  <span
-                    className={`text-xs font-mono font-medium ${
-                      customMotion.length > 300
-                        ? "text-rose-500 font-bold"
-                        : customMotion.length >= 10
-                        ? "text-[#008A64] dark:text-emerald-400"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {customMotion.length} / 300 ký tự
-                  </span>
-                </div>
-
-                <textarea
-                  id="custom-motion-textarea"
-                  rows={3}
-                  value={customMotion}
-                  onChange={(e) => {
-                    setCustomMotion(e.target.value);
-                    if (customError) setCustomError(null);
-                  }}
-                  maxLength={350}
-                  placeholder="Ví dụ: Chúng tôi tin rằng trí tuệ nhân tạo (AI) nên được quản lý chặt chẽ bởi luật pháp quốc tế..."
-                  className={`w-full p-3.5 bg-slate-50 dark:bg-[#091713] border rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-[#F8FAFC] focus:outline-none transition-colors resize-none shadow-xs ${
-                    customError
-                      ? "border-rose-300 dark:border-rose-500/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
-                      : "border-slate-200 dark:border-[rgba(148,163,184,0.20)] focus:border-[#008A64] focus:ring-2 focus:ring-[#008A64]/20"
-                  }`}
-                />
-              </div>
-
-              {/* Category Selector for Custom Topic */}
-              <div className="space-y-2 pt-1">
-                <label className="text-xs sm:text-sm font-bold text-slate-800 dark:text-[#F8FAFC] flex items-center justify-between">
-                  <span>Danh mục chủ đề <span className="text-rose-500">*</span></span>
-                  <span className="text-xs text-slate-400 font-normal">
-                    (Giúp AI Evaluator nạp dữ liệu đối chiếu dẫn chứng)
-                  </span>
-                </label>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {CATEGORY_OPTIONS.map((cat) => {
-                    const isSelected = customCategory === cat.code;
-                    return (
-                      <button
-                        key={cat.code}
-                        type="button"
-                        onClick={() => {
-                          setCustomCategory(cat.code);
-                          if (customError) setCustomError(null);
-                        }}
-                        className={`py-2 px-3 rounded-xl border text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs ${
-                          isSelected
-                            ? "bg-[#ECFDF5]/70 dark:bg-[rgba(16,185,129,0.12)] border-[#008A64] dark:border-[rgba(16,185,129,0.40)] text-[#008A64] dark:text-[#34D399] ring-1 ring-[#008A64]"
-                            : "bg-slate-50 dark:bg-[#091713] border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C]"
-                        }`}
-                      >
-                        <span
-                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                            isSelected
-                              ? "border-[#008A64] bg-[#008A64]"
-                              : "border-slate-300 dark:border-slate-600"
-                          }`}
-                        >
-                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </span>
-                        <span>{cat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Quick Example Prompts */}
-              <div className="space-y-2 pt-1">
-                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-amber-500" />
-                  <span>Gợi ý chủ đề nhanh (nhấn để chọn):</span>
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setCustomMotion(prompt.topic);
-                        setCustomCategory(prompt.category);
-                        if (customError) setCustomError(null);
-                      }}
-                      className="text-xs px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-[#10231C] dark:hover:bg-[#153026] text-slate-700 dark:text-slate-300 transition-colors text-left border border-slate-200/60 dark:border-slate-700/40 flex items-center gap-2"
-                    >
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
-                        {prompt.categoryLabel}
-                      </span>
-                      <span>{prompt.topic}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {customError && (
-                <div role="alert" className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-700 dark:text-rose-400 text-xs flex items-center gap-2">
-                  <AlertCircle size={15} className="shrink-0" />
-                  <span>{customError}</span>
-                </div>
-              )}
-
-              {/* Start Panel for Custom Topic */}
-              <PracticeStartPanel
-                idPrefix="custom"
-                submitting={submitting}
-                error={startError}
-                onStart={(side, difficulty) => void startCustomSession(side, difficulty)}
-              />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── History: the topics already practised with the AI ── */}
-      <section className="space-y-3" aria-labelledby="practice-history-title">
-        <h2 id="practice-history-title" className="text-base font-black text-slate-900 dark:text-[#F8FAFC] flex items-center gap-2">
-          <History size={17} className="text-[#008A64]" />
-          <span>Lịch sử luyện tập</span>
-        </h2>
-
-        {historyLoading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" data-testid="practiced-loading">
-            <Loader2 size={18} className="animate-spin" />
-            <span>Đang tải lịch sử luyện tập...</span>
-          </div>
-        ) : historyError ? (
-          <div role="alert" className="flex items-start gap-3 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
-            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-            <div className="flex-1 space-y-2">
-              <p>{historyError}</p>
-              <button
-                type="button"
-                data-testid="history-retry-load"
-                onClick={() => void loadHistory()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-rose-300 text-xs font-bold hover:bg-rose-100 cursor-pointer"
-              >
-                <RefreshCw size={13} /> Thử lại
-              </button>
-            </div>
-          </div>
-        ) : practiced.length === 0 ? (
-          <div
-            data-testid="practiced-empty"
-            className="text-center bg-white debate-panel-main rounded-2xl border border-dashed border-slate-300 dark:border-[rgba(148,163,184,0.25)] px-6 py-8 space-y-1.5"
-          >
-            <p className="text-sm font-bold text-slate-800 dark:text-[#F8FAFC]">Bạn chưa luyện chủ đề nào với AI</p>
-            <p className="text-xs text-slate-500 dark:text-[#94A3B8]">
-              Chọn một chủ đề gợi ý bên dưới hoặc tự nhập kiến nghị ở trên để bắt đầu. Chủ đề đã hoàn thành sẽ xuất hiện ở đây để bạn học lại.
-            </p>
-          </div>
-        ) : (
-          <>
-            <ul className="space-y-3" data-testid="practiced-list">
-              {visibleHistory.map((item) => {
-                const panelId = `h:${item.key}`;
-                const isOpen = openId === panelId;
-                const source = findListedTopic(item, listed);
-                const canRetry = Boolean(source);
-                return (
-                  <li key={item.key} data-testid="practiced-topic" className={cardClass}>
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1.5">
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-[#F8FAFC] leading-snug">{item.title}</h3>
-                        <p className="text-xs text-slate-500 dark:text-[#94A3B8] flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span>Đã luyện {item.count} lần</span>
-                          {formatDate(item.lastPracticedAt) && <span>Gần nhất: {formatDate(item.lastPracticedAt)}</span>}
-                          {item.lastSide && <span>Lần trước: {item.lastSide === "PRO" ? "Ủng hộ" : "Phản đối"}</span>}
-                        </p>
-                        {!canRetry && !topicsLoading && (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                            {topicsError
-                              ? "Chưa tải được danh sách chủ đề nên chưa thể học lại."
-                              : "Chủ đề này không còn trong danh sách nên chưa thể học lại."}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                          to={`/debater/debate/${item.lastSessionId}/result`}
-                          className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:border-slate-300 hover:text-[#008A64] transition-colors"
-                        >
-                          Xem kết quả
-                        </Link>
-                        <button
-                          type="button"
-                          data-testid="retry-topic-btn"
-                          aria-expanded={isOpen}
-                          disabled={!canRetry}
-                          onClick={() => togglePanel(panelId)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                        >
-                          <RotateCcw size={13} />
-                          <span>Học lại</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {isOpen && source && (
-                      <PracticeStartPanel
-                        idPrefix={panelId}
-                        defaultSide={item.lastSide}
-                        submitting={submitting}
-                        error={startError}
-                        onStart={(side, difficulty) => void startSession(source, side, difficulty)}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            {practiced.length > HISTORY_PREVIEW && (
-              <ShowAllButton
-                testId="history-show-all"
-                expanded={showAllHistory}
-                total={practiced.length}
-                onToggle={() => setShowAllHistory((v) => !v)}
-              />
-            )}
-          </>
-        )}
-      </section>
-
       {/* ── Suggested topics: the listed ones not practised yet, to start quickly ── */}
-      <section className="space-y-3" aria-labelledby="practice-suggestions-title">
-        <h2 id="practice-suggestions-title" className="text-base font-black text-slate-900 dark:text-[#F8FAFC] flex items-center gap-2">
-          <Sparkles size={17} className="text-[#008A64]" />
+      <section className="space-y-(--s-4)" aria-labelledby="practice-suggestions-title">
+        <h2 id="practice-suggestions-title" className={sectionTitle}>
+          <span className={sectionIcon}>
+            <Sparkles size={16} aria-hidden="true" />
+          </span>
           <span>Chủ đề gợi ý</span>
         </h2>
 
         {topicsLoading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" data-testid="suggestions-loading">
-            <Loader2 size={18} className="animate-spin" />
+          <div className={loadingBox} data-testid="suggestions-loading" role="status">
+            <Loader2 size={18} className="animate-spin" aria-hidden="true" />
             <span>Đang tải chủ đề...</span>
           </div>
         ) : topicsError ? (
-          <div role="alert" className="flex items-start gap-3 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
-            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-            <div className="flex-1 space-y-2">
+          <div role="alert" className={errorBox}>
+            <AlertCircle size={18} className="mt-0.5 shrink-0 text-ap-danger" aria-hidden="true" />
+            <div className="flex-1 space-y-(--s-2)">
               <p>{topicsError}</p>
-              <button
-                type="button"
-                data-testid="topics-retry-load"
-                onClick={() => void loadTopics()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-rose-300 text-xs font-bold hover:bg-rose-100 cursor-pointer"
-              >
-                <RefreshCw size={13} /> Thử lại
+              <button type="button" data-testid="topics-retry-load" onClick={() => void loadTopics()} className={retryButton}>
+                <RefreshCw size={14} aria-hidden="true" /> Thử lại
               </button>
             </div>
           </div>
         ) : suggestions.length === 0 ? (
-          <div
-            data-testid="suggestions-empty"
-            className="text-center bg-white debate-panel-main rounded-2xl border border-dashed border-slate-300 dark:border-[rgba(148,163,184,0.25)] px-6 py-8 space-y-2"
-          >
-            <BookOpen size={26} className="mx-auto text-slate-400" />
-            <p className="text-sm font-bold text-slate-800 dark:text-[#F8FAFC]">
+          <div data-testid="suggestions-empty" className={emptyBox}>
+            <BookOpen size={26} className="mx-auto text-label-tertiary" aria-hidden="true" />
+            <p className="text-(length:--text-callout) font-semibold">
               {listed.length > 0 ? "Bạn đã luyện hết các chủ đề hiện có" : "Chưa có chủ đề nào để gợi ý"}
             </p>
           </div>
         ) : (
           <>
             {showAllSuggestions && (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Lọc theo lĩnh vực">
+              <div className="flex flex-wrap gap-(--s-2)" role="group" aria-label="Lọc theo lĩnh vực">
                 {[{ code: "all", label: "Tất cả" }, ...TOPIC_CATEGORIES].map((c) => (
                   <button
                     key={c.code}
@@ -617,10 +208,10 @@ const DebatePractice: React.FC = () => {
                     data-testid={`suggestion-filter-${c.code}`}
                     aria-pressed={suggestionCategory === c.code}
                     onClick={() => setSuggestionCategory(c.code)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                    className={`min-h-10 cursor-pointer rounded-ap-pill px-(--s-4) text-(length:--text-callout) font-medium transition-colors duration-(--t-fast) focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
                       suggestionCategory === c.code
-                        ? "bg-[#008A64] border-[#008A64] text-white"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-[#008A64] hover:text-[#008A64]"
+                        ? "bg-accent text-accent-contrast"
+                        : "bg-canvas-secondary text-label-secondary hover:bg-accent-soft hover:text-label"
                     }`}
                   >
                     {c.label}
@@ -629,55 +220,46 @@ const DebatePractice: React.FC = () => {
               </div>
             )}
 
-            <ul className="space-y-3" data-testid="suggestion-list">
+            <ul className="grid grid-cols-1 gap-(--s-4) md:grid-cols-2" data-testid="suggestion-list">
               {visibleSuggestions.map((topic) => {
                 const topicId = topicIdOf(topic);
-                const panelId = `s:${topicId ?? topic.title}`;
-                const isOpen = openId === panelId;
                 return (
-                  <li key={panelId} data-testid="suggested-topic" className={cardClass}>
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 border border-emerald-200/80 text-[#008A64]">
+                  <li key={String(topicId ?? topic.title)} data-testid="suggested-topic" className={cardClass}>
+                    <div className="flex h-full flex-col justify-between gap-(--s-4)">
+                      <div className="min-w-0 space-y-(--s-3)">
+                        <div className="flex items-center justify-between gap-(--s-3)">
+                          <span className="text-(length:--text-caption) font-medium text-accent">
                             {topicCategoryLabel(topic.category)}
                           </span>
-                          <DifficultyBadge difficulty={topic.difficulty} />
+                          <span className="inline-flex items-center gap-(--s-2) text-(length:--text-caption) text-label-secondary">
+                            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${difficultyOf(topic.difficulty).dot}`} />
+                            {difficultyOf(topic.difficulty).label}
+                          </span>
                         </div>
-                        <h3 className="text-[15px] font-bold text-slate-900 dark:text-[#F8FAFC] leading-snug">{topic.title}</h3>
+                        <h3 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">{topic.title}</h3>
                         {(topic.motion || topic.description) && (
-                          <p className="text-xs text-slate-500 dark:text-[#94A3B8] line-clamp-2">
+                          <p className="line-clamp-2 text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
                             {topic.motion || topic.description}
                           </p>
                         )}
                       </div>
-                      <button
-                        type="button"
+                      <Link
+                        to={topicPath(topic)}
+                        state={{ topic }}
                         data-testid="start-suggested-btn"
-                        aria-expanded={isOpen}
-                        onClick={() => togglePanel(panelId)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+                        className={`${textAction} self-start`}
                       >
                         <span>Luyện tập</span>
-                        <ArrowRight size={13} />
-                      </button>
+                        <ChevronRight size={16} className="transition-transform duration-(--t-base) group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                      </Link>
                     </div>
-
-                    {isOpen && (
-                      <PracticeStartPanel
-                        idPrefix={panelId}
-                        submitting={submitting}
-                        error={startError}
-                        onStart={(side, difficulty) => void startSession(topic, side, difficulty)}
-                      />
-                    )}
                   </li>
                 );
               })}
             </ul>
 
             {visibleSuggestions.length === 0 && (
-              <p className="text-center text-xs text-slate-500 py-4">Không còn chủ đề nào trong lĩnh vực này.</p>
+              <p className="py-(--s-4) text-center text-(length:--text-callout) text-label-secondary">Không còn chủ đề nào trong lĩnh vực này.</p>
             )}
 
             {suggestions.length > SUGGESTION_PREVIEW && (
@@ -694,12 +276,108 @@ const DebatePractice: React.FC = () => {
           </>
         )}
 
-        <p className="text-center text-xs text-slate-500 dark:text-[#94A3B8] pt-1">
+        <p className="pt-(--s-1) text-center text-(length:--text-callout) text-label-secondary">
           Muốn xem chi tiết từng chủ đề?{" "}
-          <Link to="/debater/topics" className="font-bold text-[#008A64] hover:underline">
+          <Link to="/debater/topics" className="font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline">
             Mở thư viện chủ đề
           </Link>
         </p>
+      </section>
+
+      {/* ── History: the topics already practised with the AI ── */}
+      <section className="space-y-(--s-4)" aria-labelledby="practice-history-title">
+        <h2 id="practice-history-title" className={sectionTitle}>
+          <span className={sectionIcon}>
+            <History size={16} aria-hidden="true" />
+          </span>
+          <span>Lịch sử luyện tập</span>
+        </h2>
+
+        {historyLoading ? (
+          <div className={loadingBox} data-testid="practiced-loading" role="status">
+            <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+            <span>Đang tải lịch sử luyện tập...</span>
+          </div>
+        ) : historyError ? (
+          <div role="alert" className={errorBox}>
+            <AlertCircle size={18} className="mt-0.5 shrink-0 text-ap-danger" aria-hidden="true" />
+            <div className="flex-1 space-y-(--s-2)">
+              <p>{historyError}</p>
+              <button type="button" data-testid="history-retry-load" onClick={() => void loadHistory()} className={retryButton}>
+                <RefreshCw size={14} aria-hidden="true" /> Thử lại
+              </button>
+            </div>
+          </div>
+        ) : practiced.length === 0 ? (
+          <div data-testid="practiced-empty" className={emptyBox}>
+            <p className="text-(length:--text-callout) font-semibold">Bạn chưa luyện chủ đề nào với AI</p>
+            <p className="text-(length:--text-callout) text-label-secondary">
+              Chọn một chủ đề gợi ý ở trên để bắt đầu. Chủ đề đã hoàn thành sẽ xuất hiện ở đây để bạn học lại.
+            </p>
+          </div>
+        ) : (
+          <>
+            <ul className="space-y-(--s-3)" data-testid="practiced-list">
+              {visibleHistory.map((item) => {
+                const source = findListedTopic(item, listed);
+                const canRetry = Boolean(source);
+                return (
+                  <li key={item.key} data-testid="practiced-topic" className={cardClass}>
+                    <div className="flex flex-col justify-between gap-(--s-3) sm:flex-row sm:items-center">
+                      <div className="min-w-0 space-y-(--s-2)">
+                        <h3 className="text-(length:--text-callout) font-semibold leading-(--leading-snug)">{item.title}</h3>
+                        <p className="flex flex-wrap items-center gap-x-(--s-4) gap-y-1 text-(length:--text-caption) text-label-secondary">
+                          <span>Đã luyện {item.count} lần</span>
+                          {formatDate(item.lastPracticedAt) && <span>Gần nhất: {formatDate(item.lastPracticedAt)}</span>}
+                          {item.lastSide && <span>Lần trước: {item.lastSide === "PRO" ? "Ủng hộ" : "Phản đối"}</span>}
+                        </p>
+                        {!canRetry && !topicsLoading && (
+                          <p className="text-(length:--text-caption) text-ap-warning">
+                            {topicsError
+                              ? "Chưa tải được danh sách chủ đề nên chưa thể học lại."
+                              : "Chủ đề này không còn trong danh sách nên chưa thể học lại."}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-(--s-2)">
+                        <Link
+                          to={`/debater/debate/${item.lastSessionId}/result`}
+                          className="inline-flex min-h-11 items-center px-(--s-3) text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline"
+                        >
+                          Xem kết quả
+                        </Link>
+                        {source ? (
+                          <Link
+                            to={topicPath(source)}
+                            state={{ topic: source, defaultSide: item.lastSide }}
+                            data-testid="retry-topic-btn"
+                            className={softPill}
+                          >
+                            <RotateCcw size={14} aria-hidden="true" />
+                            <span>Học lại</span>
+                          </Link>
+                        ) : (
+                          <button type="button" data-testid="retry-topic-btn" disabled className={softPill}>
+                            <RotateCcw size={14} aria-hidden="true" />
+                            <span>Học lại</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {practiced.length > HISTORY_PREVIEW && (
+              <ShowAllButton
+                testId="history-show-all"
+                expanded={showAllHistory}
+                total={practiced.length}
+                onToggle={() => setShowAllHistory((v) => !v)}
+              />
+            )}
+          </>
+        )}
       </section>
     </div>
   );

@@ -26,15 +26,15 @@ const GradingOverlay: React.FC<GradingOverlayProps> = ({ message }) => {
       data-testid="grading-overlay"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#10231C] border border-slate-200 dark:border-slate-800 shadow-xl px-6 py-7 text-center space-y-3">
-        <Loader2 size={32} className="mx-auto animate-spin text-[#008A64] dark:text-[#34D399]" />
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#0C1627] border border-slate-200 dark:border-slate-800 shadow-xl px-6 py-7 text-center space-y-3">
+        <Loader2 size={32} className="mx-auto animate-spin text-[#0B5ED7] dark:text-[#60A5FA]" />
         <h2 className="text-base font-black text-slate-900 dark:text-[#F8FAFC]">
           Đang chấm điểm phiên tranh biện...
         </h2>
         <p
           data-testid="grading-progress"
           aria-live="polite"
-          className="text-sm font-semibold text-[#008A64] dark:text-[#34D399]"
+          className="text-sm font-semibold text-[#0B5ED7] dark:text-[#60A5FA]"
         >
           {message}
         </p>

@@ -98,12 +98,12 @@ const Progress: React.FC = () => {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
+        <div className="bg-white dark:bg-[#0F1726] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Điểm trung bình
           </span>
           <div className="my-4">
-            <div className="text-4xl font-black text-[#008A64] dark:text-emerald-400">
+            <div className="text-4xl font-black text-[#0B5ED7] dark:text-blue-400">
               {avgScore > 0 ? avgScore.toFixed(1) : "--"}
             </div>
             <span className="text-xs text-slate-400 mt-1 inline-block">
@@ -115,7 +115,7 @@ const Progress: React.FC = () => {
         {completedDebates !== null && (
           <div
             data-testid="progress-total-debates"
-            className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs"
+            className="bg-white dark:bg-[#0F1726] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs"
           >
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Tổng số phiên tranh biện
@@ -131,7 +131,7 @@ const Progress: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white dark:bg-[#12231C] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
+        <div className="bg-white dark:bg-[#0F1726] p-6 rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-xs">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Kỹ năng nổi bật
           </span>
@@ -150,9 +150,9 @@ const Progress: React.FC = () => {
       {completedDebates === 0 && (
         <div
           data-testid="progress-empty-state"
-          className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] p-12 text-center shadow-xs"
+          className="bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] p-12 text-center shadow-xs"
         >
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 text-[#008A64] dark:text-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-500/15 border border-blue-100 dark:border-blue-500/30 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center mx-auto mb-4 shadow-xs">
             <Award size={32} />
           </div>
           <h3 className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mb-2">
@@ -163,7 +163,7 @@ const Progress: React.FC = () => {
           </p>
           <Link
             to="/debater/competitions"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#008A64] hover:bg-[#007457] text-white text-sm font-bold rounded-xl shadow-sm shadow-[#008A64]/20 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-sm font-bold rounded-xl shadow-sm shadow-[#0B5ED7]/20 transition-all cursor-pointer"
           >
             <Swords size={16} />
             <span>Tham gia giải đấu ngay</span>

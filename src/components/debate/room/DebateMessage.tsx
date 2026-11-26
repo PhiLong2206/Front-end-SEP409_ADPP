@@ -24,7 +24,7 @@ const DebateMessage: React.FC<DebateMessageProps> = ({ message }) => {
       className={`p-5 rounded-2xl border transition-all ${
         isAI
           ? "bg-white border-slate-200 shadow-xs"
-          : "bg-[#ECFDF5]/50 border-[#008A64]/20 shadow-xs"
+          : "bg-[#EAF2FF]/50 border-[#0B5ED7]/20 shadow-xs"
       }`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -33,7 +33,7 @@ const DebateMessage: React.FC<DebateMessageProps> = ({ message }) => {
             className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${
               isAI
                 ? "bg-slate-800 text-white"
-                : "bg-[#008A64] text-white font-medium"
+                : "bg-[#0B5ED7] text-white font-medium"
             }`}
           >
             {isAI ? <Bot size={15} /> : <UserIcon size={15} />}

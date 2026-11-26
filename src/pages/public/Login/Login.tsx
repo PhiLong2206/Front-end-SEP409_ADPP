@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import GoogleLoginButton from "../../../components/auth/GoogleLoginButton";
-import AuthLayout from "../../../components/auth/AuthLayout";
+import AppleAuthShell from "../../../components/auth/AppleAuthShell";
 import PasswordInput from "../../../components/auth/PasswordInput";
 import { useAuth } from "../../../hooks/useAuth";
 import { ROLES } from "../../../utils/constants";
 import { getAuthErrorMessage } from "../../../utils/authError";
-import { Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -97,57 +97,66 @@ const Login: React.FC = () => {
   };
 
   return (
-    <AuthLayout
+    <AppleAuthShell
       title="Chào mừng trở lại"
       subtitle="Đăng nhập để tiếp tục với AI Debate Platform"
-      badge="Đăng nhập tài khoản"
-      showVisualSidebar={true}
+      footer={
+        <>
+          Chưa có tài khoản?{" "}
+          <Link to="/register" className="font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline">
+            Đăng ký ngay
+          </Link>
+        </>
+      }
     >
       {/* Logout Toast Notification */}
       {toastMessage && (
-        <div className="p-3.5 mb-4 text-xs sm:text-sm rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 font-medium animate-fade-in flex items-center gap-2.5 shadow-sm">
-          <CheckCircle2 size={17} className="text-[#008A64] dark:text-emerald-400 shrink-0" />
+        <div
+          role="status"
+          className="mb-(--s-4) flex items-center gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label animate-fade-in motion-reduce:animate-none"
+        >
+          <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Success Notification during redirect */}
       {isSuccess && (
-        <div className="p-3.5 mb-4 text-xs sm:text-sm rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium animate-fade-in flex items-center gap-2.5">
-          <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+        <div
+          role="status"
+          className="mb-(--s-4) flex items-center gap-(--s-3) rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) text-label animate-fade-in motion-reduce:animate-none"
+        >
+          <CheckCircle2 size={18} className="shrink-0 text-accent" aria-hidden="true" />
           <span>Đăng nhập thành công! Đang chuyển hướng...</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-(--s-4)">
         {/* Email Field */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="login-email" className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
-            Địa chỉ Email <span className="text-rose-500">*</span>
+        <div className="flex flex-col gap-(--s-2)">
+          <label htmlFor="login-email" className="text-(length:--text-caption) font-medium text-label-secondary">
+            Địa chỉ Email<span className="sr-only"> (bắt buộc)</span>
           </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Mail size={16} />
-            </div>
-            <input
-              id="login-email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="your.email@example.com"
-              required
-              autoFocus
-              disabled={loading || isSuccess}
-              className="w-full py-2.5 sm:py-3 pl-10 pr-4 text-sm sm:text-base bg-white dark:bg-[#12231C] border border-[#E5E7EB] hover:border-slate-300 dark:border-slate-700 rounded-xl text-[#101828] dark:text-[#F8FAFC] placeholder:text-[#98A2B3] transition-all duration-200 outline-none focus:border-[#00966F] focus:ring-2 focus:ring-[#00966F]/15 disabled:bg-slate-50 dark:disabled:bg-slate-900 disabled:text-slate-400"
-            />
-          </div>
+          <input
+            id="login-email"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError("");
+            }}
+            placeholder="your.email@example.com"
+            required
+            autoFocus
+            autoComplete="email"
+            disabled={loading || isSuccess}
+            className="h-12 w-full rounded-ap-md border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-body) text-label placeholder:text-label-tertiary outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-60"
+          />
         </div>
 
         {/* Password Field */}
         <PasswordInput
+          appearance="apple"
           id="login-password"
           label="Mật khẩu"
           value={password}
@@ -156,40 +165,40 @@ const Login: React.FC = () => {
             if (error) setError("");
           }}
           placeholder="••••••••••••"
+          autoComplete="current-password"
           required
           disabled={loading || isSuccess}
+          labelAction={
+            <Link
+              to="/forgot-password"
+              className="text-(length:--text-caption) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          }
         />
 
-        {/* Remember me & Forgot password */}
-        <div className="flex items-center justify-between text-xs sm:text-sm pt-0.5">
-          <label className="flex items-center gap-2 cursor-pointer text-[#667085] dark:text-slate-400 select-none">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              disabled={loading || isSuccess}
-              className="w-4 h-4 rounded border-[#E5E7EB] text-[#00966F] focus:ring-[#00966F] cursor-pointer"
-            />
-            <span>Ghi nhớ đăng nhập</span>
-          </label>
+        {/* Remember me */}
+        <label className="flex min-h-(--touch-target) cursor-pointer select-none items-center gap-(--s-3) text-(length:--text-callout) text-label-secondary">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            disabled={loading || isSuccess}
+            className="h-5 w-5 cursor-pointer rounded-ap-sm accent-accent focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+          />
+          <span>Ghi nhớ đăng nhập</span>
+        </label>
 
-          <Link
-            to="/forgot-password"
-            className="text-[#00966F] hover:text-[#007F5F] dark:text-[#34D399] font-semibold transition-colors hover:underline"
-          >
-            Quên mật khẩu?
-          </Link>
-        </div>
-
-        {/* Error Alert - Positioned directly above Login Button */}
+        {/* Error Alert - directly above the button */}
         {error && (
           <div
             role="alert"
             aria-live="assertive"
-            className="p-3 sm:p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-300 font-medium animate-fade-in flex items-start gap-2.5 shadow-xs"
+            className="flex items-start gap-(--s-3) rounded-ap-md bg-ap-danger/10 p-(--s-3) text-(length:--text-callout) leading-(--leading-snug) text-label animate-fade-in motion-reduce:animate-none"
           >
-            <AlertCircle size={17} className="text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
-            <span className="text-xs sm:text-sm leading-snug break-words">{error}</span>
+            <AlertCircle size={18} className="mt-0.5 shrink-0 text-ap-danger" aria-hidden="true" />
+            <span className="break-words">{error}</span>
           </div>
         )}
 
@@ -197,16 +206,16 @@ const Login: React.FC = () => {
         <button
           type="submit"
           disabled={loading || isSuccess}
-          className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-sm sm:text-base font-bold text-white bg-[#00966F] hover:bg-[#007F5F] active:bg-[#006e52] transition-all duration-200 shadow-md shadow-[#00966F]/20 flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex h-12 w-full cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? (
             <>
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
               <span>Đang đăng nhập...</span>
             </>
           ) : isSuccess ? (
             <>
-              <CheckCircle2 size={18} className="text-white" />
+              <CheckCircle2 size={18} aria-hidden="true" />
               <span>Thành công</span>
             </>
           ) : (
@@ -216,38 +225,20 @@ const Login: React.FC = () => {
       </form>
 
       {/* Divider */}
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[#E5E7EB] dark:border-slate-800" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-[#FFFDF8] dark:bg-[#0F1C17] px-3 text-[#98A2B3] dark:text-slate-400 font-semibold tracking-wider">
-            hoặc
-          </span>
-        </div>
+      <div className="my-(--s-5) flex items-center gap-(--s-3)" role="separator" aria-label="hoặc">
+        <span className="h-px flex-1 bg-separator" />
+        <span className="text-(length:--text-caption) text-label-tertiary">hoặc</span>
+        <span className="h-px flex-1 bg-separator" />
       </div>
 
       {/* Google Login Button */}
-      <div className="mb-4">
-        <GoogleLoginButton
-          onSuccess={handleGoogleSuccess}
-          onError={(msg) => setError(getAuthErrorMessage(msg, "Đăng nhập Google thất bại."))}
-          disabled={loading || isSuccess}
-          text="Tiếp tục với Google"
-        />
-      </div>
-
-      {/* Register link */}
-      <div className="text-center text-xs sm:text-sm text-slate-600 pt-3 border-t border-slate-100 font-medium">
-        Chưa có tài khoản?{" "}
-        <Link
-          to="/register"
-          className="text-[#008A64] hover:text-[#007457] font-bold hover:underline ml-1"
-        >
-          Đăng ký ngay
-        </Link>
-      </div>
-    </AuthLayout>
+      <GoogleLoginButton
+        onSuccess={handleGoogleSuccess}
+        onError={(msg) => setError(getAuthErrorMessage(msg, "Đăng nhập Google thất bại."))}
+        disabled={loading || isSuccess}
+        text="Tiếp tục với Google"
+      />
+    </AppleAuthShell>
   );
 };
 

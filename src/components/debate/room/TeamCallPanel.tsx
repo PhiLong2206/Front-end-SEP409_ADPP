@@ -94,7 +94,7 @@ const TeamCallPanel: React.FC<TeamCallPanelProps> = ({
             {status === "connecting" && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
             <span>{STATUS_TEXT[status]}</span>
             {status === "connected" && speaking && (
-              <span data-testid="team-call-speaking" className="inline-flex items-center gap-1 text-[#008A64] dark:text-emerald-400">
+              <span data-testid="team-call-speaking" className="inline-flex items-center gap-1 text-[#0B5ED7] dark:text-blue-400">
                 <Volume2 size={12} aria-hidden="true" />
                 {teammateName || "Đồng đội"} đang nói
               </span>
@@ -112,7 +112,7 @@ const TeamCallPanel: React.FC<TeamCallPanelProps> = ({
               type="button"
               data-testid="team-call-enable-audio-btn"
               onClick={onEnableAudio}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#008A64] hover:bg-[#007457] focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0B5ED7] hover:bg-[#0a4fb4] focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"
             >
               <Volume2 size={13} aria-hidden="true" />
               Bật âm thanh
@@ -123,7 +123,7 @@ const TeamCallPanel: React.FC<TeamCallPanelProps> = ({
               type="button"
               data-testid="team-call-retry-btn"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#008A64] hover:bg-[#007457] focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0B5ED7] hover:bg-[#0a4fb4] focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"
             >
               <RefreshCw size={13} aria-hidden="true" />
               Thử lại
@@ -134,7 +134,7 @@ const TeamCallPanel: React.FC<TeamCallPanelProps> = ({
               data-testid="team-call-mute-btn"
               aria-pressed={muted}
               onClick={onToggleMute}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-white/60 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-white/60 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
             >
               {muted ? <MicOff size={13} aria-hidden="true" /> : <Mic size={13} aria-hidden="true" />}
               {muted ? "Bật mic" : "Tắt mic"}

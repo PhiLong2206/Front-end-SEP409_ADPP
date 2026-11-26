@@ -41,9 +41,9 @@ const ArgumentComposer: React.FC<ArgumentComposerProps> = ({
           <button
             type="button"
             onClick={onOpenTips}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-[#ECFDF5] px-2.5 py-1 rounded-lg border border-[#008A64]/30 transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-800 bg-[#EAF2FF] px-2.5 py-1 rounded-lg border border-[#0B5ED7]/30 transition-colors"
           >
-            <Lightbulb size={13} className="text-[#008A64]" />
+            <Lightbulb size={13} className="text-[#0B5ED7]" />
             <span>Gợi ý phản biện</span>
           </button>
           <span
@@ -64,7 +64,7 @@ const ArgumentComposer: React.FC<ArgumentComposerProps> = ({
           placeholder="Nhập nội dung lập luận hoặc phản biện của bạn..."
           disabled={disabled || isAiGenerating}
           rows={4}
-          className="w-full p-3 text-sm bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] resize-none text-slate-800 placeholder:text-slate-400 transition-all"
+          className="w-full p-3 text-sm bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/20 focus:border-[#0B5ED7] resize-none text-slate-800 placeholder:text-slate-400 transition-all"
         />
 
         <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">

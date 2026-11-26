@@ -87,11 +87,11 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 px-3 sm:px-6 py-2.5 bg-white/95 dark:bg-[#0D1D17]/95 backdrop-blur-md border-t border-slate-200/70 dark:border-slate-800 shrink-0">
+    <div className="sticky bottom-0 z-20 px-3 sm:px-6 py-2.5 bg-white/95 dark:bg-[#0A1220]/95 backdrop-blur-md border-t border-slate-200/70 dark:border-slate-800 shrink-0">
       <div className="max-w-[880px] mx-auto w-full space-y-2">
         {/* Live Multimodal Webcam + Audio Recording Banner (hidden when AiCameraPanel renders the left split) */}
         {!hideRecordingBanner && (isRecording || isAnalyzingMultimodal) && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/95 text-white border border-emerald-500/30 shadow-md">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-900/95 text-white border border-blue-500/30 shadow-md">
             <div className="flex items-center gap-3">
               {/* Live Webcam Feed + Bounding Box Overlay */}
               <div
@@ -115,7 +115,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               </div>
 
               <div className="space-y-1 text-xs">
-                <div className="flex items-center gap-2 font-bold text-emerald-400">
+                <div className="flex items-center gap-2 font-bold text-blue-400">
                   {isAnalyzingMultimodal ? (
                     <>
                       <Loader2 size={14} className="animate-spin" />
@@ -131,7 +131,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                 {liveFrameAnalysis && liveFrameAnalysis.face_detected ? (
                   <p className="text-[11px] text-slate-300">
                     Biểu cảm:{" "}
-                    <span className="font-semibold text-emerald-300">
+                    <span className="font-semibold text-blue-300">
                       {liveFrameAnalysis.dominant_emotion.toUpperCase()} ({liveFrameAnalysis.dominant_score}%)
                     </span>{" "}
                     · Điềm tĩnh (Composure):{" "}
@@ -149,14 +149,14 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                 {isRecording && (liveInterimTranscript || liveSttStatus === "connecting" || liveSttStatus === "connected") && (
                   <div className="text-[11px] text-slate-200 bg-slate-800/80 border border-slate-700/70 rounded-lg px-2.5 py-1 max-w-xl space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-emerald-400 font-semibold">
+                      <span className="text-blue-400 font-semibold">
                         {liveSttStatus === "connecting" ? "Đang kết nối STT..." : "Live STT:"}
                       </span>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400" title={micLabel || "Microphone"}>
                         <span>Mic</span>
                         <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-emerald-400 transition-all duration-75"
+                            className="h-full bg-blue-400 transition-all duration-75"
                             style={{ width: `${Math.min(100, Math.max(0, micLevel))}%` }}
                           />
                         </div>
@@ -183,7 +183,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                 <button
                   type="button"
                   onClick={onRunSampleMultimodal}
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-400/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/40 text-blue-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   title="Chạy mẫu âm thanh & biểu cảm thử nghiệm (debate_audio.wav)"
                 >
                   <Sparkles size={12} />
@@ -212,8 +212,8 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
           }}
           className={`flex items-end gap-1.5 sm:gap-2 rounded-2xl border px-2.5 py-1.5 transition-all ${
             isLocked
-              ? "bg-slate-100/70 dark:bg-[#0F1E18] border-slate-200/80 dark:border-slate-800"
-              : "bg-slate-50/90 dark:bg-[#12231C] border-slate-200/90 dark:border-slate-700/80 hover:border-slate-300 focus-within:bg-white dark:focus-within:bg-[#12231C] focus-within:border-[#008A64] focus-within:ring-2 focus-within:ring-[#008A64]/15 shadow-2xs"
+              ? "bg-slate-100/70 dark:bg-[#0C1321] border-slate-200/80 dark:border-slate-800"
+              : "bg-slate-50/90 dark:bg-[#0F1726] border-slate-200/90 dark:border-slate-700/80 hover:border-slate-300 focus-within:bg-white dark:focus-within:bg-[#0F1726] focus-within:border-[#0B5ED7] focus-within:ring-2 focus-within:ring-[#0B5ED7]/15 shadow-2xs"
           }`}
         >
           {/* Left Icon Actions: 1 Icon each for AI Hints, Case Plan, and Evaluation */}
@@ -224,10 +224,10 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               onClick={() => onToggleAssistantTab("coach")}
               aria-label="Gợi ý phản biện (AI Hints)"
               title="Gợi ý phản biện (AI Hints)"
-              className={`p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+              className={`p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30 ${
                 activeSidebarTab === "coach"
-                  ? "bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399]"
-                  : "text-slate-500 hover:text-[#008A64] dark:text-slate-400 dark:hover:text-[#34D399] hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                  ? "bg-[#EAF2FF] dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA]"
+                  : "text-slate-500 hover:text-[#0B5ED7] dark:text-slate-400 dark:hover:text-[#60A5FA] hover:bg-slate-200/60 dark:hover:bg-slate-800"
               }`}
             >
               <Lightbulb size={17} />
@@ -239,10 +239,10 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               onClick={() => onToggleAssistantTab("caseplan")}
               aria-label="Hồ sơ lập luận (Case Plan)"
               title="Hồ sơ lập luận (Case Plan)"
-              className={`p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+              className={`p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30 ${
                 activeSidebarTab === "caseplan"
-                  ? "bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399]"
-                  : "text-slate-500 hover:text-[#008A64] dark:text-slate-400 dark:hover:text-[#34D399] hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                  ? "bg-[#EAF2FF] dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA]"
+                  : "text-slate-500 hover:text-[#0B5ED7] dark:text-slate-400 dark:hover:text-[#60A5FA] hover:bg-slate-200/60 dark:hover:bg-slate-800"
               }`}
             >
               <BookOpen size={17} />
@@ -258,15 +258,15 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                   ? `Đánh giá lượt nói (Điểm gần nhất: ${latestScore}/10)`
                   : "Đánh giá lượt nói (AI Evaluator)"
               }
-              className={`relative p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 ${
+              className={`relative p-2 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30 ${
                 activeSidebarTab === "evaluator"
-                  ? "bg-[#ECFDF5] dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399]"
-                  : "text-slate-500 hover:text-[#008A64] dark:text-slate-400 dark:hover:text-[#34D399] hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                  ? "bg-[#EAF2FF] dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA]"
+                  : "text-slate-500 hover:text-[#0B5ED7] dark:text-slate-400 dark:hover:text-[#60A5FA] hover:bg-slate-200/60 dark:hover:bg-slate-800"
               }`}
             >
               <Award size={17} />
               {hasNewEvaluation && activeSidebarTab !== "evaluator" && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#008A64] ring-2 ring-white dark:ring-[#12231C]" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#0B5ED7] ring-2 ring-white dark:ring-[#0F1726]" />
               )}
             </button>
           </div>
@@ -323,11 +323,11 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                   ? "Dừng ghi âm & gửi lượt nói (phân tích giọng nói/biểu cảm rồi gửi)"
                   : "Ghi âm giọng nói (Faster-Whisper) & phân tích biểu cảm (DeepFace)"
               }
-              className={`p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#008A64]/30 flex items-center gap-1 ${
+              className={`p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30 flex items-center gap-1 ${
                 isRecording
                   ? "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 animate-pulse"
                   : isAnalyzingMultimodal
-                  ? "bg-emerald-50 text-[#008A64] dark:bg-emerald-950/50 dark:text-[#34D399]"
+                  ? "bg-blue-50 text-[#0B5ED7] dark:bg-blue-950/50 dark:text-[#60A5FA]"
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800"
               }`}
             >
@@ -362,7 +362,7 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
               disabled={isLocked || isAnalyzingMultimodal || !argumentText.trim()}
               aria-label="Gửi lập luận"
               title="Gửi lập luận (Enter)"
-              className="w-9 h-9 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white inline-flex items-center justify-center transition-all shadow-xs disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"
+              className="w-9 h-9 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white inline-flex items-center justify-center transition-all shadow-xs disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"
             >
               {isAiGenerating || isSubmitting ? (
                 <Loader2 size={16} className="animate-spin" />

@@ -257,129 +257,201 @@ const Debate1v1: React.FC = () => {
   };
 
   const getChallengeStatusBadge = (status: BackendChallengeStatus | number) => {
+    const base = "rounded-full px-2.5 py-0.5 text-(length:--text-caption) font-medium";
     switch (status) {
       case 1:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-            Đang chờ phản hồi
-          </span>
-        );
+        return <span className={`${base} bg-ap-warning/15 text-label`}>Đang chờ phản hồi</span>;
       case 2:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Đã chấp nhận
-          </span>
-        );
+        return <span className={`${base} bg-accent-soft text-accent`}>Đã chấp nhận</span>;
       case 3:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            Đã từ chối
-          </span>
-        );
+        return <span className={`${base} bg-ap-danger/10 text-label`}>Đã từ chối</span>;
       case 4:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-            Đã hủy
-          </span>
-        );
+        return <span className={`${base} bg-canvas-secondary text-label-secondary`}>Đã hủy</span>;
       case 5:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
-            Hết hạn
-          </span>
-        );
+        return <span className={`${base} bg-canvas-secondary text-label-tertiary`}>Hết hạn</span>;
       default:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-            Khác
-          </span>
-        );
+        return <span className={`${base} bg-canvas-secondary text-label-secondary`}>Khác</span>;
     }
   };
 
   const pendingReceivedCount = receivedChallenges.filter((c) => c.status === 1).length;
 
   const TABS = [
-    {
-      id: "received" as const,
-      label: `Lời mời nhận được ${pendingReceivedCount > 0 ? `(${pendingReceivedCount})` : ""}`,
-    },
-    { id: "sent" as const, label: `Thách đấu đã gửi (${sentChallenges.length})` },
-    { id: "find" as const, label: "Tạo thách đấu mới" },
-    { id: "history" as const, label: `Lịch sử đối kháng (${historyList.length})` },
+    { id: "received" as const, label: "Lời mời nhận được", count: pendingReceivedCount, highlight: pendingReceivedCount > 0 },
+    { id: "sent" as const, label: "Thách đấu đã gửi", count: sentChallenges.length, highlight: false },
+    { id: "find" as const, label: "Tạo thách đấu mới", count: null, highlight: false },
+    { id: "history" as const, label: "Lịch sử đối kháng", count: historyList.length, highlight: false },
   ];
 
+  const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1;
+    if (event.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    if (next >= 0) {
+      event.preventDefault();
+      setActiveTab(TABS[next].id);
+      document.getElementById(`d1v1-tab-${TABS[next].id}`)?.focus();
+    }
+  };
+
+  const fieldClass =
+    "h-12 w-full rounded-ap-md border border-transparent bg-canvas-secondary px-(--s-4) text-(length:--text-body) text-label placeholder:text-label-tertiary outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25";
+  const labelClass = "mb-(--s-2) block text-(length:--text-caption) font-medium text-label-secondary";
+  const card = "rounded-ap-xl bg-elevated shadow-ap-sm";
+  const emptyCard = `${card} space-y-(--s-3) px-(--s-6) py-(--s-8) text-center`;
+  const emptyIcon = "mx-auto flex h-14 w-14 items-center justify-center rounded-ap-lg bg-canvas-secondary text-label-tertiary";
+  const textAction =
+    "inline-flex min-h-11 cursor-pointer items-center gap-(--s-2) text-(length:--text-callout) font-medium text-accent hover:underline focus-visible:outline-none focus-visible:underline";
+  const quietButton =
+    "inline-flex h-10 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill px-(--s-4) text-(length:--text-callout) font-medium shadow-[inset_0_0_0_1px_var(--separator)] transition-colors duration-(--t-fast) hover:bg-canvas-secondary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60";
+  const sideLabel = (side: number | undefined) => (side === 1 ? "Ủng hộ (PRO)" : "Phản đối (CON)");
+  const formatWhen = (iso: string) =>
+    new Date(iso).toLocaleDateString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+
+  const renderChallengeCard = (challenge: ChallengeResponse, mode: "received" | "sent") => {
+    const isActionLoading = actionLoadingId === challenge.challengeId;
+    const isPending = challenge.status === 1;
+    const person = mode === "received" ? challenge.challenger : challenge.challenged;
+    const name =
+      mode === "received"
+        ? person?.fullName || "Người dùng"
+        : `Gửi tới: ${challenge.challenged?.fullName || `User #${challenge.challenged?.userId}`}`;
+    const initial = (person?.fullName || "?").trim().charAt(0).toUpperCase() || "?";
+
+    return (
+      <article
+        key={challenge.challengeId}
+        className={`${card} flex flex-col gap-(--s-4) p-(--s-6) transition-shadow duration-(--t-base) hover:shadow-ap-md sm:flex-row sm:items-center sm:justify-between`}
+      >
+        <div className="flex min-w-0 flex-1 gap-(--s-4)">
+          <div
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-(--accent) to-(--accent-2) text-(length:--text-callout) font-semibold text-accent-contrast"
+          >
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1 space-y-(--s-2)">
+            <div className="flex flex-wrap items-center gap-(--s-2)">
+              <span className="text-(length:--text-callout) font-semibold">{name}</span>
+              <span className="text-(length:--text-caption) text-label-tertiary">({person?.email})</span>
+              {getChallengeStatusBadge(challenge.status)}
+            </div>
+            <p className="text-(length:--text-callout) leading-(--leading-body)">&ldquo;{challenge.topic}&rdquo;</p>
+            <div className="flex flex-wrap items-center gap-x-(--s-4) gap-y-1 text-(length:--text-caption) text-label-secondary">
+              <span>
+                {mode === "received" ? "Phe đối thủ:" : "Phe của bạn:"}{" "}
+                <strong className="font-medium text-label">{sideLabel(challenge.challengerPreferredSide)}</strong>
+              </span>
+              <span>
+                {mode === "received" ? "Thời gian lượt:" : "Giới hạn lượt:"}{" "}
+                <strong className="font-medium text-label">{challenge.turnTimeLimitSeconds}s</strong>
+              </span>
+              <span>
+                {mode === "received" ? "Gửi lúc:" : "Thời gian:"} {formatWhen(challenge.createdAt)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-(--s-2) self-end sm:self-auto">
+          {isPending && mode === "received" ? (
+            <>
+              <Button variant="secondary" size="sm" disabled={isActionLoading} onClick={() => handleRejectChallenge(challenge.challengeId)} className="text-xs">
+                Từ chối
+              </Button>
+              <Button variant="primary" size="sm" disabled={isActionLoading} onClick={() => handleAcceptChallenge(challenge.challengeId)} className="text-xs">
+                {isActionLoading ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                Chấp nhận
+              </Button>
+            </>
+          ) : isPending && mode === "sent" ? (
+            <button
+              type="button"
+              disabled={isActionLoading}
+              onClick={() => handleCancelChallenge(challenge.challengeId)}
+              className={`${quietButton} text-ap-danger`}
+            >
+              {isActionLoading ? "Đang hủy..." : "Hủy lời mời"}
+            </button>
+          ) : challenge.debateSessionId ? (
+            <Button variant="primary" size="sm" onClick={() => navigate(`/debater/debate/${challenge.debateSessionId}`)} className="text-xs">
+              Vào phòng đấu <ArrowRight size={13} />
+            </Button>
+          ) : null}
+        </div>
+      </article>
+    );
+  };
+
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+    <div className="mx-auto max-w-6xl space-y-(--s-7) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
+      {/* Page header: plain and large, one filled button */}
+      <section className="space-y-(--s-5) pt-(--s-4)">
+        <div className="max-w-[680px] space-y-(--s-2)">
+          <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
             Tranh biện 1 vs 1
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-(length:--text-body) leading-(--leading-body) text-label-secondary">
             Thách đấu trực tiếp và quản lý lời mời tranh biện với người học khác.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={fetchAllData}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-xs transition-colors cursor-pointer"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            Làm mới
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowJoinP2pModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm rounded-xl border border-slate-300/80 shadow-xs transition-all cursor-pointer"
-          >
-            <Inbox size={15} />
-            <span>Nhập mã vào phòng</span>
-          </button>
+
+        <div className="flex flex-wrap items-center gap-x-(--s-5) gap-y-(--s-2)">
           <button
             type="button"
             data-testid="open-create-p2p-1v1-modal-btn"
             onClick={() => setShowCreateP2pModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#008A64] hover:bg-[#007457] text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all cursor-pointer"
+            className="inline-flex h-12 cursor-pointer items-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-6) text-(length:--text-body) font-medium text-accent-contrast transition-[background-color,transform] duration-(--t-fast) ease-ap hover:bg-accent-hover active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
           >
-            <Swords size={16} />
+            <Swords size={18} aria-hidden="true" />
             <span>Tạo phòng P2P</span>
+          </button>
+          <button type="button" onClick={() => setShowJoinP2pModal(true)} className={textAction}>
+            <Inbox size={16} aria-hidden="true" />
+            <span>Nhập mã vào phòng</span>
+          </button>
+          <button type="button" onClick={() => setShowCreateModal(true)} className={textAction}>
+            <Plus size={16} aria-hidden="true" />
+            <span>Thách đấu User</span>
           </button>
           <button
             type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-[#008A64] font-bold text-xs sm:text-sm rounded-xl border border-emerald-300/80 shadow-xs transition-all cursor-pointer"
+            onClick={fetchAllData}
+            disabled={loading}
+            aria-label="Làm mới"
+            title="Làm mới"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-label-secondary transition-colors hover:bg-canvas-secondary hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 disabled:opacity-60"
           >
-            <Plus size={15} />
-            <span>Thách đấu User</span>
+            <RefreshCw size={17} className={loading ? "animate-spin" : ""} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </section>
 
       {/* Notification banner */}
       {feedbackMsg && (
         <div
-          className={`p-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-between gap-2.5 border ${feedbackMsg.type === "success"
-              ? "bg-[#ECFDF5] border-[#008A64]/30 text-emerald-800"
-              : "bg-rose-50 border-rose-200 text-rose-800"
-            }`}
+          role={feedbackMsg.type === "error" ? "alert" : "status"}
+          className={`flex items-center justify-between gap-(--s-3) rounded-ap-md p-(--s-3) text-(length:--text-callout) ${
+            feedbackMsg.type === "success" ? "bg-accent-soft text-label" : "bg-ap-danger/10 text-label"
+          }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-(--s-3)">
             {feedbackMsg.type === "success" ? (
-              <Check size={16} className="text-[#008A64]" />
+              <Check size={18} className="shrink-0 text-accent" aria-hidden="true" />
             ) : (
-              <AlertCircle size={16} className="text-rose-600" />
+              <AlertCircle size={18} className="shrink-0 text-ap-danger" aria-hidden="true" />
             )}
             <span>{feedbackMsg.text}</span>
           </div>
           <button
+            type="button"
             onClick={() => setFeedbackMsg(null)}
-            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            aria-label="Đóng thông báo"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-label-secondary hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
           >
-            <X size={14} />
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -388,256 +460,123 @@ const Debate1v1: React.FC = () => {
       {activeDebateSession && (
         <div
           data-testid="active-debate-recovery-banner"
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-[#ECFDF5] border border-[#008A64]/30 text-slate-800 shadow-xs"
+          className="flex flex-col gap-(--s-3) rounded-ap-lg bg-accent-soft p-(--s-4) sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="space-y-0.5 min-w-0">
-            <p className="text-xs font-bold text-[#008A64]">
-              Bạn đang có một trận tranh biện đang diễn ra
-            </p>
-            <p className="text-xs text-slate-600 truncate">
-              &ldquo;{activeDebateSession.topicTitle}&rdquo;
-            </p>
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-(length:--text-callout) font-semibold text-accent">Bạn đang có một trận tranh biện đang diễn ra</p>
+            <p className="truncate text-(length:--text-callout) text-label-secondary">&ldquo;{activeDebateSession.topicTitle}&rdquo;</p>
           </div>
           <button
             type="button"
             data-testid="resume-active-debate-btn"
             onClick={() => navigate(activeDebateSession.url)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+            className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
           >
             <span>Tiếp tục trận tranh biện</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
-        {TABS.map((tab) => (
+      <div role="tablist" aria-label="Các mục tranh biện 1 vs 1" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-ap-pill bg-canvas-secondary p-1">
+        {TABS.map((tab, index) => (
           <button
             key={tab.id}
+            id={`d1v1-tab-${tab.id}`}
             type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`d1v1-panel-${tab.id}`}
+            tabIndex={activeTab === tab.id ? 0 : -1}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${activeTab === tab.id
-                ? "border-[#008A64] text-[#008A64]"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+            onKeyDown={(e) => onTabKeyDown(e, index)}
+            className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-(--s-2) rounded-ap-pill px-(--s-4) text-(length:--text-callout) font-medium transition-[background-color,box-shadow,color] duration-(--t-base) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+              activeTab === tab.id ? "bg-elevated text-label shadow-ap-sm" : "text-label-secondary hover:text-label"
+            }`}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            {tab.count !== null && tab.count > 0 && (
+              <span
+                className={`rounded-full px-2 text-(length:--text-caption) ${
+                  tab.highlight ? "bg-accent text-accent-contrast" : "bg-accent-soft text-accent"
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* ── Tab 1: Lời mời nhận được ── */}
       {activeTab === "received" && (
-        <div className="space-y-4">
+        <div id="d1v1-panel-received" role="tabpanel" aria-labelledby="d1v1-tab-received" className="space-y-(--s-4)">
           {loading ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs">
-              <Loader2 size={32} className="mx-auto mb-2 text-[#008A64] animate-spin" />
-              <p className="text-sm font-semibold">Đang tải lời mời thách đấu...</p>
+            <div role="status" className={emptyCard}>
+              <Loader2 size={28} className="mx-auto animate-spin text-accent" aria-hidden="true" />
+              <p className="text-(length:--text-callout) font-medium">Đang tải lời mời thách đấu...</p>
             </div>
           ) : receivedChallenges.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs space-y-2">
-              <Inbox size={32} className="mx-auto text-slate-300" />
-              <p className="text-sm font-semibold">Hiện chưa có lời mời thách đấu nào gửi tới bạn.</p>
-              <p className="text-xs text-slate-400">
-                Bạn có thể chủ động tạo lời thách đấu gửi tới người học khác!
-              </p>
+            <div className={emptyCard}>
+              <div className={emptyIcon}>
+                <Inbox size={26} aria-hidden="true" />
+              </div>
+              <p className="text-(length:--text-callout) font-semibold">Hiện chưa có lời mời thách đấu nào gửi tới bạn.</p>
+              <p className="text-(length:--text-callout) text-label-secondary">Bạn có thể chủ động tạo lời thách đấu gửi tới người học khác!</p>
             </div>
           ) : (
-            <div className="grid gap-3.5">
-              {receivedChallenges.map((challenge) => {
-                const isActionLoading = actionLoadingId === challenge.challengeId;
-                const isPending = challenge.status === 1;
-                return (
-                  <div
-                    key={challenge.challengeId}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {challenge.challenger?.fullName || "Người dùng"}
-                        </span>
-                        <span className="text-xs text-slate-400">({challenge.challenger?.email})</span>
-                        {getChallengeStatusBadge(challenge.status)}
-                      </div>
-                      <p className="text-sm font-medium text-slate-800">&ldquo;{challenge.topic}&rdquo;</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                        <span>
-                          Phe đối thủ:{" "}
-                          <strong>
-                            {challenge.challengerPreferredSide === 1 ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
-                          </strong>
-                        </span>
-                        <span>
-                          Thời gian lượt: <strong>{challenge.turnTimeLimitSeconds}s</strong>
-                        </span>
-                        <span>
-                          Gửi lúc:{" "}
-                          {new Date(challenge.createdAt).toLocaleDateString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                      {isPending ? (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={isActionLoading}
-                            onClick={() => handleRejectChallenge(challenge.challengeId)}
-                            className="text-xs"
-                          >
-                            Từ chối
-                          </Button>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            disabled={isActionLoading}
-                            onClick={() => handleAcceptChallenge(challenge.challengeId)}
-                            className="text-xs"
-                          >
-                            {isActionLoading ? (
-                              <Loader2 size={13} className="animate-spin" />
-                            ) : (
-                              <Check size={13} />
-                            )}
-                            Chấp nhận
-                          </Button>
-                        </>
-                      ) : challenge.debateSessionId ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => navigate(`/debater/debate/${challenge.debateSessionId}`)}
-                          className="text-xs"
-                        >
-                          Vào phòng đấu <ArrowRight size={13} />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <div className="grid gap-(--s-3)">{receivedChallenges.map((c) => renderChallengeCard(c, "received"))}</div>
           )}
         </div>
       )}
 
       {/* ── Tab 2: Thách đấu đã gửi ── */}
       {activeTab === "sent" && (
-        <div className="space-y-4">
+        <div id="d1v1-panel-sent" role="tabpanel" aria-labelledby="d1v1-tab-sent" className="space-y-(--s-4)">
           {loading ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs">
-              <Loader2 size={32} className="mx-auto mb-2 text-[#008A64] animate-spin" />
-              <p className="text-sm font-semibold">Đang tải thách đấu đã gửi...</p>
+            <div role="status" className={emptyCard}>
+              <Loader2 size={28} className="mx-auto animate-spin text-accent" aria-hidden="true" />
+              <p className="text-(length:--text-callout) font-medium">Đang tải thách đấu đã gửi...</p>
             </div>
           ) : sentChallenges.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs space-y-2">
-              <Send size={32} className="mx-auto text-slate-300" />
-              <p className="text-sm font-semibold">Bạn chưa gửi lời mời thách đấu nào.</p>
+            <div className={emptyCard}>
+              <div className={emptyIcon}>
+                <Send size={26} aria-hidden="true" />
+              </div>
+              <p className="text-(length:--text-callout) font-semibold">Bạn chưa gửi lời mời thách đấu nào.</p>
               <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)} className="mt-2">
                 Tạo lời thách đấu ngay
               </Button>
             </div>
           ) : (
-            <div className="grid gap-3.5">
-              {sentChallenges.map((challenge) => {
-                const isActionLoading = actionLoadingId === challenge.challengeId;
-                const isPending = challenge.status === 1;
-                return (
-                  <div
-                    key={challenge.challengeId}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 text-sm">
-                          Gửi tới:{" "}
-                          {challenge.challenged?.fullName || `User #${challenge.challenged?.userId}`}
-                        </span>
-                        <span className="text-xs text-slate-400">({challenge.challenged?.email})</span>
-                        {getChallengeStatusBadge(challenge.status)}
-                      </div>
-                      <p className="text-sm font-medium text-slate-800">&ldquo;{challenge.topic}&rdquo;</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                        <span>
-                          Phe của bạn:{" "}
-                          <strong>
-                            {challenge.challengerPreferredSide === 1 ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
-                          </strong>
-                        </span>
-                        <span>
-                          Giới hạn lượt: <strong>{challenge.turnTimeLimitSeconds}s</strong>
-                        </span>
-                        <span>
-                          Thời gian:{" "}
-                          {new Date(challenge.createdAt).toLocaleDateString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                      {isPending ? (
-                        <button
-                          type="button"
-                          disabled={isActionLoading}
-                          onClick={() => handleCancelChallenge(challenge.challengeId)}
-                          className="px-3.5 py-1.5 border border-slate-200 text-rose-600 hover:border-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-                        >
-                          {isActionLoading ? "Đang hủy..." : "Hủy lời mời"}
-                        </button>
-                      ) : challenge.debateSessionId ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => navigate(`/debater/debate/${challenge.debateSessionId}`)}
-                          className="text-xs"
-                        >
-                          Vào phòng đấu <ArrowRight size={13} />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <div className="grid gap-(--s-3)">{sentChallenges.map((c) => renderChallengeCard(c, "sent"))}</div>
           )}
         </div>
       )}
 
       {/* ── Tab 3: Tạo thách đấu mới ── */}
       {activeTab === "find" && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs max-w-2xl mx-auto space-y-5">
+        <div id="d1v1-panel-find" role="tabpanel" aria-labelledby="d1v1-tab-find" className={`${card} mx-auto max-w-2xl space-y-(--s-5) p-(--s-6) sm:p-(--s-7)`}>
           <div>
-            <h2 className="text-base font-bold text-slate-900">Thiết lập lời mời thách đấu 1 vs 1</h2>
-            <p className="text-xs text-slate-500 mt-1">
+            <h2 className="text-(length:--text-headline) font-semibold leading-(--leading-snug)">Thiết lập lời mời thách đấu 1 vs 1</h2>
+            <p className="mt-(--s-1) text-(length:--text-callout) text-label-secondary">
               Nhập ID người dùng và chọn chủ đề từ ngân hàng đề để thách đấu trực tiếp.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-(--s-4)">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                ID Người nhận thách đấu (User ID) <span className="text-rose-500">*</span>
+              <label htmlFor="d1v1-target" className={labelClass}>
+                ID Người nhận thách đấu (User ID)<span className="sr-only"> (bắt buộc)</span>
               </label>
               <input
+                id="d1v1-target"
                 type="number"
                 placeholder="Ví dụ: 4 (hoặc ID của bạn bè)"
                 value={targetUserId}
                 onChange={(e) => setTargetUserId(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                className={fieldClass}
               />
             </div>
 
@@ -649,26 +588,17 @@ const Debate1v1: React.FC = () => {
               required
             />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-(--s-3) sm:grid-cols-2">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Phe của bạn</label>
-                <select
-                  value={challengerSide}
-                  onChange={(e) => setChallengerSide(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
-                >
+                <label htmlFor="d1v1-side" className={labelClass}>Phe của bạn</label>
+                <select id="d1v1-side" value={challengerSide} onChange={(e) => setChallengerSide(Number(e.target.value))} className={fieldClass}>
                   <option value={SystemDebateSide.PRO}>Ủng hộ (PRO)</option>
                   <option value={SystemDebateSide.CON}>Phản đối (CON)</option>
                 </select>
               </div>
-
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Thời gian mỗi lượt</label>
-                <select
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
-                >
+                <label htmlFor="d1v1-time" className={labelClass}>Thời gian mỗi lượt</label>
+                <select id="d1v1-time" value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))} className={fieldClass}>
                   <option value={120}>2 phút (120 giây)</option>
                   <option value={180}>3 phút (180 giây)</option>
                   <option value={240}>4 phút (240 giây)</option>
@@ -682,7 +612,7 @@ const Debate1v1: React.FC = () => {
               size="md"
               disabled={isSubmittingChallenge || !targetUserId || !selectedChallengeTopic}
               onClick={handleCreateChallenge}
-              className="w-full mt-2"
+              className="mt-2 w-full"
             >
               {isSubmittingChallenge ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               <span>Gửi lời mời thách đấu</span>
@@ -693,35 +623,35 @@ const Debate1v1: React.FC = () => {
 
       {/* ── Tab 4: Lịch sử đối kháng ── */}
       {activeTab === "history" && (
-        <div className="space-y-4">
+        <div id="d1v1-panel-history" role="tabpanel" aria-labelledby="d1v1-tab-history" className="space-y-(--s-4)">
           {historyList.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center text-slate-500 shadow-xs">
-              <Swords size={32} className="mx-auto mb-2 text-slate-300" />
-              <p className="text-sm font-semibold">Chưa có trận đấu đối kháng P2P/1v1 nào hoàn thành.</p>
-              <p className="text-xs text-slate-400 mt-1">
-                Hãy gửi thách đấu hoặc chấp nhận lời mời để bắt đầu thi đấu.
-              </p>
+            <div className={emptyCard}>
+              <div className={emptyIcon}>
+                <Swords size={26} aria-hidden="true" />
+              </div>
+              <p className="text-(length:--text-callout) font-semibold">Chưa có trận đấu đối kháng P2P/1v1 nào hoàn thành.</p>
+              <p className="text-(length:--text-callout) text-label-secondary">Hãy gửi thách đấu hoặc chấp nhận lời mời để bắt đầu thi đấu.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="px-5 py-3.5">Mã / Chủ đề</th>
-                    <th className="px-5 py-3.5">Hình thức</th>
-                    <th className="px-5 py-3.5">Phe</th>
-                    <th className="px-5 py-3.5">Ngày đấu</th>
-                    <th className="px-5 py-3.5 text-right">Chi tiết</th>
+            <div className={`${card} overflow-x-auto`}>
+              <table className="w-full text-left text-(length:--text-callout)">
+                <thead>
+                  <tr className="border-b border-separator text-(length:--text-caption) font-medium uppercase tracking-wider text-label-secondary">
+                    <th className="px-(--s-5) py-(--s-3) font-medium">Mã / Chủ đề</th>
+                    <th className="px-(--s-5) py-(--s-3) font-medium">Hình thức</th>
+                    <th className="px-(--s-5) py-(--s-3) font-medium">Phe</th>
+                    <th className="px-(--s-5) py-(--s-3) font-medium">Ngày đấu</th>
+                    <th className="px-(--s-5) py-(--s-3) text-right font-medium">Chi tiết</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-separator">
                   {historyList.map((item) => (
-                    <tr key={item.sessionId} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4 max-w-sm">
-                        <div className="font-bold text-slate-900">{item.title || item.topic}</div>
-                        <div className="text-slate-400 text-[11px]">#{item.sessionId}</div>
+                    <tr key={item.sessionId} className="transition-colors hover:bg-canvas-secondary">
+                      <td className="max-w-sm px-(--s-5) py-(--s-4)">
+                        <div className="font-semibold">{item.title || item.topic}</div>
+                        <div className="text-(length:--text-caption) text-label-tertiary">#{item.sessionId}</div>
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap font-medium text-slate-700">
+                      <td className="whitespace-nowrap px-(--s-5) py-(--s-4) text-label-secondary">
                         {isTeamDebateSession({
                           isTeamDebate: item.isTeamDebate,
                           maxParticipants: item.maxParticipants,
@@ -732,15 +662,13 @@ const Debate1v1: React.FC = () => {
                             ? "Thách đấu 1v1"
                             : "P2P Trực tiếp"}
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <Badge variant={item.userSide === 1 ? "primary" : "secondary"}>
-                          {item.userSide === 1 ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
-                        </Badge>
+                      <td className="whitespace-nowrap px-(--s-5) py-(--s-4)">
+                        <Badge variant={item.userSide === 1 ? "primary" : "secondary"}>{sideLabel(item.userSide)}</Badge>
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-slate-500">
+                      <td className="whitespace-nowrap px-(--s-5) py-(--s-4) text-label-secondary">
                         {new Date(item.createdAt).toLocaleDateString("vi-VN")}
                       </td>
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-(--s-5) py-(--s-4) text-right">
                         <Button
                           variant={item.status === 2 ? "primary" : "secondary"}
                           size="sm"
@@ -799,22 +727,22 @@ const Debate1v1: React.FC = () => {
           />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Phe của bạn</label>
+              <label className={labelClass}>Phe của bạn</label>
               <select
                 value={challengerSide}
                 onChange={(e) => setChallengerSide(Number(e.target.value))}
-                className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                className={fieldClass}
               >
                 <option value={SystemDebateSide.PRO}>Ủng hộ (PRO)</option>
                 <option value={SystemDebateSide.CON}>Phản đối (CON)</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Thời gian mỗi lượt</label>
+              <label className={labelClass}>Thời gian mỗi lượt</label>
               <select
                 value={timeLimit}
                 onChange={(e) => setTimeLimit(Number(e.target.value))}
-                className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                className={fieldClass}
               >
                 <option value={120}>2 phút (120s)</option>
                 <option value={180}>3 phút (180s)</option>
@@ -850,7 +778,7 @@ const Debate1v1: React.FC = () => {
         }
       >
         <div className="space-y-3.5">
-          <div className="px-3 py-2 bg-emerald-50/80 text-emerald-800 text-xs rounded-xl border border-emerald-200/60 leading-relaxed">
+          <div className="rounded-ap-md bg-accent-soft p-(--s-3) text-(length:--text-callout) leading-(--leading-body) text-label">
             Phòng P2P khởi tạo ở trạng thái <strong>Chờ đối thủ (Waiting)</strong>. Sau khi tạo, chia sẻ Mã phòng cho đối phương và bấm bắt đầu khi đủ 2 người.
           </div>
 
@@ -872,26 +800,26 @@ const Debate1v1: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label className={labelClass}>
                 Phe bạn chọn (Host)
               </label>
               <select
                 value={p2pSide}
                 onChange={(e) => setP2pSide(Number(e.target.value))}
-                className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                className={fieldClass}
               >
                 <option value={SystemDebateSide.PRO}>Ủng hộ (PRO)</option>
                 <option value={SystemDebateSide.CON}>Phản đối (CON)</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label className={labelClass}>
                 Thời gian mỗi lượt
               </label>
               <select
                 value={p2pTimeLimit}
                 onChange={(e) => setP2pTimeLimit(Number(e.target.value))}
-                className="w-full px-3.5 py-2 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64]"
+                className={fieldClass}
               >
                 <option value={60}>1 phút (60s)</option>
                 <option value={120}>2 phút (120s)</option>
@@ -931,7 +859,7 @@ const Debate1v1: React.FC = () => {
         }
       >
         <div className="space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
             Nhập mã ID phòng tranh biện (do người tạo phòng cung cấp). Hệ thống sẽ tự động xếp bạn vào phe đối diện với chủ phòng.
           </p>
           <Input

@@ -55,7 +55,7 @@ const DebateHistory: React.FC = () => {
       case 2:
         return { text: "Đang diễn ra", color: "bg-blue-50 text-blue-700 border-blue-200" };
       case 3:
-        return { text: "Đã hoàn thành", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+        return { text: "Đã hoàn thành", color: "bg-blue-50 text-blue-700 border-blue-200" };
       case 4:
         return { text: "Đã hủy", color: "bg-rose-50 text-rose-700 border-rose-200" };
       default:
@@ -88,7 +88,7 @@ const DebateHistory: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-500 space-y-3">
-            <Loader2 size={32} className="mx-auto text-[#008A64] animate-spin" />
+            <Loader2 size={32} className="mx-auto text-[#0B5ED7] animate-spin" />
             <p className="text-sm font-semibold">Đang tải lịch sử tranh biện...</p>
           </div>
         ) : error ? (
@@ -96,7 +96,7 @@ const DebateHistory: React.FC = () => {
             <p className="text-sm font-semibold">{error}</p>
             <button
               onClick={fetchHistory}
-              className="text-xs text-[#008A64] font-bold underline cursor-pointer"
+              className="text-xs text-[#0B5ED7] font-bold underline cursor-pointer"
             >
               Thử lại
             </button>
@@ -108,7 +108,7 @@ const DebateHistory: React.FC = () => {
             <p className="text-xs text-slate-400">Hãy bắt đầu luyện tập với AI để ghi nhận kết quả và điểm số.</p>
             <Link
               to="/debater/debate"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
             >
               Luyện tập ngay
               <ArrowRight size={14} />
@@ -146,7 +146,7 @@ const DebateHistory: React.FC = () => {
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
                           isPro
-                            ? "bg-[#ECFDF5] text-[#008A64] border border-[#008A64]/30"
+                            ? "bg-[#EAF2FF] text-[#0B5ED7] border border-[#0B5ED7]/30"
                             : "bg-rose-50 text-rose-700 border border-rose-200"
                         }`}>
                           {isPro ? "Ủng hộ (PRO)" : "Phản đối (CON)"}
@@ -171,7 +171,7 @@ const DebateHistory: React.FC = () => {
                           <Link
                             to={`/debater/debate/${item.sessionId}/result`}
                             data-testid={`history-result-link-${item.sessionId}`}
-                            className="px-3.5 py-1.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"
+                            className="px-3.5 py-1.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"
                           >
                             <span>Xem kết quả</span>
                             <ArrowRight size={13} />
@@ -179,7 +179,7 @@ const DebateHistory: React.FC = () => {
                         )}
                         <Link
                           to={`/debater/debate/${item.sessionId}`}
-                          className="px-3.5 py-1.5 bg-white hover:bg-[#ECFDF5] border border-slate-200 text-[#008A64] text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"
+                          className="px-3.5 py-1.5 bg-white hover:bg-[#EAF2FF] border border-slate-200 text-[#0B5ED7] text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-xs"
                         >
                           <span>Vào phiên</span>
                           <ArrowRight size={13} />

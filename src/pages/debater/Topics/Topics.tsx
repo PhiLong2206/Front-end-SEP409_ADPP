@@ -1,12 +1,18 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, ArrowUpRight, BookOpen, RefreshCw } from "lucide-react";
-import DifficultyBadge from "../../../components/topic/DifficultyBadge";
+import { Search, ChevronRight, BookOpen, GraduationCap, Cpu, Users, X, type LucideIcon } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import { Topic } from "../../../types";
+import { difficultyOf } from "../../../utils/topicDifficulty";
 import { useDebounce } from "../../../hooks/useDebounce";
 import topicApi from "../../../api/topicApi";
 import { TOPIC_CATEGORIES, normalizeTopicCategory, topicCategoryLabel } from "../../../constants/topicCategories";
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  education: GraduationCap,
+  technology: Cpu,
+  society: Users,
+};
 
 const Topics: React.FC = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -59,6 +65,22 @@ const Topics: React.FC = () => {
     });
   }, [topics, debouncedSearch, selectedCategory]);
 
+  // How many topics each category has (for the chips), ignoring the search
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { "Tất cả": topics.length };
+    for (const c of TOPIC_CATEGORIES) {
+      counts[c.label] = topics.filter((t) => normalizeTopicCategory(t.category) === c.code).length;
+    }
+    return counts;
+  }, [topics]);
+
+  const hasFilter = searchTerm.trim() !== "" || selectedCategory !== "Tất cả";
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("Tất cả");
+    setCurrentPage(1);
+  };
+
   const totalPages = Math.ceil(filteredTopics.length / pageSize) || 1;
   const paginatedTopics = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -66,113 +88,164 @@ const Topics: React.FC = () => {
   }, [filteredTopics, currentPage, pageSize]);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-12">
+    <div className="mx-auto max-w-6xl space-y-(--s-6) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight">
-          Danh mục chủ đề
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Khám phá và lựa chọn các chủ đề phong phú để bắt đầu luyện tập phản biện.
-        </p>
+      <div className="flex flex-col gap-(--s-2) pt-(--s-4) sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-(length:--text-hero) font-bold leading-(--leading-tight) tracking-(--tracking-display)">
+            Danh mục chủ đề
+          </h1>
+          <p className="mt-(--s-2) max-w-[560px] text-(length:--text-body) leading-(--leading-body) text-label-secondary">
+            Khám phá và lựa chọn các chủ đề phong phú để bắt đầu luyện tập phản biện.
+          </p>
+        </div>
+        {!loading && (
+          <p className="text-(length:--text-callout) text-label-secondary" aria-live="polite">
+            {filteredTopics.length} chủ đề
+          </p>
+        )}
       </div>
 
-      {/* Search & Category Filter Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search Bar */}
-        <div className="relative w-full md:w-80">
+      {/* Search & category filter */}
+      <div className="space-y-(--s-4)">
+        <div role="search" className="relative">
           <Search
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            size={18}
+            className="pointer-events-none absolute left-(--s-4) top-1/2 -translate-y-1/2 text-label-tertiary"
+            aria-hidden="true"
           />
           <input
-            type="text"
+            type="search"
+            aria-label="Tìm kiếm chủ đề"
             placeholder="Tìm kiếm chủ đề, kiến nghị..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#008A64]/20 focus:border-[#008A64] shadow-xs transition-colors"
+            className="h-12 w-full rounded-ap-pill border border-transparent bg-canvas-secondary pl-12 pr-12 text-(length:--text-body) text-label placeholder:text-label-tertiary outline-none transition-[box-shadow,border-color] duration-(--t-fast) ease-ap focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-accent/25 [&::-webkit-search-cancel-button]:hidden"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              aria-label="Xoá từ khoá"
+              onClick={() => {
+                setSearchTerm("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-label-tertiary transition-colors hover:text-label focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full sidebar-scroll">
+        <div className="flex gap-(--s-2) overflow-x-auto pb-1 sidebar-scroll" role="group" aria-label="Lọc theo danh mục">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
             return (
               <button
                 key={cat}
                 type="button"
+                aria-pressed={isActive}
                 onClick={() => {
                   setSelectedCategory(cat);
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shadow-xs ${
+                className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-(--s-2) rounded-ap-pill px-(--s-4) text-(length:--text-callout) font-medium transition-[background-color,color,transform] duration-(--t-fast) ease-ap active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
                   isActive
-                    ? "bg-[#008A64] text-white shadow-[#008A64]/20"
-                    : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
+                    ? "bg-accent text-accent-contrast"
+                    : "bg-canvas-secondary text-label-secondary hover:bg-accent-soft hover:text-label"
                 }`}
               >
-                {cat}
+                <span>{cat}</span>
+                {!loading && (
+                  <span className={`text-(length:--text-caption) ${isActive ? "opacity-80" : "text-label-tertiary"}`}>
+                    {categoryCounts[cat] ?? 0}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Loading state */}
+      {/* Loading state: cards that are about to appear */}
       {loading ? (
-        <div className="bg-white p-16 rounded-3xl border border-slate-200 text-center text-slate-400 shadow-xs space-y-3">
-          <RefreshCw size={28} className="animate-spin text-[#008A64] mx-auto mb-2" />
-          <p className="text-xs font-bold text-slate-600">Đang tải danh sách chủ đề tranh biện từ máy chủ...</p>
+        <div role="status" aria-label="Đang tải danh sách chủ đề tranh biện từ máy chủ..." className="grid grid-cols-1 gap-(--s-5) md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="space-y-(--s-4) rounded-ap-xl bg-elevated p-(--s-6) shadow-ap-sm">
+              <div className="flex items-center justify-between">
+                <div className="h-6 w-20 animate-pulse rounded-full bg-canvas-secondary motion-reduce:animate-none" />
+                <div className="h-6 w-14 animate-pulse rounded-full bg-canvas-secondary motion-reduce:animate-none" />
+              </div>
+              <div className="space-y-(--s-2)">
+                <div className="h-5 w-4/5 animate-pulse rounded bg-canvas-secondary motion-reduce:animate-none" />
+                <div className="h-4 w-full animate-pulse rounded bg-canvas-secondary motion-reduce:animate-none" />
+                <div className="h-4 w-2/3 animate-pulse rounded bg-canvas-secondary motion-reduce:animate-none" />
+              </div>
+            </div>
+          ))}
+          <span className="sr-only">Đang tải danh sách chủ đề tranh biện từ máy chủ...</span>
         </div>
       ) : paginatedTopics.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 shadow-xs space-y-3">
-          <BookOpen size={36} className="mx-auto text-slate-300" />
-          <p className="text-sm font-semibold">Chưa có chủ đề tranh biện nào phù hợp.</p>
-          <p className="text-xs text-slate-400">
+        <div className="space-y-(--s-3) rounded-ap-xl bg-elevated p-(--s-8) text-center shadow-ap-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-ap-lg bg-accent-soft text-accent">
+            <BookOpen size={26} aria-hidden="true" />
+          </div>
+          <p className="text-(length:--text-headline) font-semibold">Chưa có chủ đề tranh biện nào phù hợp.</p>
+          <p className="text-(length:--text-callout) text-label-secondary">
             Hãy thử tìm kiếm với từ khóa khác hoặc chuyển sang danh mục "Tất cả".
           </p>
+          {hasFilter && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-(--s-2) inline-flex h-11 cursor-pointer items-center rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
+            >
+              Xoá bộ lọc
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-(--s-5) md:grid-cols-2 lg:grid-cols-3">
           {paginatedTopics.map((topic) => {
             const topicId = topic.topicId ?? topic.id;
+            const Icon = CATEGORY_ICONS[normalizeTopicCategory(topic.category) ?? ""] ?? BookOpen;
             return (
               <Link
                 key={String(topicId)}
                 to={`/debater/topics/${topicId}`}
                 state={{ topic }}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg hover:border-[#008A64]/40 transition-all duration-300 flex flex-col justify-between overflow-hidden group p-5 space-y-4"
+                className="group flex flex-col justify-between gap-(--s-5) rounded-ap-xl bg-elevated p-(--s-6) shadow-ap-sm transition-[transform,box-shadow] duration-(--t-base) ease-ap hover:-translate-y-0.5 hover:shadow-ap-md motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30"
               >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 border border-emerald-200/80 text-[#008A64]">
+                <div className="space-y-(--s-4)">
+                  <div className="flex items-center justify-between gap-(--s-3)">
+                    <span className="inline-flex items-center gap-(--s-2) text-(length:--text-caption) font-medium text-accent">
+                      <Icon size={15} aria-hidden="true" />
                       {topicCategoryLabel(topic.category)}
                     </span>
-                    <DifficultyBadge difficulty={topic.difficulty} />
+                    <span className="inline-flex items-center gap-(--s-2) text-(length:--text-caption) text-label-secondary">
+                      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${difficultyOf(topic.difficulty).dot}`} />
+                      {difficultyOf(topic.difficulty).label}
+                    </span>
                   </div>
 
-                  <h3 className="font-bold text-[#0F172A] text-sm sm:text-base line-clamp-2 leading-snug group-hover:text-[#008A64] transition-colors">
+                  <h3 className="line-clamp-2 text-(length:--text-headline) font-semibold leading-(--leading-snug)">
                     {topic.title}
                   </h3>
 
                   {topic.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    <p className="line-clamp-3 text-(length:--text-callout) leading-(--leading-body) text-label-secondary">
                       {topic.description}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-mono">#{topicId}</span>
-                  <div className="flex items-center gap-1 font-bold text-[#008A64] group-hover:translate-x-1 transition-transform">
-                    <span>Chi tiết</span>
-                    <ArrowUpRight size={14} />
-                  </div>
-                </div>
+                <span className="inline-flex items-center gap-1 text-(length:--text-callout) font-medium text-accent">
+                  <span>Chi tiết</span>
+                  <ChevronRight size={16} className="transition-transform duration-(--t-base) group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                </span>
               </Link>
             );
           })}
@@ -181,12 +254,8 @@ const Topics: React.FC = () => {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex justify-end pt-2">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+        <div className="flex justify-center pt-(--s-4)">
+          <Pagination appearance="apple" currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       )}
     </div>

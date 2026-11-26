@@ -90,16 +90,16 @@ const MatchMonitorModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white dark:bg-[#12231C] w-full max-w-4xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#0F1726] w-full max-w-4xl max-h-[92vh] rounded-3xl border border-slate-200 dark:border-[rgba(148,163,184,0.18)] shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-gradient-to-r from-slate-50 to-emerald-50/30 dark:from-[#0B1713] dark:to-[#12231C] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[rgba(148,163,184,0.12)] bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-[#090E19] dark:to-[#0F1726] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-[#008A64] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-[#0B5ED7] flex items-center justify-center">
               <Eye size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-[#008A64] border border-emerald-300 dark:border-emerald-800">
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-[#0B5ED7] border border-blue-300 dark:border-blue-800">
                   GIÁM SÁT TRẬN #{match.matchNumber || match.matchId}
                 </span>
                 <span className="text-xs font-semibold text-slate-500">
@@ -121,10 +121,10 @@ const MatchMonitorModal: React.FC<Props> = ({
               type="button"
               onClick={fetchTranscript}
               disabled={loading || !sessionId}
-              className="p-2 text-slate-500 hover:text-[#008A64] hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              className="p-2 text-slate-500 hover:text-[#0B5ED7] hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
               title="Làm mới nội dung"
             >
-              <RefreshCw size={16} className={loading ? "animate-spin text-[#008A64]" : ""} />
+              <RefreshCw size={16} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
             </button>
             <button
               type="button"
@@ -137,10 +137,10 @@ const MatchMonitorModal: React.FC<Props> = ({
         </div>
 
         {/* Match Overview Bar */}
-        <div className="p-4 bg-slate-50 dark:bg-[#0B1713] border-b border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className="p-4 bg-slate-50 dark:bg-[#090E19] border-b border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           {/* PRO Side */}
-          <div className="p-3 bg-white dark:bg-[#12231C] rounded-2xl border border-emerald-200 dark:border-emerald-800/40">
-            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+          <div className="p-3 bg-white dark:bg-[#0F1726] rounded-2xl border border-blue-200 dark:border-blue-800/40">
+            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider block">
               Phe Ủng Hộ (PRO)
             </span>
             <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate mt-0.5">
@@ -149,7 +149,7 @@ const MatchMonitorModal: React.FC<Props> = ({
           </div>
 
           {/* Center Info */}
-          <div className="p-3 bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col justify-center items-center text-center">
+          <div className="p-3 bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col justify-center items-center text-center">
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-600 dark:text-slate-300">
                 Trạng thái:
@@ -167,7 +167,7 @@ const MatchMonitorModal: React.FC<Props> = ({
           </div>
 
           {/* CON Side */}
-          <div className="p-3 bg-white dark:bg-[#12231C] rounded-2xl border border-rose-200 dark:border-rose-800/40 text-right">
+          <div className="p-3 bg-white dark:bg-[#0F1726] rounded-2xl border border-rose-200 dark:border-rose-800/40 text-right">
             <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
               Phe Phản Đối (CON)
             </span>
@@ -190,7 +190,7 @@ const MatchMonitorModal: React.FC<Props> = ({
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded-sm accent-[#008A64]"
+              className="rounded-sm accent-[#0B5ED7]"
             />
             <span>Tự động cập nhật</span>
           </label>
@@ -227,7 +227,7 @@ const MatchMonitorModal: React.FC<Props> = ({
                       <span
                         className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
                           isPro
-                            ? "bg-emerald-100 text-[#008A64] dark:bg-emerald-950/70 dark:text-emerald-300"
+                            ? "bg-blue-100 text-[#0B5ED7] dark:bg-blue-950/70 dark:text-blue-300"
                             : "bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300"
                         }`}
                       >
@@ -247,7 +247,7 @@ const MatchMonitorModal: React.FC<Props> = ({
                     <div
                       className={`max-w-[85%] sm:max-w-[75%] p-4 rounded-2xl text-xs sm:text-sm leading-relaxed border shadow-xs ${
                         isPro
-                          ? "bg-emerald-50/50 dark:bg-[#152a20] border-emerald-200 dark:border-emerald-800 text-slate-800 dark:text-slate-100 rounded-tl-xs"
+                          ? "bg-blue-50/50 dark:bg-[#111b2e] border-blue-200 dark:border-blue-800 text-slate-800 dark:text-slate-100 rounded-tl-xs"
                           : "bg-rose-50/40 dark:bg-[#2a171c] border-rose-200 dark:border-rose-900 text-slate-800 dark:text-slate-100 rounded-tr-xs"
                       }`}
                     >
@@ -261,7 +261,7 @@ const MatchMonitorModal: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0B1713] flex items-center justify-between text-xs text-slate-500">
+        <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#090E19] flex items-center justify-between text-xs text-slate-500">
           <span>
             DebateSession: <strong className="font-mono text-slate-700 dark:text-slate-300">#{sessionId || "Chưa có"}</strong>
           </span>

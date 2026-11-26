@@ -42,7 +42,7 @@ const Input: React.FC<InputProps> = ({
         className={`w-full px-4 py-2.5 text-sm sm:text-base bg-white border rounded-xl text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:outline-none focus:ring-2 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed ${
           error
             ? "border-rose-300 focus:border-rose-500 focus:ring-rose-500/20"
-            : "border-slate-200 focus:border-[#008A64] focus:ring-[#008A64]/20 hover:border-slate-300"
+            : "border-slate-200 focus:border-[#0B5ED7] focus:ring-[#0B5ED7]/20 hover:border-slate-300"
         }`}
         {...props}
       />

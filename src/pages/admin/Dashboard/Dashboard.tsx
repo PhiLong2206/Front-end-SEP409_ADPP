@@ -149,13 +149,13 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fade-in">
       {/* Top Banner: Greeting, Role Badge & Controls */}
-      <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div className="bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
               Bảng điều khiển Quản trị viên
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/80 text-[#008A64] dark:text-emerald-300 border border-[#008A64]/30">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/80 text-[#0B5ED7] dark:text-blue-300 border border-[#0B5ED7]/30">
               Vai trò: Quản trị viên
             </span>
           </div>
@@ -168,7 +168,7 @@ const AdminDashboard: React.FC = () => {
           {/* Admin API verification indicator */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${adminAuthStatus === "verified"
-              ? "bg-emerald-50 dark:bg-emerald-950/40 text-[#008A64] dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40"
+              ? "bg-blue-50 dark:bg-blue-950/40 text-[#0B5ED7] dark:text-blue-300 border-blue-200 dark:border-blue-800/40"
               : adminAuthStatus === "checking"
                 ? "bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200"
                 : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200"
@@ -176,7 +176,7 @@ const AdminDashboard: React.FC = () => {
             title="Trạng thái xác thực quyền Quản trị viên"
           >
             {adminAuthStatus === "verified" ? (
-              <CheckCircle2 size={14} className="text-[#008A64]" />
+              <CheckCircle2 size={14} className="text-[#0B5ED7]" />
             ) : adminAuthStatus === "checking" ? (
               <Clock size={14} className="animate-spin text-slate-400" />
             ) : (
@@ -195,10 +195,10 @@ const AdminDashboard: React.FC = () => {
             type="button"
             onClick={fetchDashboardData}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#1A2E26] hover:bg-slate-100 dark:hover:bg-[#233F34] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#162032] hover:bg-slate-100 dark:hover:bg-[#1D2B45] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[rgba(148,163,184,0.18)] text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
             title="Làm mới số liệu"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
             <span>Làm mới</span>
           </button>
         </div>
@@ -219,12 +219,12 @@ const AdminDashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {/* Card 1: Total Users */}
-          <div className="bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64]/40">
+          <div className="bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#0B5ED7]/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Tổng người dùng
               </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center">
                 <Users size={18} />
               </div>
             </div>
@@ -234,7 +234,7 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                     {stats.totalUsers.toLocaleString()}
                   </p>
-                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#008A64] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/40">
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#0B5ED7] dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/80 dark:border-blue-800/40">
                     <CheckCircle2 size={11} /> Dữ liệu thời gian thực
                   </span>
                 </div>
@@ -253,12 +253,12 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Card 2: Total Debate Sessions */}
-          <div className="bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64]/40">
+          <div className="bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#0B5ED7]/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Tổng phiên tranh biện
               </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center">
                 <Swords size={18} />
               </div>
             </div>
@@ -268,7 +268,7 @@ const AdminDashboard: React.FC = () => {
                   <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                     {stats.totalDebateSessions.toLocaleString()}
                   </p>
-                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#008A64] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/40">
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#0B5ED7] dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/80 dark:border-blue-800/40">
                     <CheckCircle2 size={11} /> Luyện tập AI & Thi đấu
                   </span>
                 </div>
@@ -287,22 +287,22 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Card 3: Total Topics */}
-          <div className="bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64]/40">
+          <div className="bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#0B5ED7]/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Tổng chủ đề
               </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center">
                 <BookOpen size={18} />
               </div>
             </div>
             <div className="mt-4">
               {stats !== null ? (
                 <div className="space-y-1">
-                  <p className="text-2xl sm:text-3xl font-black text-[#008A64] dark:text-emerald-400 tracking-tight">
+                  <p className="text-2xl sm:text-3xl font-black text-[#0B5ED7] dark:text-blue-400 tracking-tight">
                     {stats.totalTopics}
                   </p>
-                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#008A64] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/40">
+                  <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#0B5ED7] dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/80 dark:border-blue-800/40">
                     <CheckCircle2 size={11} /> Đang hoạt động
                   </span>
                 </div>
@@ -321,21 +321,21 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Card 4: System Status */}
-          <div className="bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#008A64]/40">
+          <div className="bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] shadow-xs flex flex-col justify-between transition-all hover:border-[#0B5ED7]/40">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Hệ thống Quản trị
               </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center">
                 <Activity size={18} />
               </div>
             </div>
             <div className="mt-4">
               <div className="space-y-1">
-                <p className="text-2xl sm:text-3xl font-black text-[#008A64] dark:text-emerald-400 tracking-tight">
+                <p className="text-2xl sm:text-3xl font-black text-[#0B5ED7] dark:text-blue-400 tracking-tight">
                   {services.filter((s) => s.status === "connected").length}/{services.length} Dịch vụ
                 </p>
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#008A64] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/40">
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#0B5ED7] dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/80 dark:border-blue-800/40">
                   <CheckCircle2 size={11} /> Bảo mật vai trò đầy đủ
                 </span>
               </div>
@@ -357,16 +357,16 @@ const AdminDashboard: React.FC = () => {
           {/* Module 1: Users */}
           <Link
             to="/admin/users"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Users size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Quản lý người dùng
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -375,23 +375,23 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/users</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
 
           {/* Module 2: Roles */}
           <Link
             to="/admin/roles"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <ShieldCheck size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Phân quyền vai trò
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -400,23 +400,23 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/roles</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
 
           {/* Module 3: Topics */}
           <Link
             to="/admin/topics"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <BookOpen size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Quản lý chủ đề
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -425,23 +425,23 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/topics</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
 
           {/* Module 4: Payments & Credit Packages */}
           <Link
             to="/admin/payments"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <CreditCard size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Gói Credit & Giao dịch
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -450,23 +450,23 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/payments</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
 
           {/* Module 5: Profile */}
           <Link
             to="/admin/profile"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <User size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Hồ sơ cá nhân Admin
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -475,23 +475,23 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/profile</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
 
           {/* Module 6: Settings */}
           <Link
             to="/admin/settings"
-            className="group bg-white dark:bg-[#12231C] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#008A64] hover:shadow-md transition-all flex flex-col justify-between"
+            className="group bg-white dark:bg-[#0F1726] p-5 rounded-2xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] hover:border-[#0B5ED7] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Settings size={20} />
                 </div>
-                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#008A64] group-hover:translate-x-1 transition-all" />
+                <ArrowRight size={16} className="text-slate-300 group-hover:text-[#0B5ED7] group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#008A64] transition-colors">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0B5ED7] transition-colors">
                 Cài đặt & Tùy chọn
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -500,17 +500,17 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[rgba(148,163,184,0.12)] flex items-center justify-between text-[11px]">
               <span className="text-slate-400">Đường dẫn: /admin/settings</span>
-              <span className="font-bold text-[#008A64] dark:text-emerald-400">Truy cập</span>
+              <span className="font-bold text-[#0B5ED7] dark:text-blue-400">Truy cập</span>
             </div>
           </Link>
         </div>
       </div>
 
       {/* Backend Integration Diagnostics Panel (Transparency regarding BE status) */}
-      <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-slate-100 dark:bg-[#1A2E26] text-slate-700 dark:text-slate-300">
+            <div className="p-2 rounded-xl bg-slate-100 dark:bg-[#162032] text-slate-700 dark:text-slate-300">
               <Layers size={18} />
             </div>
             <div>
@@ -543,7 +543,7 @@ const AdminDashboard: React.FC = () => {
 
               <div className="shrink-0">
                 {svc.status === "connected" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-[#008A64] dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/50 text-[#0B5ED7] dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
                     <CheckCircle2 size={12} />
                     <span>Đã kết nối</span>
                   </span>
@@ -567,7 +567,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Real Live Data: Recent Topics from Backend */}
-      <div className="bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-[rgba(148,163,184,0.18)] p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -579,7 +579,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           <Link
             to="/admin/topics"
-            className="text-xs font-bold text-[#008A64] dark:text-emerald-400 hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-[#0B5ED7] dark:text-blue-400 hover:underline flex items-center gap-1"
           >
             <span>Xem tất cả</span>
             <ExternalLink size={12} />
@@ -589,7 +589,7 @@ const AdminDashboard: React.FC = () => {
         {recentTopics.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-[#0B1713] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+              <thead className="bg-slate-50 dark:bg-[#090E19] text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-4 py-3 rounded-l-xl">Mã ID</th>
                   <th className="px-4 py-3">Tiêu đề chủ đề tranh biện</th>
@@ -608,7 +608,7 @@ const AdminDashboard: React.FC = () => {
                         ? "Khó"
                         : "Trung bình";
                   return (
-                    <tr key={String(topicId)} className="hover:bg-slate-50/60 dark:hover:bg-[#1A2E26]/40 transition-colors">
+                    <tr key={String(topicId)} className="hover:bg-slate-50/60 dark:hover:bg-[#162032]/40 transition-colors">
                       <td className="px-4 py-3 font-mono text-slate-400">#{topicId}</td>
                       <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-200 max-w-md truncate">
                         {topic.title}
@@ -619,14 +619,14 @@ const AdminDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-emerald-300 font-bold text-[11px]">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-blue-300 font-bold text-[11px]">
                           {difficultyLabel}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Link
                           to={`/debater/topics/${topicId}`}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#008A64] hover:underline"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0B5ED7] hover:underline"
                         >
                           <span>Chi tiết</span>
                           <ArrowRight size={11} />

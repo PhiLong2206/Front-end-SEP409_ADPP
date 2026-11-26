@@ -172,7 +172,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
   };
 
   const selectClass =
-    "w-full text-sm rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] bg-white dark:bg-[#091713] text-slate-700 dark:text-[#CBD5E1] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30";
+    "w-full text-sm rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] bg-white dark:bg-[#060d1a] text-slate-700 dark:text-[#CBD5E1] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30";
   const hasError = micState === "error" || camState === "error";
   const bars = 12;
 
@@ -221,7 +221,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
               {Array.from({ length: bars }, (_, i) => (
                 <span
                   key={i}
-                  className={`w-1 rounded-full transition-all ${level * bars > i ? "bg-emerald-400" : "bg-white/30"}`}
+                  className={`w-1 rounded-full transition-all ${level * bars > i ? "bg-blue-400" : "bg-white/30"}`}
                   style={{ height: `${30 + (i / bars) * 70}%` }}
                 />
               ))}
@@ -255,7 +255,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
               {micState === "error" ? (
                 <MicOff size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
               ) : heard ? (
-                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <CheckCircle2 size={18} className="text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
               ) : (
                 <Mic size={18} className="text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
               )}
@@ -275,7 +275,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
               {camState === "error" ? (
                 <TriangleAlert size={18} className="text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
               ) : camState === "ready" ? (
-                <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                <CheckCircle2 size={18} className="text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
               ) : (
                 <Camera size={18} className="text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
               )}
@@ -346,7 +346,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
               type="button"
               onClick={join}
               data-testid="device-check-join"
-              className="px-6 py-2.5 rounded-full bg-[#008A64] hover:bg-[#007554] text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-[#008A64]/40"
+              className="px-6 py-2.5 rounded-full bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/40"
             >
               Vào phòng
             </button>
@@ -355,7 +355,7 @@ const DeviceCheck: React.FC<DeviceCheckProps> = ({ onJoin, onCancel }) => {
                 type="button"
                 onClick={() => setRetry((n) => n + 1)}
                 data-testid="device-check-retry"
-                className="px-4 py-2.5 rounded-full border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C] inline-flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-full border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#0C1627] inline-flex items-center gap-1.5"
               >
                 <RefreshCw size={14} aria-hidden="true" /> Thử lại
               </button>

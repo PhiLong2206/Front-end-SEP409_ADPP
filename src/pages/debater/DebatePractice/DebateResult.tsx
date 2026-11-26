@@ -57,7 +57,7 @@ function sideOf(value: unknown): "pro" | "con" | null {
 const OUTCOME_TEXT: Record<MatchOutcome["result"], { title: string; style: string }> = {
   win: {
     title: "Bạn thắng",
-    style: "bg-[#ECFDF5] text-[#047857] border-[#008A64]/30 dark:bg-[rgba(16,185,129,0.12)] dark:text-[#34D399] dark:border-[#34D399]/30",
+    style: "bg-[#EAF2FF] text-[#1d4ed8] border-[#0B5ED7]/30 dark:bg-[rgba(59,130,246,0.12)] dark:text-[#60A5FA] dark:border-[#60A5FA]/30",
   },
   lose: {
     title: "Bạn thua",
@@ -175,7 +175,7 @@ const DebateResult: React.FC = () => {
             type="button"
             data-testid="result-retry-btn"
             onClick={retry}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-2xl"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-2xl"
           >
             <RotateCcw size={14} />
             <span>Thử lại</span>
@@ -201,7 +201,7 @@ const DebateResult: React.FC = () => {
         </p>
         <Link
           to="/debater/debate"
-          className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs font-bold rounded-2xl shadow-xs transition-colors"
+          className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs font-bold rounded-2xl shadow-xs transition-colors"
         >
           <span>Luyện tập phiên mới</span>
           <ArrowRight size={14} />
@@ -220,25 +220,25 @@ const DebateResult: React.FC = () => {
       {/* 3 Main Columns */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
         {/* LEFT COLUMN: Kết quả tranh biện & Circular Score (~30%) */}
-        <div className="md:col-span-4 bg-white dark:bg-[#10231C] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="md:col-span-4 bg-white dark:bg-[#0C1627] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="space-y-2">
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-[#F8FAFC] tracking-tight">
               Kết quả tranh biện
             </h2>
             <p className="text-xs text-slate-600 dark:text-[#94A3B8] line-clamp-2">
-              Chủ đề: <span className="font-semibold text-[#008A64] dark:text-[#34D399]">&ldquo;{result.topicTitle}&rdquo;</span>
+              Chủ đề: <span className="font-semibold text-[#0B5ED7] dark:text-[#60A5FA]">&ldquo;{result.topicTitle}&rdquo;</span>
             </p>
           </div>
 
           {/* Circular Score Badge Center */}
           <div className="my-6 flex flex-col items-center justify-center">
-            <div className="w-32 h-32 rounded-full border-4 border-[#008A64] flex flex-col items-center justify-center bg-[#ECFDF5]/50 dark:bg-[rgba(16,185,129,0.1)] shadow-sm shadow-[#008A64]/10">
+            <div className="w-32 h-32 rounded-full border-4 border-[#0B5ED7] flex flex-col items-center justify-center bg-[#EAF2FF]/50 dark:bg-[rgba(59,130,246,0.1)] shadow-sm shadow-[#0B5ED7]/10">
               <span data-testid="result-overall-score" className="text-4xl font-black text-slate-900 dark:text-[#F8FAFC] font-mono leading-none">
                 {result.overallScore}
               </span>
               <span className="text-[11px] font-bold text-slate-500 dark:text-[#94A3B8] mt-1">/ {PERCENT_MAX}</span>
             </div>
-            <span className="mt-4 px-3.5 py-1 rounded-full text-xs font-bold bg-[#ECFDF5] text-[#008A64] dark:bg-[rgba(16,185,129,0.15)] dark:text-[#34D399] border border-[#008A64]/30">
+            <span className="mt-4 px-3.5 py-1 rounded-full text-xs font-bold bg-[#EAF2FF] text-[#0B5ED7] dark:bg-[rgba(59,130,246,0.15)] dark:text-[#60A5FA] border border-[#0B5ED7]/30">
               {result.ratingText}
             </span>
             <p className="mt-3 max-w-[220px] text-center text-[11px] leading-snug text-slate-500 dark:text-[#94A3B8]">
@@ -248,18 +248,18 @@ const DebateResult: React.FC = () => {
 
           {/* Stage breakdown if available */}
           {result.stageBreakdown && result.stageBreakdown.length > 0 && (
-            <div className="p-3 bg-slate-50 dark:bg-[#091713] rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-2 mb-3">
+            <div className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-2 mb-3">
               <p className="font-bold text-slate-700 dark:text-slate-300">Điểm theo giai đoạn:</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 {result.stageBreakdown.map((s) => (
-                  <div key={s.stage} className="p-1.5 bg-white dark:bg-[#123326] rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div key={s.stage} className="p-1.5 bg-white dark:bg-[#0b1c3a] rounded-xl border border-slate-100 dark:border-slate-800">
                     <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{s.label}</span>
                     {s.score === null ? (
                       <span className="font-semibold text-slate-500 dark:text-slate-400 text-[10px]">
                         Không phát biểu
                       </span>
                     ) : (
-                      <span className="font-bold text-[#008A64] dark:text-[#34D399] text-xs">
+                      <span className="font-bold text-[#0B5ED7] dark:text-[#60A5FA] text-xs">
                         {s.score}/{s.maxScore}
                       </span>
                     )}
@@ -276,7 +276,7 @@ const DebateResult: React.FC = () => {
         </div>
 
         {/* CENTER COLUMN: Điểm theo tiêu chí (~35%) */}
-        <div className="md:col-span-4 bg-white dark:bg-[#10231C] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="md:col-span-4 bg-white dark:bg-[#0C1627] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-[#F8FAFC] tracking-tight">
             Điểm theo tiêu chí
           </h2>
@@ -289,10 +289,10 @@ const DebateResult: React.FC = () => {
               <p className="font-bold text-slate-700 dark:text-slate-300">Giải trình tiêu chí:</p>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {explainedCriteria.map((c) => (
-                  <div key={c.key} className="p-2 bg-slate-50 dark:bg-[#091713] rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-0.5">
+                  <div key={c.key} className="p-2 bg-slate-50 dark:bg-[#060d1a] rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-0.5">
                     <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
                       <span>{c.label}</span>
-                      <span className="text-[#008A64] dark:text-[#34D399]">{c.score}/{c.maxScore}</span>
+                      <span className="text-[#0B5ED7] dark:text-[#60A5FA]">{c.score}/{c.maxScore}</span>
                     </div>
                     {c.reasoning && (
                       <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">{c.reasoning}</p>
@@ -305,7 +305,7 @@ const DebateResult: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Nhận xét chi tiết (~35%) */}
-        <div className="md:col-span-4 bg-white dark:bg-[#10231C] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
+        <div className="md:col-span-4 bg-white dark:bg-[#0C1627] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
           <div className="space-y-4">
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-[#F8FAFC] tracking-tight">
               Nhận xét chi tiết
@@ -313,9 +313,9 @@ const DebateResult: React.FC = () => {
 
             {/* Tiến trình & Xu hướng */}
             {result.progressTrend && (
-              <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/40 text-xs space-y-1">
-                <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
-                  <CheckCircle2 size={13} className="text-[#008A64]" />
+              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/20 rounded-2xl border border-blue-200/80 dark:border-blue-800/40 text-xs space-y-1">
+                <span className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1">
+                  <CheckCircle2 size={13} className="text-[#0B5ED7]" />
                   Tổng quan chất lượng
                 </span>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{result.progressTrend}</p>
@@ -324,8 +324,8 @@ const DebateResult: React.FC = () => {
 
             {/* Điểm mạnh */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
-                <CheckCircle2 size={14} className="text-[#008A64]" />
+              <span className="text-xs font-bold text-blue-800 dark:text-blue-400 flex items-center gap-1.5 uppercase tracking-wider">
+                <CheckCircle2 size={14} className="text-[#0B5ED7]" />
                 Điểm mạnh
               </span>
               <ul className="space-y-1.5 pl-1">
@@ -334,7 +334,7 @@ const DebateResult: React.FC = () => {
                 )}
                 {result.strengths.map((str, idx) => (
                   <li key={idx} className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex items-start gap-1.5">
-                    <span className="text-[#008A64] font-bold mt-0.5">•</span>
+                    <span className="text-[#0B5ED7] font-bold mt-0.5">•</span>
                     <span>{str}</span>
                   </li>
                 ))}
@@ -388,7 +388,7 @@ const DebateResult: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate("/debater/topics")}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#008A64] hover:bg-[#007457] text-white text-xs sm:text-sm font-bold rounded-xl transition-all inline-flex items-center justify-center gap-1.5 shadow-sm shadow-[#008A64]/20 hover:scale-102"
+            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#0B5ED7] hover:bg-[#0a4fb4] text-white text-xs sm:text-sm font-bold rounded-xl transition-all inline-flex items-center justify-center gap-1.5 shadow-sm shadow-[#0B5ED7]/20 hover:scale-102"
           >
             <span>Chọn chủ đề mới</span>
             <ArrowRight size={14} />

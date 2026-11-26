@@ -250,6 +250,9 @@ export interface DebateSessionResponse {
   startedAt?: string;
   endedAt?: string;
   participants: ParticipantDto[];
+  /** The task of each side of the topic (never null from the Backend). */
+  proGuide?: string;
+  conGuide?: string;
   /** Seats of the room: 1v1 and AI practice 2, 2v2 4. Older Backends do not send it. */
   maxParticipants?: number;
   /** True for a team (2v2) debate. Older Backends do not send it: the room then guesses from the title. */

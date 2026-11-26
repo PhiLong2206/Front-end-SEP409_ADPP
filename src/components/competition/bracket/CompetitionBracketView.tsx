@@ -214,7 +214,7 @@ const CompetitionBracketView: React.FC<Props> = ({
       case "Ready":
         return <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-bold text-[10px]">Sẵn sàng</span>;
       case "Ongoing":
-        return <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-[#008A64] dark:text-emerald-300 font-bold text-[10px] animate-pulse">Đang thi đấu</span>;
+        return <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0B5ED7] dark:text-blue-300 font-bold text-[10px] animate-pulse">Đang thi đấu</span>;
       case "Evaluating":
         return <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-bold text-[10px]">Đang chấm điểm</span>;
       case "Completed":
@@ -242,10 +242,10 @@ const CompetitionBracketView: React.FC<Props> = ({
       )}
 
       {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-[#0B1713] rounded-2xl border border-slate-200/80 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-[#090E19] rounded-2xl border border-slate-200/80 dark:border-slate-800">
         <div>
           <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
-            <GitBranch size={16} className="text-[#008A64]" />
+            <GitBranch size={16} className="text-[#0B5ED7]" />
             <span>Sơ đồ thi đấu đối kháng (Single Elimination)</span>
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -259,9 +259,9 @@ const CompetitionBracketView: React.FC<Props> = ({
             type="button"
             onClick={loadBracket}
             disabled={loading}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12231C] text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0F1726] text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-[#008A64]" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#0B5ED7]" : ""} />
             <span>Làm mới</span>
           </button>
 
@@ -270,7 +270,7 @@ const CompetitionBracketView: React.FC<Props> = ({
               type="button"
               onClick={handleGenerateBracket}
               disabled={generating}
-              className="px-4 py-2 rounded-xl bg-[#008A64] hover:bg-[#007454] disabled:opacity-50 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-[#0B5ED7] hover:bg-[#0a4fb4] disabled:opacity-50 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               {generating ? <RefreshCw size={13} className="animate-spin" /> : <GitBranch size={13} />}
               <span>Sinh cây nhánh đấu</span>
@@ -298,7 +298,7 @@ const CompetitionBracketView: React.FC<Props> = ({
       )}
 
       {successMsg && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl flex items-center gap-2">
+        <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl flex items-center gap-2">
           <CheckCircle2 size={14} className="shrink-0" />
           <span>{successMsg}</span>
         </div>
@@ -306,12 +306,12 @@ const CompetitionBracketView: React.FC<Props> = ({
 
       {/* Main Bracket Content */}
       {loading ? (
-        <div className="p-16 text-center text-slate-400 bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <RefreshCw size={28} className="animate-spin text-[#008A64] mx-auto" />
+        <div className="p-16 text-center text-slate-400 bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <RefreshCw size={28} className="animate-spin text-[#0B5ED7] mx-auto" />
           <p className="font-bold">Đang tải sơ đồ các vòng đấu...</p>
         </div>
       ) : !bracketData || !bracketData.rounds || bracketData.rounds.length === 0 ? (
-        <div className="p-16 text-center text-slate-400 bg-white dark:bg-[#12231C] rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+        <div className="p-16 text-center text-slate-400 bg-white dark:bg-[#0F1726] rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3">
           <GitBranch size={40} className="mx-auto text-slate-300 dark:text-slate-700" />
           <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
             Chưa có sơ đồ nhánh đấu cho giải này
@@ -329,7 +329,7 @@ const CompetitionBracketView: React.FC<Props> = ({
             {bracketData.rounds.map((round: TournamentRound, roundIdx: number) => (
               <div key={round.roundId || roundIdx} className="w-72 flex flex-col space-y-4">
                 {/* Round Header */}
-                <div className="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B1713] border border-slate-200 dark:border-slate-800 text-center">
+                <div className="p-3 rounded-2xl bg-slate-100 dark:bg-[#090E19] border border-slate-200 dark:border-slate-800 text-center">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                     Giai đoạn {roundIdx + 1}
                   </span>
@@ -347,10 +347,10 @@ const CompetitionBracketView: React.FC<Props> = ({
                     return (
                       <div
                         key={match.matchId}
-                        className="bg-white dark:bg-[#12231C] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-[#008A64] hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+                        className="bg-white dark:bg-[#0F1726] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-[#0B5ED7] hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
                       >
                         {/* Top bar of match */}
-                        <div className="px-3.5 py-2 bg-slate-50/80 dark:bg-[#0B1713]/80 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+                        <div className="px-3.5 py-2 bg-slate-50/80 dark:bg-[#090E19]/80 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
                           <span className="font-mono font-bold text-slate-500">
                             #{match.matchNumber || match.matchId}
                           </span>
@@ -362,12 +362,12 @@ const CompetitionBracketView: React.FC<Props> = ({
                           {/* PRO Side */}
                           <div
                             className={`p-2 rounded-xl border flex items-center justify-between ${pro?.isWinner
-                                ? "bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800"
-                                : "bg-slate-50/60 border-slate-100 dark:bg-[#0B1713]/40 dark:border-slate-800"
+                                ? "bg-blue-50/70 border-blue-300 dark:bg-blue-950/40 dark:border-blue-800"
+                                : "bg-slate-50/60 border-slate-100 dark:bg-[#090E19]/40 dark:border-slate-800"
                               }`}
                           >
                             <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-sm shrink-0">
+                              <span className="text-[10px] font-black text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded-sm shrink-0">
                                 PRO
                               </span>
                               <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -375,7 +375,7 @@ const CompetitionBracketView: React.FC<Props> = ({
                               </span>
                             </div>
                             {pro?.isWinner && (
-                              <span className="text-[10px] font-black text-[#008A64] shrink-0">
+                              <span className="text-[10px] font-black text-[#0B5ED7] shrink-0">
                                 THẮNG
                               </span>
                             )}
@@ -384,8 +384,8 @@ const CompetitionBracketView: React.FC<Props> = ({
                           {/* CON Side */}
                           <div
                             className={`p-2 rounded-xl border flex items-center justify-between ${con?.isWinner
-                                ? "bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800"
-                                : "bg-slate-50/60 border-slate-100 dark:bg-[#0B1713]/40 dark:border-slate-800"
+                                ? "bg-blue-50/70 border-blue-300 dark:bg-blue-950/40 dark:border-blue-800"
+                                : "bg-slate-50/60 border-slate-100 dark:bg-[#090E19]/40 dark:border-slate-800"
                               }`}
                           >
                             <div className="flex items-center gap-1.5 min-w-0 pr-2">
@@ -397,7 +397,7 @@ const CompetitionBracketView: React.FC<Props> = ({
                               </span>
                             </div>
                             {con?.isWinner && (
-                              <span className="text-[10px] font-black text-[#008A64] shrink-0">
+                              <span className="text-[10px] font-black text-[#0B5ED7] shrink-0">
                                 THẮNG
                               </span>
                             )}
@@ -405,7 +405,7 @@ const CompetitionBracketView: React.FC<Props> = ({
                         </div>
 
                         {/* Match Footer & Actions */}
-                        <div className="px-3 py-2 bg-slate-50/50 dark:bg-[#0B1713]/50 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                        <div className="px-3 py-2 bg-slate-50/50 dark:bg-[#090E19]/50 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
                             {match.assignedJudgeName ? `Judge: ${match.assignedJudgeName}` : "Chưa có Judge"}
                           </span>
@@ -416,7 +416,7 @@ const CompetitionBracketView: React.FC<Props> = ({
                               setSelectedMatch(match);
                               setIsDetailOpen(true);
                             }}
-                            className="px-2.5 py-1 bg-white hover:bg-[#008A64] hover:text-white dark:bg-slate-800 text-[#008A64] dark:text-emerald-300 font-bold text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            className="px-2.5 py-1 bg-white hover:bg-[#0B5ED7] hover:text-white dark:bg-slate-800 text-[#0B5ED7] dark:text-blue-300 font-bold text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
                           >
                             <Eye size={12} />
                             <span>Chi tiết</span>

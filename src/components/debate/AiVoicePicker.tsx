@@ -119,7 +119,7 @@ const AiVoicePicker: React.FC<AiVoicePickerProps> = ({ variant = "card" }) => {
           checked={readAloud}
           onChange={toggleReadAloud}
           data-testid="ai-voice-read-aloud"
-          className="accent-[#008A64]"
+          className="accent-[#0B5ED7]"
         />
         <Volume2 size={14} aria-hidden="true" />
         <span>AI đọc to bài nói</span>
@@ -136,7 +136,7 @@ const AiVoicePicker: React.FC<AiVoicePickerProps> = ({ variant = "card" }) => {
             value={voice ?? ""}
             onChange={(e) => choose(e.target.value)}
             disabled={!readAloud}
-            className="flex-1 text-sm rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] bg-white dark:bg-[#091713] text-slate-700 dark:text-[#CBD5E1] px-3 py-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+            className="flex-1 text-sm rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] bg-white dark:bg-[#060d1a] text-slate-700 dark:text-[#CBD5E1] px-3 py-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
           >
             {voices.map((v) => (
               <option key={v.id} value={v.id}>
@@ -150,7 +150,7 @@ const AiVoicePicker: React.FC<AiVoicePickerProps> = ({ variant = "card" }) => {
             disabled={isPreviewing || !readAloud}
             aria-busy={isPreviewing}
             data-testid="ai-voice-preview"
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#10231C] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#008A64]/30"
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-[rgba(148,163,184,0.20)] text-sm font-semibold text-slate-700 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#0C1627] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#0B5ED7]/30"
           >
             {isPreviewing ? "Đang tải..." : "Nghe thử"}
           </button>

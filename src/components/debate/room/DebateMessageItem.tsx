@@ -59,7 +59,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
             isAI
-              ? "bg-[#008A64] text-white"
+              ? "bg-[#0B5ED7] text-white"
               : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
           }`}
         >
@@ -71,8 +71,8 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
       <div
         className={`px-4 py-3 rounded-2xl transition-all ${
           isUser
-            ? "bg-[#ECFDF5] dark:bg-[#112A21] border border-[#008A64]/20 dark:border-[#008A64]/35 rounded-tr-xs max-w-[82%] sm:max-w-[75%] text-slate-900 dark:text-[#F8FAFC]"
-            : "bg-white dark:bg-[#12231C] border border-slate-200/80 dark:border-slate-800 rounded-tl-xs max-w-[88%] sm:max-w-[80%] text-slate-800 dark:text-[#E2E8F0] shadow-2xs"
+            ? "bg-[#EAF2FF] dark:bg-[#0C182F] border border-[#0B5ED7]/20 dark:border-[#0B5ED7]/35 rounded-tr-xs max-w-[82%] sm:max-w-[75%] text-slate-900 dark:text-[#F8FAFC]"
+            : "bg-white dark:bg-[#0F1726] border border-slate-200/80 dark:border-slate-800 rounded-tl-xs max-w-[88%] sm:max-w-[80%] text-slate-800 dark:text-[#E2E8F0] shadow-2xs"
         }`}
       >
         {/* Compact Metadata Line */}
@@ -81,7 +81,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
             <span
               className={`font-semibold ${
                 isUser
-                  ? "text-[#008A64] dark:text-[#34D399]"
+                  ? "text-[#0B5ED7] dark:text-[#60A5FA]"
                   : "text-slate-900 dark:text-slate-100"
               }`}
             >
@@ -90,7 +90,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
             <span
               className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${
                 isPro
-                  ? "bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  ? "bg-blue-100/80 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
                   : "bg-rose-100/80 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
               }`}
             >
@@ -142,7 +142,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
               </span>
             )}
             {overallDemeanorScore != null && overallDemeanorScore > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-[#008A64] dark:text-[#34D399] border border-emerald-200/70 dark:border-emerald-800/50 font-semibold">
+              <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0B5ED7] dark:text-[#60A5FA] border border-blue-200/70 dark:border-blue-800/50 font-semibold">
                 ✨ Phong thái: {overallDemeanorScore}/100
               </span>
             )}
@@ -152,7 +152,7 @@ const DebateMessageItem: React.FC<DebateMessageItemProps> = ({ message, spokenCh
 
       {/* Right Avatar for Debater */}
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-[#17352A] text-white flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-[#11203B] text-white flex items-center justify-center shrink-0 mt-0.5">
           <UserIcon size={15} />
         </div>
       )}

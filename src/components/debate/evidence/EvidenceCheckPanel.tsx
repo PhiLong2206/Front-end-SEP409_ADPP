@@ -19,7 +19,7 @@ const LABEL_TEXT: Record<EvidenceLabel, string> = {
 
 const LABEL_STYLE: Record<EvidenceLabel, string> = {
   SUPPORTED:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800/50",
+    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800/50",
   CONTRADICTED: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800/50",
   NOT_FOUND:
     "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700",
@@ -52,7 +52,7 @@ const CitationSource: React.FC<{ citation: EvidenceCitation["citation"] }> = ({ 
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 text-[#008A64] dark:text-[#34D399] hover:underline"
+            className="inline-flex items-center gap-0.5 text-[#0B5ED7] dark:text-[#60A5FA] hover:underline"
           >
             Xem nguồn <ExternalLink size={10} />
           </a>
@@ -86,11 +86,11 @@ const EvidenceCheckPanel: React.FC<EvidenceCheckPanelProps> = ({ rounds }) => {
   return (
     <section
       data-testid="evidence-check-panel"
-      className="bg-white dark:bg-[#10231C] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4"
+      className="bg-white dark:bg-[#0C1627] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-[#F8FAFC] tracking-tight flex items-center gap-2">
-          <ShieldCheck size={18} className="text-[#008A64]" />
+          <ShieldCheck size={18} className="text-[#0B5ED7]" />
           Kiểm chứng số liệu
         </h2>
         <div className="flex flex-wrap gap-1.5">
@@ -123,7 +123,7 @@ const EvidenceCheckPanel: React.FC<EvidenceCheckPanelProps> = ({ rounds }) => {
                 return (
                   <div
                     key={turn.turnIndex}
-                    className="p-3 bg-slate-50 dark:bg-[#091713] rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs"
+                    className="p-3 bg-slate-50 dark:bg-[#060d1a] rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs"
                   >
                     <p className="text-slate-500 dark:text-slate-400 italic line-clamp-2">&ldquo;{turn.excerpt}&rdquo;</p>
                     {statusMessage && (
@@ -135,7 +135,7 @@ const EvidenceCheckPanel: React.FC<EvidenceCheckPanelProps> = ({ rounds }) => {
                       <div
                         key={idx}
                         data-testid="evidence-claim"
-                        className="p-2.5 bg-white dark:bg-[#123326] rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5"
+                        className="p-2.5 bg-white dark:bg-[#0b1c3a] rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-2">
                           <LabelChip label={claim.label} />

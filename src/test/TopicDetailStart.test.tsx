@@ -76,6 +76,23 @@ describe("TopicDetail: starting a debate", () => {
     await waitFor(() => expect(screen.getByTestId("room-url").textContent).toContain("role=CON"));
   });
 
+  it("opened with 'Học lại' it preselects the side of the last time", async () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/debater/topics/7", state: { topic, defaultSide: "CON" } }]}>
+        <Routes>
+          <Route path="/debater/topics/:id" element={<TopicDetail />} />
+          <Route path="*" element={<CurrentUrl />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText(/Phản đối/)).toBeChecked();
+    start();
+
+    await waitFor(() => expect(mockCreateSession).toHaveBeenCalled());
+    expect(mockCreateSession.mock.calls[0][0]).toMatchObject({ userSide: 2 });
+  });
+
   it("falls back to the title when the topic has no motion", async () => {
     render(
       <MemoryRouter initialEntries={[{ pathname: "/debater/topics/7", state: { topic: { ...topic, motion: undefined } } }]}>
