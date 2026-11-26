@@ -47,6 +47,8 @@ export interface DebateSidebarProps {
   onTabChange: (tab: string) => void;
   onClose: () => void;
   onRequestCoaching?: () => void;
+  onRequestHint?: () => void;
+  isHintLoading?: boolean;
   onSubmitJudgeScore?: (scores: { logic: number; evidence: number; delivery: number; notes: string }) => void;
 }
 
@@ -63,6 +65,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
   multimodalResult,
   isEvaluating = false,
   isCoachingLoading = false,
+  isHintLoading = false,
   evaluatorError,
   rebuttalTips,
   coachingAdvice,
@@ -70,6 +73,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
   onTabChange,
   onClose,
   onRequestCoaching,
+  onRequestHint,
   onSubmitJudgeScore,
 }) => {
   // Judge scoring state
@@ -430,6 +434,8 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                 costPerUse={0}
                 advice={coachingAdvice}
                 onRequestCoaching={onRequestCoaching}
+                onRequestHint={onRequestHint}
+                isHintLoading={isHintLoading}
                 isLoading={isCoachingLoading || isEvaluating}
               />
             </div>

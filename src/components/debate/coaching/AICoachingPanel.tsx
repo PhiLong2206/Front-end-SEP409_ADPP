@@ -41,7 +41,9 @@ interface AICoachingPanelProps {
   advice?: CoachingAdvice[];
   onUsed?: () => void;
   onRequestCoaching?: () => void;
+  onRequestHint?: () => void;
   isLoading?: boolean;
+  isHintLoading?: boolean;
 }
 
 const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
@@ -50,7 +52,9 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
   advice,
   onUsed,
   onRequestCoaching,
+  onRequestHint,
   isLoading = false,
+  isHintLoading = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [localUsageCount, setLocalUsageCount] = useState(usageCount);
@@ -86,6 +90,42 @@ const AICoachingPanel: React.FC<AICoachingPanelProps> = ({
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-slate-100 dark:border-slate-800/60 p-5 space-y-4">
+          {/* AI Hint Action Box (5 Credit) */}
+          {onRequestHint && (
+            <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                  <Lightbulb size={14} className="text-amber-600" />
+                  Gợi ý lập luận lượt này (AI Hint)
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 font-bold text-[10px]">
+                  <Coins size={10} /> 5 Credit
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-amber-100/80">
+                AI sẽ đối chiếu chủ đề và nội dung nháp của bạn để gợi ý luận điểm sắc bén.
+              </p>
+              <button
+                type="button"
+                onClick={onRequestHint}
+                disabled={isHintLoading}
+                className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isHintLoading ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>AI đang soạn gợi ý...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb size={13} />
+                    <span>Lấy gợi ý AI Hint (5 Credit)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Usage counter */}
           {localUsageCount > 0 && (
             <div className="flex items-center justify-between text-[14px]">

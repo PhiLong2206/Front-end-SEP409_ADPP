@@ -70,7 +70,31 @@ const CompetitionFormModal: React.FC<Props> = ({
   }, [isOpen, isEditing]);
 
   const participantCount = Number(maxParticipants) || 16;
-  const estimatedCredits = participantCount <= 8 ? 500 : participantCount <= 16 ? 1200 : 2500;
+  const [dynamicRequiredCredits, setDynamicRequiredCredits] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || isEditing) return;
+    const timer = setTimeout(() => {
+      paymentApi
+        .getCompetitionPrice({
+          type: competitionType,
+          maxParticipants: participantCount,
+        })
+        .then((res) => {
+          if (res?.success && res.data?.requiredCredits) {
+            setDynamicRequiredCredits(res.data.requiredCredits);
+          }
+        })
+        .catch(() => {
+          setDynamicRequiredCredits(null);
+        });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [isOpen, isEditing, competitionType, participantCount]);
+
+  const estimatedCredits =
+    dynamicRequiredCredits ??
+    (participantCount <= 8 ? 500 : participantCount <= 16 ? 1200 : 2500);
   const isBalanceInsufficient = walletBalance !== null && walletBalance < estimatedCredits;
 
   useEffect(() => {
