@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { Mic, Send, Lightbulb, Award, BookOpen, Loader2, Video, Sparkles } from "lucide-react";
 import { DebateRoleInRoom, FrameAnalysisResult } from "../../../types";
+import { emotionLabelVi } from "../../../utils/emotionLabels";
 
 export interface DebateComposerProps {
   argumentText: string;
@@ -132,12 +133,16 @@ const DebateComposer: React.FC<DebateComposerProps> = ({
                   <p className="text-[11px] text-slate-300">
                     Biểu cảm:{" "}
                     <span className="font-semibold text-blue-300">
-                      {liveFrameAnalysis.dominant_emotion.toUpperCase()} ({liveFrameAnalysis.dominant_score}%)
+                      {emotionLabelVi(liveFrameAnalysis.dominant_emotion)} ({liveFrameAnalysis.dominant_score}%)
                     </span>{" "}
                     · Điềm tĩnh (Composure):{" "}
                     <span className="font-semibold text-amber-300">
                       {liveFrameAnalysis.composure_instant}%
                     </span>
+                  </p>
+                ) : liveFrameAnalysis && !liveFrameAnalysis.face_detected && hasActiveCamera ? (
+                  <p className="text-[11px] font-medium text-amber-300">
+                    Không nhận diện được khuôn mặt — vui lòng di chuyển vào giữa khung hình.
                   </p>
                 ) : (
                   <p className="text-[11px] text-slate-400">

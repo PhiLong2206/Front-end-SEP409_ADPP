@@ -1,6 +1,7 @@
 import React from "react";
-import { Camera, Loader2, Mic, MicOff, Sparkles, Square, Video } from "lucide-react";
+import { Camera, Loader2, Mic, MicOff, Video } from "lucide-react";
 import type { FrameAnalysisResult } from "../../../types";
+import { emotionLabelVi } from "../../../utils/emotionLabels";
 
 export interface AiCameraPanelProps {
   isRecording: boolean;
@@ -18,7 +19,6 @@ export interface AiCameraPanelProps {
   videoPreviewRef: React.RefObject<HTMLVideoElement | null>;
   overlayCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   onToggleRecording: () => void;
-  onRunSampleMultimodal?: () => void;
 }
 
 /**
@@ -41,7 +41,6 @@ const AiCameraPanel: React.FC<AiCameraPanelProps> = ({
   videoPreviewRef,
   overlayCanvasRef,
   onToggleRecording,
-  onRunSampleMultimodal,
 }) => {
   const canStartRecording = canSpeak && !isAiGenerating && !isTurnExpired && !isDebateCompleted && !isAnalyzingMultimodal;
   const showVideo = isRecording && hasActiveCamera;
@@ -118,13 +117,20 @@ const AiCameraPanel: React.FC<AiCameraPanelProps> = ({
                 <span>
                   Biểu cảm:{" "}
                   <strong className="text-emerald-300">
-                    {liveFrameAnalysis.dominant_emotion.toUpperCase()} ({liveFrameAnalysis.dominant_score}%)
+                    {emotionLabelVi(liveFrameAnalysis.dominant_emotion)} ({liveFrameAnalysis.dominant_score}%)
                   </strong>
                 </span>
                 <span>
                   Điềm tĩnh:{" "}
                   <strong className="text-amber-300">{liveFrameAnalysis.composure_instant}%</strong>
                 </span>
+              </div>
+            ) : liveFrameAnalysis && !liveFrameAnalysis.face_detected ? (
+              <div
+                role="status"
+                className="absolute bottom-3 left-3 right-3 px-3 py-1.5 rounded-xl bg-amber-950/90 border border-amber-400/50 backdrop-blur-xs text-[11px] font-medium text-amber-200 text-center"
+              >
+                Không nhận diện được khuôn mặt — vui lòng di chuyển vào giữa khung hình.
               </div>
             ) : (
               <div className="absolute bottom-3 left-3 right-3 px-3 py-1.5 rounded-xl bg-slate-900/75 backdrop-blur-xs text-[11px] text-slate-300 text-center">
@@ -224,36 +230,6 @@ const AiCameraPanel: React.FC<AiCameraPanelProps> = ({
               </span>
             )}
           </p>
-        </div>
-      )}
-
-      {/* Action Footer */}
-      {(isRecording || (onRunSampleMultimodal && !isAnalyzingMultimodal)) && (
-        <div className="flex items-center justify-between gap-2 pt-0.5">
-          {onRunSampleMultimodal && !isAnalyzingMultimodal ? (
-            <button
-              type="button"
-              onClick={onRunSampleMultimodal}
-              className="px-3 py-2 rounded-xl bg-white dark:bg-[#12231C] hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Chạy mẫu âm thanh & biểu cảm thử nghiệm (debate_audio.wav)"
-            >
-              <Sparkles size={13} className="text-[#008A64] dark:text-emerald-400" />
-              <span>Thử mẫu AI</span>
-            </button>
-          ) : (
-            <span />
-          )}
-
-          {isRecording && (
-            <button
-              type="button"
-              onClick={onToggleRecording}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-            >
-              <Square size={12} className="fill-current" />
-              <span>Dừng & Gửi</span>
-            </button>
-          )}
         </div>
       )}
     </aside>

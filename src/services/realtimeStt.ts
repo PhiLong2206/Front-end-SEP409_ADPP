@@ -42,6 +42,168 @@ export function pickSupportedAudioMimeType(): string | undefined {
   return candidates.find((mime) => MediaRecorder.isTypeSupported(mime));
 }
 
+/** Convert mono Float32 [-1, 1] Web Audio samples into signed 16-bit little-endian PCM for Deepgram linear16. */
+export function float32ToInt16Pcm(samples: Float32Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(samples.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < samples.length; i += 1) {
+    const clamped = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+  }
+  return buffer;
+}
+
+/** Downsample mono Float32 samples from inputSampleRate to targetSampleRate (16kHz) as Int16 little-endian PCM. */
+export function downsampleFloat32ToInt16Pcm(
+  samples: Float32Array,
+  inputSampleRate: number,
+  targetSampleRate = 16000
+): ArrayBuffer {
+  if (!samples.length || inputSampleRate <= targetSampleRate || targetSampleRate <= 0) {
+    return float32ToInt16Pcm(samples);
+  }
+  const ratio = inputSampleRate / targetSampleRate;
+  const outLength = Math.max(1, Math.floor(samples.length / ratio));
+  const buffer = new ArrayBuffer(outLength * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < outLength; i += 1) {
+    const pos = i * ratio;
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const s0 = samples[idx] ?? 0;
+    const s1 = samples[Math.min(idx + 1, samples.length - 1)] ?? s0;
+    const interpolated = s0 + (s1 - s0) * frac;
+    const clamped = Math.max(-1, Math.min(1, interpolated));
+    view.setInt16(i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+  }
+  return buffer;
+}
+
+export const PCM16_WORKLET_PROCESSOR_NAME = "pcm16-downsampler-processor";
+
+const PCM16_WORKLET_SOURCE = `
+class Pcm16DownsamplerProcessor extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const opts = (options && options.processorOptions) || {};
+    this.targetRate = opts.targetSampleRate || 16000;
+    this.batchSamples = opts.batchSamples || 1600;
+    this.active = Boolean(opts.active);
+    this.ratio = sampleRate > this.targetRate ? sampleRate / this.targetRate : 1;
+    this.phase = 0;
+    this.prevSample = 0;
+    this.hasPrev = false;
+    this.outBuf = new Int16Array(this.batchSamples);
+    this.outIdx = 0;
+    this.rmsSum = 0;
+    this.rmsCount = 0;
+    this.port.onmessage = (ev) => {
+      const data = ev.data || {};
+      if (data.type === "active") {
+        this.active = Boolean(data.active);
+        if (!this.active) {
+          this.flush();
+        } else {
+          this.outIdx = 0;
+          this.rmsSum = 0;
+          this.rmsCount = 0;
+          this.phase = 0;
+          this.hasPrev = false;
+        }
+      } else if (data.type === "flush") {
+        this.flush();
+      }
+    };
+  }
+
+  flush() {
+    if (this.outIdx > 0) {
+      const slice = this.outBuf.slice(0, this.outIdx);
+      const rms = this.rmsCount > 0 ? Math.sqrt(this.rmsSum / this.rmsCount) : 0;
+      this.port.postMessage({ pcm: slice.buffer, rms }, [slice.buffer]);
+      this.outIdx = 0;
+      this.rmsSum = 0;
+      this.rmsCount = 0;
+    }
+  }
+
+  process(inputs) {
+    if (!this.active) return true;
+    const input = inputs && inputs[0] && inputs[0][0];
+    if (!input || input.length === 0) return true;
+
+    for (let i = 0; i < input.length; i += 1) {
+      const s = input[i];
+      this.rmsSum += s * s;
+      this.rmsCount += 1;
+    }
+
+    if (this.ratio <= 1) {
+      for (let i = 0; i < input.length; i += 1) {
+        const clamped = Math.max(-1, Math.min(1, input[i]));
+        this.outBuf[this.outIdx++] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+        if (this.outIdx >= this.batchSamples) this.flush();
+      }
+      return true;
+    }
+
+    // Linear interpolation resampler across 128-frame render quanta
+    let pos = this.phase;
+    while (pos < input.length) {
+      let val;
+      if (pos < 0 && this.hasPrev) {
+        const frac = pos + 1;
+        val = this.prevSample + (input[0] - this.prevSample) * frac;
+      } else {
+        const idx = Math.max(0, Math.floor(pos));
+        const frac = pos - idx;
+        const s0 = input[idx];
+        const s1 = idx + 1 < input.length ? input[idx + 1] : s0;
+        val = s0 + (s1 - s0) * frac;
+      }
+      const clamped = Math.max(-1, Math.min(1, val));
+      this.outBuf[this.outIdx++] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+      if (this.outIdx >= this.batchSamples) this.flush();
+      pos += this.ratio;
+    }
+    this.phase = pos - input.length;
+    this.prevSample = input[input.length - 1];
+    this.hasPrev = true;
+    return true;
+  }
+}
+registerProcessor("${PCM16_WORKLET_PROCESSOR_NAME}", Pcm16DownsamplerProcessor);
+`;
+
+const workletLoadedContexts = new WeakSet<AudioContext>();
+
+export async function createPcm16WorkletNode(
+  audioCtx: AudioContext,
+  targetSampleRate = 16000,
+  batchSamples = 1600
+): Promise<AudioWorkletNode> {
+  if (!workletLoadedContexts.has(audioCtx)) {
+    const blob = new Blob([PCM16_WORKLET_SOURCE], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    try {
+      await audioCtx.audioWorklet.addModule(url);
+      workletLoadedContexts.add(audioCtx);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  return new AudioWorkletNode(audioCtx, PCM16_WORKLET_PROCESSOR_NAME, {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1],
+    processorOptions: {
+      targetSampleRate,
+      batchSamples,
+      active: false,
+    },
+  });
+}
+
 export async function fetchRealtimeSttConfig(): Promise<RealtimeSttConfigResponse | null> {
   try {
     const res = await fetch("/api/multimodal/realtime-stt/config");
@@ -76,6 +238,8 @@ export class RealtimeSttClient {
     mode?: "vi" | "multi";
     endpointing?: number;
     smartFormat?: boolean;
+    encoding?: "webm" | "linear16";
+    sampleRate?: number;
   }): void {
     this.disconnectImmediate();
     this.isStopping = false;
@@ -83,6 +247,7 @@ export class RealtimeSttClient {
     this.latestInterim = "";
     this.pendingChunks = [];
 
+    const encoding = params?.encoding ?? "webm";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const query = new URLSearchParams({
       model: params?.model ?? "nova-2",
@@ -90,8 +255,11 @@ export class RealtimeSttClient {
       endpointing: String(params?.endpointing ?? 300),
       smart_format: String(params?.smartFormat ?? false),
       punctuate: "true",
-      encoding: "webm",
+      encoding,
     });
+    if (encoding === "linear16") {
+      query.set("sample_rate", String(params?.sampleRate ?? 16000));
+    }
 
     const wsUrl = `${protocol}//${window.location.host}/api/multimodal/ws/transcribe?${query.toString()}`;
     this.callbacks.onStatusChange?.("connecting");

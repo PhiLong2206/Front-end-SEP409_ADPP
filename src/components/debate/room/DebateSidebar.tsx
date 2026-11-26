@@ -17,6 +17,7 @@ import {
 import RebuttalSuggestion, { RebuttalTips } from "../coaching/RebuttalSuggestion";
 import AICoachingPanel, { CoachingAdvice } from "../coaching/AICoachingPanel";
 import { CRITERION_MAX_SCORE, OVERALL_MAX_SCORE } from "../../../utils/debateScoring";
+import { emotionLabelVi } from "../../../utils/emotionLabels";
 import {
   DebateRoomMode,
   DebateRoleInRoom,
@@ -517,7 +518,7 @@ const DebateSidebar: React.FC<DebateSidebarProps> = ({
                       <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">
                         <p className="text-slate-400">Điềm tĩnh (Composure)</p>
                         <p className="font-bold text-slate-800 dark:text-slate-100">
-                          {composure}% ({domEmotion})
+                          {composure}% ({emotionLabelVi(domEmotion)})
                         </p>
                       </div>
                       <div className="p-2 rounded-lg bg-white dark:bg-[#0F1726] border border-slate-200/60 dark:border-slate-800">

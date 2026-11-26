@@ -86,7 +86,7 @@ describe("DebateRoom: 'Dừng & Gửi' sends the recorded turn, the AI answers w
       await new Promise((r) => setTimeout(r, 0));
     });
     await act(async () => {
-      fireEvent.click(screen.getByText("Dừng & Gửi"));
+      fireEvent.click(screen.getByLabelText("Dừng ghi âm"));
     });
     // analysis -> send -> AI turn: wait until the room is no longer analysing
     await waitFor(() => expect(mockAnalyzeTurn).toHaveBeenCalled());
@@ -175,7 +175,7 @@ describe("DebateRoom: 'Dừng & Gửi' sends the recorded turn, the AI answers w
       await new Promise((r) => setTimeout(r, 0));
     });
     await act(async () => {
-      fireEvent.click(screen.getByText("Dừng & Gửi"));
+      fireEvent.click(screen.getByLabelText("Dừng ghi âm"));
     });
     await waitFor(() => expect(mockAnalyzeTurn).toHaveBeenCalled());
     expect(screen.getByLabelText("Gửi lập luận")).toBeDisabled();

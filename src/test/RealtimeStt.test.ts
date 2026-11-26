@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
+  downsampleFloat32ToInt16Pcm,
+  float32ToInt16Pcm,
   RAW_VOICE_AUDIO_CONSTRAINTS,
   RealtimeSttClient,
   RealtimeSttStatus,
@@ -101,6 +103,33 @@ describe("RealtimeSttClient (Preset Chuan Deepgram Web)", () => {
     ws.onmessage?.({ data: JSON.stringify({ type: "dg_status", status: "closed" }) });
     await stopPromise;
     expect(statuses).toContain("closed");
+  });
+
+  it("supports linear16 PCM query params and converts Float32 samples to Int16 little-endian PCM", () => {
+    const client = new RealtimeSttClient({});
+    client.connect({ encoding: "linear16", sampleRate: 16000 });
+    const ws = MockWebSocket.instances[0];
+    expect(ws.url).toContain("encoding=linear16");
+    expect(ws.url).toContain("sample_rate=16000");
+
+    const pcm = float32ToInt16Pcm(new Float32Array([-1, 0, 0.5, 1.5]));
+    const view = new DataView(pcm);
+    expect(pcm.byteLength).toBe(8);
+    expect(view.getInt16(0, true)).toBe(-32768);
+    expect(view.getInt16(2, true)).toBe(0);
+    expect(view.getInt16(4, true)).toBe(16383);
+    expect(view.getInt16(6, true)).toBe(32767);
+
+    // Downsampling 48kHz -> 16kHz (3:1) reduces 6 samples to 2 Int16 samples (4 bytes)
+    const downsampled = downsampleFloat32ToInt16Pcm(
+      new Float32Array([0.5, 0.5, 0.5, -0.5, -0.5, -0.5]),
+      48000,
+      16000
+    );
+    expect(downsampled.byteLength).toBe(4);
+    const dsView = new DataView(downsampled);
+    expect(dsView.getInt16(0, true)).toBe(16383);
+    expect(dsView.getInt16(2, true)).toBe(-16384);
   });
 });
 
