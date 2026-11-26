@@ -23,6 +23,7 @@ import { useCredit } from "../../../hooks/useCredit";
 import DebateHeader from "../../../components/debate/DebateHeader";
 import DebateChat from "../../../components/debate/DebateChat";
 import DebateComposer from "../../../components/debate/DebateComposer";
+import TeamTurnBoard from "../../../components/debate/room/TeamTurnBoard";
 import AiCameraPanel from "../../../components/debate/room/AiCameraPanel";
 import DebateSidebar from "../../../components/debate/DebateSidebar";
 import { CoachingAdvice } from "../../../components/debate/AICoachingPanel";
@@ -4246,6 +4247,18 @@ const DebateRoom: React.FC = () => {
 
           {/* Primary Chat Column */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
+            {is2v2 && !EffectiveDebateCompleted && (
+              <TeamTurnBoard
+                currentRound={currentRound}
+                currentTurnSide={sessionDetails?.currentTurnSide}
+                proParticipants={proParticipants}
+                conParticipants={conParticipants}
+                messages={messages}
+                currentUserId={currentUserId}
+                remoteSpeakingUser={remoteSpeakingUser}
+                isCurrentUserRecording={isRecording}
+              />
+            )}
             {(remoteSpeakingUser || remoteLiveTranscript) && (
               <div className="mx-4 mt-2 px-3.5 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-1 text-xs text-purple-700 dark:text-purple-300">
                 <div className="flex items-center justify-between">
