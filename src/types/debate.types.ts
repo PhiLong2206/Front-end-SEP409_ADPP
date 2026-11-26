@@ -233,6 +233,7 @@ export interface TurnDto {
 
 export interface DebateSessionResponse {
   sessionId: number;
+  roomCode?: string | null;
   title: string;
   topic: string;
   /** Fact-base topic for the evaluator's evidence check (from Topic.Category); null when the category has none. */

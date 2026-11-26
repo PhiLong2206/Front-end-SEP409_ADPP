@@ -3798,14 +3798,14 @@ const DebateRoom: React.FC = () => {
             <div className="p-3.5 bg-slate-50 dark:bg-[#060d1a] rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3 shrink-0">
               <div>
                 <p className="text-[11px] text-slate-400 font-medium">Mã phòng tranh biện</p>
-                <p className="text-xl font-black font-mono text-[#0B5ED7] dark:text-[#60A5FA]">
-                  #{sessionDetails.sessionId}
+                <p className="text-xl font-black font-mono tracking-widest text-[#0B5ED7] dark:text-[#60A5FA]">
+                  {sessionDetails.roomCode || `#${sessionDetails.sessionId}`}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(String(sessionDetails.sessionId));
+                  navigator.clipboard.writeText(sessionDetails.roomCode || String(sessionDetails.sessionId));
                   setCopiedCode(true);
                   setTimeout(() => setCopiedCode(false), 2000);
                 }}

@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 
 export const ACTIVE_DEBATE_SESSION_KEY = "adpp_active_debate_session";
+export const ACTIVE_DEBATE_CHANGED_EVENT = "adpp:active-debate-changed";
 
 export interface ActiveDebateSessionMeta {
   sessionId: string;
@@ -19,6 +20,7 @@ export interface ActiveDebateSessionMeta {
 export const saveActiveDebateSession = (meta: ActiveDebateSessionMeta) => {
   try {
     sessionStorage.setItem(ACTIVE_DEBATE_SESSION_KEY, JSON.stringify(meta));
+    window.dispatchEvent(new Event(ACTIVE_DEBATE_CHANGED_EVENT));
   } catch {
     // Ignore storage errors
   }

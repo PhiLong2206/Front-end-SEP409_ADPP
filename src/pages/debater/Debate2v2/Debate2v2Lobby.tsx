@@ -69,7 +69,7 @@ const Debate2v2Lobby: React.FC = () => {
 
       if (res?.success && res.data?.sessionId) {
         setFeedbackMsg({ text: `Đã tạo phòng 2v2 #${res.data.sessionId}! Đang chuyển hướng...`, type: "success" });
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=2v2`);
       } else {
         setFeedbackMsg({ text: res?.message || "Không thể tạo phòng tranh biện 2 vs 2.", type: "error" });
       }
@@ -82,21 +82,21 @@ const Debate2v2Lobby: React.FC = () => {
   };
 
   const handleJoin2v2Session = async () => {
-    const idNum = parseInt(joinSessionId.trim(), 10);
-    if (isNaN(idNum) || idNum <= 0) {
-      setFeedbackMsg({ text: "Vui lòng nhập mã ID phòng hợp lệ (số nguyên).", type: "error" });
+    const cleanedCode = joinSessionId.trim().replace(/^#/, "").toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(cleanedCode) && !/^\d+$/.test(cleanedCode)) {
+      setFeedbackMsg({ text: "Vui lòng nhập mã phòng hợp lệ (6 ký tự chữ hoặc số).", type: "error" });
       return;
     }
 
     setIsJoining(true);
     try {
-      const res = await debateApi.join2v2Session(idNum, {
+      const res = await debateApi.join2v2SessionByCode(cleanedCode, {
         preferredSide: joinPreferredSide,
       });
 
       if (res?.success && res.data?.sessionId) {
         setShowJoinModal(false);
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=2v2`);
       } else {
         setFeedbackMsg({ text: res?.message || "Không thể tham gia phòng này (có thể đã đủ 4 người hoặc không tồn tại).", type: "error" });
       }
@@ -486,12 +486,13 @@ const Debate2v2Lobby: React.FC = () => {
           </p>
 
           <Input
-            label="Mã ID phòng (Session ID) *"
+            label="Mã phòng (6 ký tự chữ hoặc số) *"
             name="joinSessionId"
-            type="number"
-            placeholder="Ví dụ: 15"
+            type="text"
+            maxLength={6}
+            placeholder="Ví dụ: A7K9P2"
             value={joinSessionId}
-            onChange={(e) => setJoinSessionId(e.target.value)}
+            onChange={(e) => setJoinSessionId(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())}
             required
             autoFocus
           />
