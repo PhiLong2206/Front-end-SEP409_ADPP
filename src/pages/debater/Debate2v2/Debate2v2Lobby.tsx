@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield,
@@ -19,13 +19,42 @@ import Input from "../../../components/common/Input";
 import Button from "../../../components/common/Button";
 import TopicSelectCombobox, { SelectedTopicOption } from "../../../components/topic/TopicSelectCombobox";
 import { debateApi } from "../../../api";
-import { SystemDebateSide } from "../../../types";
+import { DebateHistoryItemDto, SystemDebateSide } from "../../../types";
 import { readActiveDebateSession } from "../../../hooks/useDebateNavigationGuard";
 
 const Debate2v2Lobby: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const activeDebateSession = useMemo(() => readActiveDebateSession(), []);
+  const [active2v2Rooms, setActive2v2Rooms] = useState<DebateHistoryItemDto[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    debateApi
+      .getUserHistory()
+      .then((res) => {
+        if (!mounted || !res?.success || !Array.isArray(res.data)) return;
+        const rooms = res.data.filter((item) => {
+          const isP2p = item.debateType === 2 || String(item.debateType) === "P2pMatch";
+          const isTeam =
+            item.isTeamDebate === true ||
+            (typeof item.maxParticipants === "number" && item.maxParticipants > 2) ||
+            item.title?.toLowerCase().includes("2v2") ||
+            item.title?.toLowerCase().includes("2 vs 2");
+          const isActiveStatus =
+            item.status === 1 ||
+            String(item.status) === "Waiting" ||
+            item.status === 2 ||
+            String(item.status) === "InProgress";
+          return isP2p && isTeam && isActiveStatus;
+        });
+        setActive2v2Rooms(rooms);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [selectedTopic, setSelectedTopic] = useState<SelectedTopicOption | null>(null);
   const [isUserReady, setIsUserReady] = useState<boolean>(true);
@@ -69,7 +98,7 @@ const Debate2v2Lobby: React.FC = () => {
 
       if (res?.success && res.data?.sessionId) {
         setFeedbackMsg({ text: `Đã tạo phòng 2v2 #${res.data.sessionId}! Đang chuyển hướng...`, type: "success" });
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=2v2`);
       } else {
         setFeedbackMsg({ text: res?.message || "Không thể tạo phòng tranh biện 2 vs 2.", type: "error" });
       }
@@ -82,21 +111,21 @@ const Debate2v2Lobby: React.FC = () => {
   };
 
   const handleJoin2v2Session = async () => {
-    const idNum = parseInt(joinSessionId.trim(), 10);
-    if (isNaN(idNum) || idNum <= 0) {
-      setFeedbackMsg({ text: "Vui lòng nhập mã ID phòng hợp lệ (số nguyên).", type: "error" });
+    const cleanedCode = joinSessionId.trim().replace(/^#/, "").toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(cleanedCode) && !/^\d+$/.test(cleanedCode)) {
+      setFeedbackMsg({ text: "Vui lòng nhập mã phòng hợp lệ (6 ký tự chữ hoặc số).", type: "error" });
       return;
     }
 
     setIsJoining(true);
     try {
-      const res = await debateApi.join2v2Session(idNum, {
+      const res = await debateApi.join2v2SessionByCode(cleanedCode, {
         preferredSide: joinPreferredSide,
       });
 
       if (res?.success && res.data?.sessionId) {
         setShowJoinModal(false);
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=2v2`);
       } else {
         setFeedbackMsg({ text: res?.message || "Không thể tham gia phòng này (có thể đã đủ 4 người hoặc không tồn tại).", type: "error" });
       }
@@ -122,26 +151,84 @@ const Debate2v2Lobby: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-6xl space-y-(--s-7) pb-(--s-8) animate-fade-in motion-reduce:animate-none">
-      {/* Active Debate Recovery Banner */}
-      {activeDebateSession && (
-        <div
-          data-testid="active-debate-recovery-banner"
-          className="flex flex-col gap-(--s-3) rounded-ap-lg bg-accent-soft p-(--s-4) sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-(length:--text-callout) font-semibold text-accent">Bạn đang có một trận tranh biện đang diễn ra</p>
-            <p className="truncate text-(length:--text-callout) text-label-secondary">&ldquo;{activeDebateSession.topicTitle}&rdquo;</p>
+      {/* Active / Waiting 2v2 Rooms Section */}
+      {active2v2Rooms.length > 0 ? (
+        <div className="space-y-2.5" data-testid="active-2v2-rooms-section">
+          <p className="text-xs font-bold uppercase tracking-wider text-accent">
+            Phòng 2 vs 2 của bạn đang mở ({active2v2Rooms.length})
+          </p>
+          <div className="space-y-2">
+            {active2v2Rooms.map((room) => {
+              const isWaiting = room.status === 1 || String(room.status) === "Waiting";
+              return (
+                <div
+                  key={room.sessionId}
+                  className="flex flex-col gap-3 rounded-ap-lg border border-accent/25 bg-accent-soft/80 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          isWaiting
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+                            isWaiting ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
+                        />
+                        {isWaiting ? "Đang chờ đủ người" : "Chuẩn bị / Đang thi đấu"}
+                      </span>
+                      <span className="rounded-md bg-elevated px-2 py-0.5 font-mono text-xs font-bold text-accent">
+                        Mã phòng: {room.roomCode || `#${room.sessionId}`}
+                      </span>
+                      {typeof room.participantCount === "number" && (
+                        <span className="text-xs text-label-secondary">
+                          ({room.participantCount}/{room.maxParticipants || 4} người)
+                        </span>
+                      )}
+                    </div>
+                    <p className="truncate text-sm font-semibold text-label">
+                      {room.title || room.topic}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/debater/debate/${room.sessionId}?mode=2v2`)}
+                    className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-ap-pill bg-accent px-4 text-xs font-semibold text-accent-contrast transition-colors hover:bg-accent-hover"
+                  >
+                    <span>Vào lại phòng</span>
+                    <ArrowRight size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
-          <button
-            type="button"
-            data-testid="resume-active-debate-btn"
-            onClick={() => navigate(activeDebateSession.url)}
-            className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
-          >
-            <span>Tiếp tục trận tranh biện</span>
-            <ArrowRight size={16} aria-hidden="true" />
-          </button>
         </div>
+      ) : (
+        activeDebateSession &&
+        activeDebateSession.mode === "2v2" && (
+          <div
+            data-testid="active-debate-recovery-banner"
+            className="flex flex-col gap-(--s-3) rounded-ap-lg bg-accent-soft p-(--s-4) sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-(length:--text-callout) font-semibold text-accent">Bạn đang có một trận tranh biện 2 vs 2 đang diễn ra</p>
+              <p className="truncate text-(length:--text-callout) text-label-secondary">&ldquo;{activeDebateSession.topicTitle}&rdquo;</p>
+            </div>
+            <button
+              type="button"
+              data-testid="resume-active-debate-btn"
+              onClick={() => navigate(activeDebateSession.url)}
+              className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center gap-(--s-2) rounded-ap-pill bg-accent px-(--s-5) text-(length:--text-callout) font-medium text-accent-contrast transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/40"
+            >
+              <span>Tiếp tục trận tranh biện</span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )
       )}
 
       {/* Feedback Banner */}
@@ -486,12 +573,13 @@ const Debate2v2Lobby: React.FC = () => {
           </p>
 
           <Input
-            label="Mã ID phòng (Session ID) *"
+            label="Mã phòng (6 ký tự chữ hoặc số) *"
             name="joinSessionId"
-            type="number"
-            placeholder="Ví dụ: 15"
+            type="text"
+            maxLength={6}
+            placeholder="Ví dụ: A7K9P2"
             value={joinSessionId}
-            onChange={(e) => setJoinSessionId(e.target.value)}
+            onChange={(e) => setJoinSessionId(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())}
             required
             autoFocus
           />

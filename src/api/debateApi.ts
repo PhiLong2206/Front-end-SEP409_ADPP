@@ -65,6 +65,16 @@ const debateApi = {
     axiosClient.post(`/debate/${sessionId}/join`, data),
 
   /**
+   * POST /api/Debate/join-by-code/{roomCode} [Authorized]
+   * Joins an existing P2P debate session by its 6-character alphanumeric room code.
+   */
+  joinP2pSessionByCode: (
+    roomCode: string,
+    data: JoinSessionRequest = {}
+  ): Promise<ApiResponse<DebateSessionResponse>> =>
+    axiosClient.post(`/debate/join-by-code/${encodeURIComponent(roomCode.trim().toUpperCase())}`, data),
+
+  /**
    * POST /api/Debate/2v2 [Authorized]
    * Initiates a 2v2 team debate match.
    */
@@ -82,6 +92,16 @@ const debateApi = {
     data: Join2v2SessionRequest = {}
   ): Promise<ApiResponse<DebateSessionResponse>> =>
     axiosClient.post(`/debate/${sessionId}/join-2v2`, data),
+
+  /**
+   * POST /api/Debate/join-2v2-by-code/{roomCode} [Authorized]
+   * Joins an existing 2v2 debate session by its 6-character alphanumeric room code.
+   */
+  join2v2SessionByCode: (
+    roomCode: string,
+    data: Join2v2SessionRequest = {}
+  ): Promise<ApiResponse<DebateSessionResponse>> =>
+    axiosClient.post(`/debate/join-2v2-by-code/${encodeURIComponent(roomCode.trim().toUpperCase())}`, data),
 
   /**
    * POST /api/Debate/{sessionId}/switch-side [Authorized]

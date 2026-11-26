@@ -155,7 +155,7 @@ const Debate1v1: React.FC = () => {
         setShowCreateP2pModal(false);
         setP2pTitle("");
         setSelectedP2pTopic(null);
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=1v1`);
       } else {
         setFeedbackMsg({ text: res?.message || "Không thể tạo phòng tranh biện P2P.", type: "error" });
       }
@@ -168,20 +168,20 @@ const Debate1v1: React.FC = () => {
   };
 
   const handleJoinP2pRoom = async () => {
-    const sessionIdNum = parseInt(joinSessionId.trim(), 10);
-    if (isNaN(sessionIdNum) || sessionIdNum <= 0) {
-      setFeedbackMsg({ text: "Vui lòng nhập mã ID phòng hợp lệ (số nguyên dương).", type: "error" });
+    const cleanedCode = joinSessionId.trim().replace(/^#/, "").toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(cleanedCode) && !/^\d+$/.test(cleanedCode)) {
+      setFeedbackMsg({ text: "Vui lòng nhập mã phòng hợp lệ (6 ký tự chữ hoặc số).", type: "error" });
       return;
     }
 
     setIsSubmittingJoin(true);
     try {
-      const res = await debateApi.joinP2pSession(sessionIdNum);
+      const res = await debateApi.joinP2pSessionByCode(cleanedCode);
       if (res?.success && res.data?.sessionId) {
-        setFeedbackMsg({ text: `Đã tham gia phòng #${res.data.sessionId}! Đang chuyển hướng...`, type: "success" });
+        setFeedbackMsg({ text: `Đã tham gia phòng ${res.data.roomCode || `#${res.data.sessionId}`}! Đang chuyển hướng...`, type: "success" });
         setShowJoinP2pModal(false);
         setJoinSessionId("");
-        navigate(`/debater/debate/${res.data.sessionId}`);
+        navigate(`/debater/debate/${res.data.sessionId}?mode=1v1`);
       } else {
         setFeedbackMsg({
           text:
@@ -205,7 +205,7 @@ const Debate1v1: React.FC = () => {
       if (res?.success) {
         setFeedbackMsg({ text: "Đã chấp nhận thách đấu! Chuyển tới phiên tranh biện...", type: "success" });
         if (res.data?.debateSessionId) {
-          navigate(`/debater/debate/${res.data.debateSessionId}`);
+          navigate(`/debater/debate/${res.data.debateSessionId}?mode=1v1`);
         } else {
           fetchAllData();
         }
@@ -376,7 +376,7 @@ const Debate1v1: React.FC = () => {
               {isActionLoading ? "Đang hủy..." : "Hủy lời mời"}
             </button>
           ) : challenge.debateSessionId ? (
-            <Button variant="primary" size="sm" onClick={() => navigate(`/debater/debate/${challenge.debateSessionId}`)} className="text-xs">
+            <Button variant="primary" size="sm" onClick={() => navigate(`/debater/debate/${challenge.debateSessionId}?mode=1v1`)} className="text-xs">
               Vào phòng đấu <ArrowRight size={13} />
             </Button>
           ) : null}
@@ -397,6 +397,83 @@ const Debate1v1: React.FC = () => {
             Thách đấu trực tiếp và quản lý lời mời tranh biện với người học khác.
           </p>
         </div>
+
+        {/* Active / Waiting 1v1 P2P Rooms Banner */}
+        {(() => {
+          const active1v1Rooms = historyList.filter((item) => {
+            const isP2p = item.debateType === 2 || String(item.debateType) === "P2pMatch";
+            const isTeam =
+              item.isTeamDebate === true ||
+              (typeof item.maxParticipants === "number" && item.maxParticipants > 2) ||
+              item.title?.toLowerCase().includes("2v2") ||
+              item.title?.toLowerCase().includes("2 vs 2");
+            const isActiveStatus =
+              item.status === 1 ||
+              String(item.status) === "Waiting" ||
+              item.status === 2 ||
+              String(item.status) === "InProgress";
+            return isP2p && !isTeam && isActiveStatus;
+          });
+
+          if (active1v1Rooms.length === 0) return null;
+
+          return (
+            <div className="space-y-2.5" data-testid="active-1v1-rooms-section">
+              <p className="text-xs font-bold uppercase tracking-wider text-accent">
+                Phòng 1 vs 1 của bạn đang mở ({active1v1Rooms.length})
+              </p>
+              <div className="space-y-2">
+                {active1v1Rooms.map((room) => {
+                  const isWaiting = room.status === 1 || String(room.status) === "Waiting";
+                  return (
+                    <div
+                      key={room.sessionId}
+                      className="flex flex-col gap-3 rounded-ap-lg border border-accent/25 bg-accent-soft/80 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                              isWaiting
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+                                isWaiting ? "bg-amber-500" : "bg-emerald-500"
+                              }`}
+                            />
+                            {isWaiting ? "Đang chờ đối thủ" : "Chuẩn bị / Đang thi đấu"}
+                          </span>
+                          <span className="rounded-md bg-elevated px-2 py-0.5 font-mono text-xs font-bold text-accent">
+                            Mã phòng: {room.roomCode || `#${room.sessionId}`}
+                          </span>
+                          {typeof room.participantCount === "number" && (
+                            <span className="text-xs text-label-secondary">
+                              ({room.participantCount}/{room.maxParticipants || 2} người)
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-sm font-semibold text-label">
+                          {room.title || room.topic}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/debater/debate/${room.sessionId}?mode=1v1`)}
+                        className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-ap-pill bg-accent px-4 text-xs font-semibold text-accent-contrast transition-colors hover:bg-accent-hover"
+                      >
+                        <span>Vào lại phòng</span>
+                        <ArrowRight size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex flex-wrap items-center gap-x-(--s-5) gap-y-(--s-2)">
           <button
@@ -672,7 +749,7 @@ const Debate1v1: React.FC = () => {
                         <Button
                           variant={item.status === 2 ? "primary" : "secondary"}
                           size="sm"
-                          onClick={() => navigate(`/debater/debate/${item.sessionId}`)}
+                          onClick={() => navigate(`/debater/debate/${item.sessionId}?mode=1v1`)}
                           className="text-xs"
                         >
                           {item.status === 2 ? "Tiếp tục trận tranh biện" : "Vào phòng"}
@@ -863,12 +940,13 @@ const Debate1v1: React.FC = () => {
             Nhập mã ID phòng tranh biện (do người tạo phòng cung cấp). Hệ thống sẽ tự động xếp bạn vào phe đối diện với chủ phòng.
           </p>
           <Input
-            label="Mã ID phòng (Session ID) *"
+            label="Mã phòng (6 ký tự chữ hoặc số) *"
             name="joinSessionId"
-            type="number"
-            placeholder="Ví dụ: 12"
+            type="text"
+            maxLength={6}
+            placeholder="Ví dụ: A7K9P2"
             value={joinSessionId}
-            onChange={(e) => setJoinSessionId(e.target.value)}
+            onChange={(e) => setJoinSessionId(e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase())}
             required
             autoFocus
           />

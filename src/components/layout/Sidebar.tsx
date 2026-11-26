@@ -1,6 +1,10 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  ACTIVE_DEBATE_CHANGED_EVENT,
+  readActiveDebateSession,
+} from "../../hooks/useDebateNavigationGuard";
 import AppLogo from "../common/AppLogo";
 import { ROLES } from "../../utils/constants";
 import {
@@ -47,6 +51,32 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { user, role } = useAuth();
+  const location = useLocation();
+  const [activeDebateVersion, setActiveDebateVersion] = useState(0);
+
+  useEffect(() => {
+    const onActiveDebateChanged = () => setActiveDebateVersion((v) => v + 1);
+    window.addEventListener(ACTIVE_DEBATE_CHANGED_EVENT, onActiveDebateChanged);
+    return () => window.removeEventListener(ACTIVE_DEBATE_CHANGED_EVENT, onActiveDebateChanged);
+  }, []);
+
+  // All debate rooms share `/debater/debate/:sessionId`, so resolve the real sidebar tab from query ?mode= or active session metadata
+  const debateRoomMatch = location.pathname.match(/^\/debater\/debate\/([^/]+)/);
+  const overrideDebateActivePath = (() => {
+    void activeDebateVersion;
+    if (!debateRoomMatch) return null;
+    const roomSessionId = debateRoomMatch[1];
+    const queryMode = new URLSearchParams(location.search).get("mode")?.toLowerCase();
+    const storedMeta = readActiveDebateSession();
+    const resolvedMode =
+      queryMode ||
+      (storedMeta && storedMeta.sessionId === roomSessionId ? storedMeta.mode : null);
+
+    if (resolvedMode === "1v1" || resolvedMode === "p2p") return "/debater/debate-1v1";
+    if (resolvedMode === "2v2" || resolvedMode === "team") return "/debater/debate-2v2";
+    if (resolvedMode === "competition") return "/debater/competitions";
+    return "/debater/debate";
+  })();
 
   const getSections = (): NavSection[] => {
     if (role === ROLES.ADMIN) {
@@ -215,32 +245,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                       to={item.path}
                       title={item.label}
                       onClick={() => onClose?.()}
-                      className={({ isActive }) =>
-                        `group relative flex h-11 cursor-pointer items-center rounded-ap-md transition-colors duration-(--t-fast) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
+                      className={({ isActive }) => {
+                        const effectiveActive = overrideDebateActivePath
+                          ? item.path === overrideDebateActivePath
+                          : isActive;
+                        return `group relative flex h-11 cursor-pointer items-center rounded-ap-md transition-colors duration-(--t-fast) ease-ap focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent/30 ${
                           isCollapsed ? "w-full justify-center" : "px-(--s-3)"
                         } ${
-                          isActive
+                          effectiveActive
                             ? "bg-accent-soft font-medium text-accent"
                             : "text-label-secondary hover:bg-canvas-secondary hover:text-label"
-                        }`
-                      }
+                        }`;
+                      }}
                     >
-                      {({ isActive }) => (
-                        <>
-                          {/* The mark of the open tab */}
-                          {isActive && !isCollapsed && (
-                            <span aria-hidden="true" className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-full bg-accent" />
-                          )}
-                          <Icon size={19} className="shrink-0" aria-hidden="true" />
-                          {!isCollapsed && <span className="ml-(--s-3) truncate text-(length:--text-callout)">{item.label}</span>}
+                      {({ isActive }) => {
+                        const effectiveActive = overrideDebateActivePath
+                          ? item.path === overrideDebateActivePath
+                          : isActive;
+                        return (
+                          <>
+                            {/* The mark of the open tab */}
+                            {effectiveActive && !isCollapsed && (
+                              <span aria-hidden="true" className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-full bg-accent" />
+                            )}
+                            <Icon size={19} className="shrink-0" aria-hidden="true" />
+                            {!isCollapsed && <span className="ml-(--s-3) truncate text-(length:--text-callout)">{item.label}</span>}
 
-                          {isCollapsed && (
-                            <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-ap-sm bg-slate-900 px-3 py-1.5 text-(length:--text-caption) font-medium text-white opacity-0 shadow-ap-md transition-opacity duration-(--t-fast) group-hover:opacity-100">
-                              {item.label}
-                            </span>
-                          )}
-                        </>
-                      )}
+                            {isCollapsed && (
+                              <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-ap-sm bg-slate-900 px-3 py-1.5 text-(length:--text-caption) font-medium text-white opacity-0 shadow-ap-md transition-opacity duration-(--t-fast) group-hover:opacity-100">
+                                {item.label}
+                              </span>
+                            )}
+                          </>
+                        );
+                      }}
                     </NavLink>
                   );
                 })}

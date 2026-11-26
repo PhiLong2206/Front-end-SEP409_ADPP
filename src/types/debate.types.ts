@@ -233,6 +233,7 @@ export interface TurnDto {
 
 export interface DebateSessionResponse {
   sessionId: number;
+  roomCode?: string | null;
   title: string;
   topic: string;
   /** Fact-base topic for the evaluator's evidence check (from Topic.Category); null when the category has none. */
@@ -307,6 +308,7 @@ export interface DebateTranscriptResponse {
 
 export interface DebateHistoryItemDto {
   sessionId: number;
+  roomCode?: string | null;
   title: string;
   topic: string;
   debateType: BackendDebateType | number;
@@ -315,6 +317,7 @@ export interface DebateHistoryItemDto {
   createdAt: string;
   endedAt?: string;
   maxParticipants?: number;
+  participantCount?: number;
   isTeamDebate?: boolean;
 }
 
