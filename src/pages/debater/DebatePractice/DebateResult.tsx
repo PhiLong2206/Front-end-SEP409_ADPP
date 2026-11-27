@@ -32,7 +32,7 @@ async function loadOfficialResult(sessionId: number, userId: number | string | n
     debateApi.getSessionDetails(sessionId),
     debateApi.getEvaluation(sessionId),
     typeof debateApi.getTranscript === "function"
-      ? debateApi.getTranscript(sessionId).catch(() => null)
+      ? Promise.resolve(debateApi.getTranscript(sessionId)).catch(() => null)
       : Promise.resolve(null),
   ]);
   if (!sessionRes?.success || !sessionRes.data) throw new Error(sessionRes?.message || "không tải được phiên tranh biện");

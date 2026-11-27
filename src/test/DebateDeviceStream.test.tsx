@@ -312,7 +312,7 @@ describe("DebateRoom: the microphone is opened once, before the session starts, 
         await new Promise((r) => setTimeout(r, 0));
       });
       await act(async () => {
-        fireEvent.click(screen.getByText("Dừng & Gửi"));
+        fireEvent.click(screen.getByLabelText("Dừng ghi âm"));
       });
       await waitFor(() => expect(mockGenerateOpponentTurn).toHaveBeenCalled());
       await waitFor(() => expect(screen.queryByText(/xong sẽ tự gửi lượt nói/)).not.toBeInTheDocument());
